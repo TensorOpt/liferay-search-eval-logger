@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!DOCTYPE resource-action-mapping PUBLIC "-//Liferay//DTD Resource Action Mapping 7.4.0//EN" "http://www.liferay.com/dtd/liferay-resource-action-mapping_7_4_0.dtd">
+
+<resource-action-mapping>
+	<portlet-resource>
+		<portlet-name>com_tensoropt_search_eval_logger_web_internal_portlet_SearchEvalLoggerPortlet</portlet-name>
+		<permissions>
+			<supports>
+				<action-key>ACCESS_IN_CONTROL_PANEL</action-key>
+				<action-key>CONFIGURATION</action-key>
+				<action-key>EXPORT</action-key>
+				<action-key>PERMISSIONS</action-key>
+				<action-key>VIEW</action-key>
+			</supports>
+
+			<!--
+			No site member or guest defaults. EXPORT is the permission of
+			DESIGN.md 6.1: it has to be granted deliberately, to the people who
+			are allowed to produce a dataset that leaves the instance, and
+			granting it by default to anyone would defeat the point of having
+			it separate from portal administration.
+			-->
+
+			<site-member-defaults />
+			<guest-defaults />
+			<guest-unsupported>
+				<action-key>ACCESS_IN_CONTROL_PANEL</action-key>
+				<action-key>CONFIGURATION</action-key>
+				<action-key>EXPORT</action-key>
+				<action-key>PERMISSIONS</action-key>
+				<action-key>VIEW</action-key>
+			</guest-unsupported>
+		</permissions>
+	</portlet-resource>
+</resource-action-mapping>

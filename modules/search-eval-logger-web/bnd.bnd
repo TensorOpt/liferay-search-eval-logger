@@ -1,0 +1,5 @@
+Bundle-Name: TensorOpt Search Eval Logger Web
+Bundle-SymbolicName: com.tensoropt.search.eval.logger.web
+Bundle-Version: 1.0.0
+Web-ContextPath: /search-eval-logger-web
+-dsannotations-options: inherit

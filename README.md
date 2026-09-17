@@ -16,11 +16,13 @@ that still have to be validated against a running instance.
 
 ## Status
 
-**Collection implemented, export not yet. Not released.** Capture, filtering,
-asynchronous persistence and the retention purge exist; the admin screen and the
-export do not, so there is currently no way to get the collected data out. None of
-it has been verified against a running Liferay instance yet: the open empirical
-checks in DESIGN.md section 7 are exactly that work. See the module table below.
+**Feature complete, unverified. Not released.** Capture, filtering, asynchronous
+persistence, the retention purge, the admin screen and the export are all
+implemented. None of it has yet been deployed to or verified against a running
+Liferay instance, and the open empirical checks in DESIGN.md section 7 are exactly
+that work: until EC-1 is confirmed on a live instance, even the interception point
+this plugin is built on is an assumption. Treat what follows as designed
+behaviour.
 
 ## What is intended to be collected
 
@@ -66,9 +68,14 @@ Prerequisites:
 - A Liferay DXP 7.4 instance to deploy to
 
 ```
-./gradlew build          # build every module that exists
+./gradlew build          # build every module
 ./gradlew deploy         # build and copy the JARs to the bundle's deploy folder
 ```
+
+Once deployed, collection settings appear in Control Panel under Configuration,
+and the export screen under Configuration as Search Eval Export. Collection is off
+until an administrator enables it, and exporting is gated by its own `EXPORT`
+permission, which is granted to nobody by default.
 
 The target DXP update level is `liferay.workspace.product` in `gradle.properties`;
 everything else about the target platform is derived from it.
@@ -80,7 +87,7 @@ everything else about the target platform is derived from it.
 | `search-eval-logger-api` | Shared enums and constants, generated model and service interfaces | Present |
 | `search-eval-logger-service` | Service Builder entities and persistence | Present |
 | `search-eval-logger-impl` | `Searcher` wrapper, admission filter, listener, purge | Present |
-| `search-eval-logger-web` | Admin portlet: configuration and export | Planned |
+| `search-eval-logger-web` | Admin portlet: export background task and download | Present |
 
 ## Data protection
 
