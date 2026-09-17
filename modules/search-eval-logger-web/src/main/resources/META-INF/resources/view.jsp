@@ -21,7 +21,18 @@ List<BackgroundTask> backgroundTasks =
 		SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME, 0, 20,
 		null);
 
+SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+Map<Long, String> backgroundTaskCreateDates = new HashMap<>();
+
+for (BackgroundTask backgroundTask : backgroundTasks) {
+	backgroundTaskCreateDates.put(
+		backgroundTask.getBackgroundTaskId(),
+		simpleDateFormat.format(backgroundTask.getCreateDate()));
+}
+
 request.setAttribute("backgroundTasks", backgroundTasks);
+request.setAttribute("backgroundTaskCreateDates", backgroundTaskCreateDates);
 request.setAttribute("hasExportPermission", hasExportPermission);
 %>
 
@@ -87,7 +98,7 @@ request.setAttribute("hasExportPermission", hasExportPermission);
 					<c:forEach items="${backgroundTasks}" var="backgroundTask">
 						<tr>
 							<td>
-								<fmt:formatDate pattern="yyyy-MM-dd HH:mm" value="${backgroundTask.createDate}" />
+								${backgroundTaskCreateDates[backgroundTask.backgroundTaskId]}
 							</td>
 							<td>
 								<liferay-ui:message key="${backgroundTask.statusLabel}" />
