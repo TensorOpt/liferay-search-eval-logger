@@ -22,3 +22,20 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Liferay Workspace
+**/.classpath
+**/.project
+**/.settings
+**/bin
+**/build
+**/node_modules
+**/tmp
+.gradle
+.idea
+/bundles
+/gradle-*.properties
+
+# The Gradle wrapper JAR is part of the build, not a package artifact, so it is
+# committed despite the *.jar rule above.
+!gradle/wrapper/gradle-wrapper.jar

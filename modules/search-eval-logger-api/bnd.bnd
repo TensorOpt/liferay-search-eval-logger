@@ -1,0 +1,4 @@
+Bundle-Name: TensorOpt Search Eval Logger API
+Bundle-SymbolicName: com.tensoropt.search.eval.logger.api
+Bundle-Version: 1.0.0
+Export-Package: com.tensoropt.search.eval.logger.api

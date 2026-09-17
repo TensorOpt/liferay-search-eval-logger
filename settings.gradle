@@ -1,0 +1,21 @@
+buildscript {
+	dependencies {
+		classpath group: "com.liferay", name: "com.liferay.gradle.plugins.workspace", version: "14.0.0"
+	}
+
+	repositories {
+		mavenLocal()
+
+		maven {
+			url "https://repository-cdn.liferay.com/nexus/content/groups/public"
+		}
+	}
+}
+
+apply plugin: "com.liferay.workspace"
+
+// No "include" calls: the workspace plugin scans "liferay.workspace.modules.dir"
+// and includes every subdirectory carrying a build file, so the modules of
+// DESIGN.md 3.5 join the build as soon as their directory and build.gradle land.
+// Listing them here would instead declare empty, unbuildable Gradle projects for
+// the ones not yet written.

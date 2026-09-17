@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Pre-implementation.** This repository currently contains only `DESIGN.md` (the full design doc), `README.md`, and `LICENSE`. No Liferay Workspace, modules, build files, or source code exist yet. There are no build, lint, or test commands to run until the module scaffold described below is created.
+**Scaffold in progress.** The Liferay Workspace root (`settings.gradle`, `build.gradle`, `gradle.properties`, Gradle wrapper) and `modules/search-eval-logger-api` exist. The service, impl and web modules do not exist yet; the workspace plugin auto-includes any directory under `modules/` that has a `build.gradle`, so no `settings.gradle` change is needed when they land.
+
+Build with `./gradlew build` and deploy with `./gradlew deploy` (needs network access to `repository-cdn.liferay.com`; the target DXP update level is `liferay.workspace.product` in `gradle.properties`, and everything else about the target platform derives from it). Modules compile to Java 8 bytecode, pinned in the root `build.gradle` so bnd does not stamp a JDK 11+ `osgi.ee` requirement onto a bundle meant to resolve on a JDK 8 install.
+
+Two conventions the api module already fixed and later modules must follow: package versions come from `packageinfo` resource files, not `package-info.java` annotations; and the configuration interface (impl module) uses Liferay's `@Meta.OCD`/`@Meta.AD` with `@ExtendedObjectClassDefinition` for per-virtual-instance scoping, whose `deflt` is always a `String` — so its defaults cannot reference the typed constants in `SearchEvalLoggerConstants` and must be kept in sync with them by review.
 
 `DESIGN.md` is the source of truth for this project. Read it in full before implementing anything — it is long but every section is load-bearing (numbered design decisions D1–D8, architecture, data model, configuration, export format, and a table of open empirical checks EC-1–EC-13 that must be validated against a running Liferay instance). Do not summarize or work from partial recall of it; re-read the relevant section when in doubt, since decisions reference each other (e.g., 3.2 references D2, 4.3 references D3).
 
