@@ -10,6 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 <%@ taglib uri="http://liferay.com/tld/theme" prefix="liferay-theme" %>
 <%@ taglib uri="http://liferay.com/tld/ui" prefix="liferay-ui" %>
 
+<%@ page import="com.liferay.portal.background.task.util.comparator.BackgroundTaskCreateDateComparator" %>
 <%@ page import="com.liferay.portal.kernel.backgroundtask.BackgroundTask" %>
 <%@ page import="com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil" %>
 <%@ page import="com.tensoropt.search.eval.logger.web.internal.constants.SearchEvalLoggerPortletKeys" %>
