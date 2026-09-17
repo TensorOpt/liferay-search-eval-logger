@@ -18,26 +18,34 @@ that still have to be validated against a running instance.
 
 **Feature complete, unverified. Not released.** Capture, filtering, asynchronous
 persistence, the retention purge, the admin screen and the export are all
-implemented. None of it has yet been deployed to or verified against a running
-Liferay instance, and the open empirical checks in DESIGN.md section 7 are exactly
-that work: until EC-1 is confirmed on a live instance, even the interception point
-this plugin is built on is an assumption. Treat what follows as designed
+implemented, and the four modules build together as one workspace. None of it has
+yet been deployed to or run against a real Liferay instance, and the open empirical
+checks in DESIGN.md section 7 are exactly that work: until EC-1 is confirmed on a
+live instance, even the interception point this plugin is built on is an
+assumption. Treat everything below as designed behaviour rather than observed
 behaviour.
 
 ## What is intended to be collected
 
 - The user's query text, locale, scope and requested asset types
 - Applied facet selections, where the search path exposes them. Where they cannot
-  be read, the event says so explicitly (`facetCaptureStatus` of `UNAVAILABLE`)
-  rather than looking like a search with no facets. Coverage is expected to be good
-  on widget paths and poor on headless ones (DESIGN.md 3.2, EC-12)
+  be read, the event records `facetCaptureStatus` of `UNAVAILABLE` rather than
+  looking like a search with no facets. Selections are read from the search
+  context, which the widget path populates; on other paths they may already have
+  been translated into query clauses, and those events are recorded as
+  `UNAVAILABLE` rather than as "no facets applied" (DESIGN.md 3.2, EC-12)
 - The result set that was returned: rank, score, document UID, entry class, and the
   whitelisted fields (`title` and `snippet` by default) when the response already
   contains them
 - Pagination context (`requestedSize`, `requestedFrom`, `totalHits`,
   `loggedHitCount`), so a capped result set is never mistaken for a short one
 - A coarse evaluation cohort: `GUEST` or `AUTHENTICATED`, plus a salted hash of the
-  user ID whose salt rotates weekly and whose superseded salts are discarded
+  user ID. The salt is held in memory only, never exported, and rotates on a
+  configurable period (weekly by default) and on restart; superseded salts are
+  discarded, so a cohort cannot be followed across a rotation
+
+Events and hits older than the retention window (90 days by default) are deleted by
+a daily purge.
 
 ## What is not collected
 
@@ -57,13 +65,31 @@ behaviour.
 
 Collection is **off on install**. An administrator opts in explicitly.
 
+## What an export contains
+
+An export runs as a background task and produces a ZIP named
+`search-eval-export-<companyId>-<from>-<to>.zip`, where the instance token is the
+numeric virtual instance ID, not a site or host name. Inside:
+
+- `events.jsonl` — one JSON object per line: a search event with its hits nested,
+  so each line is a complete `(query, result[])` record with no join to reconstruct
+- `manifest.json` — the range, event and hit counts, plugin and Liferay versions,
+  the collector's configuration at export time, backpressure counts and per-field
+  coverage rates
+- `README.md` — the structural caveats in plain language, so the archive can be
+  read correctly on its own
+
+Coverage rates matter before anything else: how often a title or snippet is
+actually present depends on the installation's search UI, not on this plugin.
+
 ## Building
 
 Prerequisites:
 
 - This repository is a Liferay Workspace; `./gradlew` bootstraps Gradle itself
-- A JDK for the build. Modules compile to Java 8 bytecode, pinned in the root
-  `build.gradle`, so the bundles resolve on a DXP 7.4 install running JDK 8 or 11
+- Any JDK that Gradle 8.5 supports. Modules compile to Java 8 bytecode, pinned in
+  the root `build.gradle`, so the bundles resolve on a DXP 7.4 install running
+  JDK 8 or 11 whatever the build JDK was
 - Network access to `repository-cdn.liferay.com` for the target platform artifacts
 - A Liferay DXP 7.4 instance to deploy to
 
@@ -72,22 +98,22 @@ Prerequisites:
 ./gradlew deploy         # build and copy the JARs to the bundle's deploy folder
 ```
 
-Once deployed, collection settings appear in Control Panel under Configuration,
-and the export screen under Configuration as Search Eval Export. Collection is off
-until an administrator enables it, and exporting is gated by its own `EXPORT`
-permission, which is granted to nobody by default.
-
 The target DXP update level is `liferay.workspace.product` in `gradle.properties`;
 everything else about the target platform is derived from it.
 
+Once deployed, collection settings appear in Control Panel under Configuration, and
+the export screen under Configuration as Search Eval Export. Collection stays off
+until an administrator enables it, and exporting is gated by its own `EXPORT`
+permission, granted to nobody by default.
+
 ## Modules
 
-| Module | Contents | Status |
-|---|---|---|
-| `search-eval-logger-api` | Shared enums and constants, generated model and service interfaces | Present |
-| `search-eval-logger-service` | Service Builder entities and persistence | Present |
-| `search-eval-logger-impl` | `Searcher` wrapper, admission filter, listener, purge | Present |
-| `search-eval-logger-web` | Admin portlet: export background task and download | Present |
+| Module | Contents |
+|---|---|
+| `search-eval-logger-api` | Shared enums, constants and configuration interface, plus the generated model and service interfaces |
+| `search-eval-logger-service` | Service Builder entities and persistence |
+| `search-eval-logger-impl` | `Searcher` wrapper, admission filter, capture, async listener, retention purge |
+| `search-eval-logger-web` | Admin portlet, export background task and download |
 
 ## Data protection
 

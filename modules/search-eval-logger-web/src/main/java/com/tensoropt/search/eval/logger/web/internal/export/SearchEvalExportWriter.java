@@ -52,10 +52,13 @@ import org.osgi.service.component.annotations.Reference;
  * optimization.</strong> A full-window export can span millions of hit rows,
  * and administrators will run the full window. Nothing here accumulates a
  * result set: events arrive one interval at a time from an
- * {@link ActionableDynamicQuery}, each is serialized to a line and pushed
- * through the {@link ZipOutputStream} immediately, and the only rows held at
- * once are the hits of the event being written, which capture depth already
- * bounds. Memory stays flat whether the export covers an hour or ninety days.
+ * {@link ActionableDynamicQuery}, each is serialized to a line and written
+ * through a buffered writer onto the {@link ZipOutputStream}, and the only rows
+ * held at once are the hits of the event being written, which capture depth
+ * already bounds. What bounds memory is that no line is retained after it is
+ * written, not the flushing: the writer is flushed once, at the end of the
+ * entry, and the buffer in between is a fixed size. Memory stays flat whether
+ * the export covers an hour or ninety days.
  * </p>
  *
  * <p>
