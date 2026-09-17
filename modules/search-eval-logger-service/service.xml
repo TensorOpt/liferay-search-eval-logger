@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<!DOCTYPE service-builder PUBLIC "-//Liferay//DTD Service Builder 7.4.0//EN" "http://www.liferay.com/dtd/liferay-service-builder_7_4_0.dtd">
+
+<service-builder auto-import-default-references="false" dependency-injector="ds" mvcc-enabled="true" package-path="com.tensoropt.search.eval.logger">
+	<namespace>SEL</namespace>
+
+	<!--
+	auto-namespace-tables defaults to true for plugin services, so the namespace
+	above produces exactly the SEL_SearchEvent and SEL_SearchHit tables of
+	DESIGN.md 4.1 and 4.2 with no table attribute.
+
+	Both entities are cache-enabled="false". They are append-only log rows,
+	written once by the Message Bus listener and read back only by the streaming
+	export. Caching them would evict useful portal entries and, on a cluster,
+	produce an invalidation message per insert, at the volume projected in
+	DESIGN.md 4.5 (around 100,000 hit rows a day).
+
+	remote-service="false" everywhere: the log is exported by an admin action
+	(D5) and must not acquire a remote JSON web service surface.
+	-->
+
+	<entity cache-enabled="false" local-service="true" name="SearchEvent" remote-service="false" uuid="true">
+
+		<!-- PK fields -->
+
+		<column name="searchEventId" primary="true" type="long" />
+
+		<!-- Instance -->
+
+		<column name="companyId" type="long" />
+
+		<!-- Event -->
+
+		<column name="createDate" type="Date" />
+		<column name="queryText" type="String" />
+		<column name="queryTruncated" type="boolean" />
+		<column name="locale" type="String" />
+		<column name="scopeGroupIds" type="String" />
+		<column name="entryClassNames" type="String" />
+		<column name="appliedFacets" type="String" />
+		<column name="facetCaptureStatus" type="String" />
+		<column name="blueprintId" type="String" />
+
+		<!-- Evaluation cohort, see DESIGN.md 4.3. No raw user identifier (D3). -->
+
+		<column name="audienceType" type="String" />
+		<column name="cohortHash" type="String" />
+
+		<!-- Truncation context, see DESIGN.md 4.1 -->
+
+		<column name="requestedSize" type="int" />
+		<column name="requestedFrom" type="int" />
+		<column name="totalHits" type="long" />
+		<column name="loggedHitCount" type="int" />
+
+		<column name="sourceType" type="String" />
+
+		<order by="asc">
+			<order-column name="createDate" />
+		</order>
+
+		<!--
+		Indexes (companyId, createDate) per DESIGN.md 4.5, serving both export
+		range selection and the retention purge. The comparator makes the
+		generated finder the one the purge needs: events older than a cutoff,
+		fetched in bounded batches via the start and end arguments (3.4).
+		-->
+
+		<finder name="C_LtCreateDate" return-type="Collection">
+			<finder-column name="companyId" />
+			<finder-column comparator="&lt;" name="createDate" />
+		</finder>
+	</entity>
+
+	<entity cache-enabled="false" local-service="true" name="SearchHit" remote-service="false">
+
+		<!-- PK fields -->
+
+		<column name="searchHitId" primary="true" type="long" />
+
+		<!--
+		Joins to SearchEvent.uuid rather than to its primary key, so a row read
+		out of the export is self-describing. See DESIGN.md 4.2.
+		-->
+
+		<column name="searchEventUuid" type="String" />
+
+		<!-- Hit -->
+
+		<column db-name="rank_" name="rank" type="int" />
+		<column name="score" type="double" />
+		<column name="docUid" type="String" />
+		<column name="entryClassName" type="String" />
+		<column name="entryClassPK" type="long" />
+
+		<!-- Captured fields, whitelisted per DESIGN.md 4.4 -->
+
+		<column name="title" type="String" />
+		<column name="snippet" type="String" />
+		<column name="extraFields" type="String" />
+
+		<order by="asc">
+			<order-column name="rank" />
+		</order>
+
+		<!--
+		Indexes searchEventUuid per DESIGN.md 4.5, for the export join and for
+		the cascading delete the retention purge performs.
+		-->
+
+		<finder name="SearchEventUuid" return-type="Collection">
+			<finder-column name="searchEventUuid" />
+		</finder>
+	</entity>
+</service-builder>

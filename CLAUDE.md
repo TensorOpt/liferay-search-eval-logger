@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Scaffold in progress.** The Liferay Workspace root (`settings.gradle`, `build.gradle`, `gradle.properties`, Gradle wrapper) and `modules/search-eval-logger-api` exist. The service, impl and web modules do not exist yet; the workspace plugin auto-includes any directory under `modules/` that has a `build.gradle`, so no `settings.gradle` change is needed when they land.
+**Scaffold in progress.** The Liferay Workspace root (`settings.gradle`, `build.gradle`, `gradle.properties`, Gradle wrapper), `modules/search-eval-logger-api` and `modules/search-eval-logger-service` exist. Nothing captures, persists or exports anything yet: the impl and web modules do not exist. The workspace plugin auto-includes any directory under `modules/` that has a `build.gradle`, so no `settings.gradle` change is needed when they land.
+
+The service module's persisted schema is complete and real: `service.xml` and `portlet-model-hints.xml` are the hand-authored source of truth, `buildService` has been run against the target platform, and its output (model, `*LocalService`, persistence, `META-INF/sql/*.sql`) is generated code that is committed and must never be hand-edited. Re-run `./gradlew :modules:search-eval-logger-service:buildService` after any change to those two files. Two traps: `buildService` rewrites `portlet-model-hints.xml`, so XML comments there are lost (comments belong in `service.xml`, which is preserved); and the generated model type `com.tensoropt.search.eval.logger.model.SearchHit` collides by simple name with Liferay's `com.liferay.portal.search.hits.SearchHit`, so code that touches both must fully qualify one of them.
+
+Business methods that span both entities — notably the single-transaction write of one event plus its hits (§3.3) — belong in `SearchEventLocalServiceImpl` in the service module, not in the impl module, and require a `buildService` re-run to appear on the service interface.
+
+The export permission of §6.1 is deliberately **not** in the service module: it gates an admin screen action on a portlet resource, not per-row entity access, so `resource-actions.xml` belongs to the web module in round 4. The entities have no model resources and no per-row permission checks.
 
 Build with `./gradlew build` and deploy with `./gradlew deploy` (needs network access to `repository-cdn.liferay.com`; the target DXP update level is `liferay.workspace.product` in `gradle.properties`, and everything else about the target platform derives from it). Modules compile to Java 8 bytecode, pinned in the root `build.gradle` so bnd does not stamp a JDK 11+ `osgi.ee` requirement onto a bundle meant to resolve on a JDK 8 install.
 

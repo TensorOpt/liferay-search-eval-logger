@@ -16,10 +16,11 @@ that still have to be validated against a running instance.
 
 ## Status
 
-**Scaffold in progress. Not installable yet.** The Liferay Workspace and the `api`
-module exist; the modules that do the actual capturing, persisting and exporting do
-not. See the module table below for what is present. Everything the next two
-sections describe is the designed behaviour, not shipped behaviour.
+**Scaffold in progress. Not installable yet.** The Liferay Workspace, the `api`
+module and the `service` module's persisted schema exist; the modules that do the
+actual capturing and exporting do not. See the module table below for what is
+present. Everything the next two sections describe is the designed behaviour, not
+shipped behaviour.
 
 ## What is intended to be collected
 
@@ -76,8 +77,8 @@ everything else about the target platform is derived from it.
 
 | Module | Contents | Status |
 |---|---|---|
-| `search-eval-logger-api` | Shared enums and cross-module constants | Present |
-| `search-eval-logger-service` | Service Builder entities and persistence | Planned |
+| `search-eval-logger-api` | Shared enums and constants, generated model and service interfaces | Present |
+| `search-eval-logger-service` | Service Builder entities and persistence | Present |
 | `search-eval-logger-impl` | `Searcher` wrapper, admission filter, listener, purge | Planned |
 | `search-eval-logger-web` | Admin portlet: configuration and export | Planned |
 

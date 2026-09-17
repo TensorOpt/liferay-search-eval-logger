@@ -1,0 +1,9 @@
+dependencies {
+	api project(":modules:search-eval-logger-api")
+
+	compileOnly group: "com.liferay.portal", name: "release.dxp.api"
+}
+
+buildService {
+	apiDir = "../search-eval-logger-api/src/main/java"
+}

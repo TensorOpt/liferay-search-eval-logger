@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+
+<model-hints>
+	<model name="com.tensoropt.search.eval.logger.model.SearchEvent">
+		<field name="mvccVersion" type="long" />
+		<field name="uuid" type="String" />
+		<field name="searchEventId" type="long" />
+		<field name="companyId" type="long" />
+		<field name="createDate" type="Date" />
+		<field name="queryText" type="String">
+			<hint name="max-length">2000</hint>
+		</field>
+		<field name="queryTruncated" type="boolean" />
+		<field name="locale" type="String">
+			<hint name="max-length">20</hint>
+		</field>
+		<field name="scopeGroupIds" type="String">
+			<hint name="max-length">500</hint>
+		</field>
+		<field name="entryClassNames" type="String">
+			<hint name="max-length">2000</hint>
+		</field>
+		<field name="appliedFacets" type="String">
+			<hint-collection name="CLOB" />
+		</field>
+		<field name="facetCaptureStatus" type="String">
+			<hint name="max-length">20</hint>
+		</field>
+		<field name="blueprintId" type="String">
+			<hint name="max-length">100</hint>
+		</field>
+		<field name="audienceType" type="String">
+			<hint name="max-length">20</hint>
+		</field>
+		<field name="cohortHash" type="String">
+			<hint name="max-length">64</hint>
+		</field>
+		<field name="requestedSize" type="int" />
+		<field name="requestedFrom" type="int" />
+		<field name="totalHits" type="long" />
+		<field name="loggedHitCount" type="int" />
+		<field name="sourceType" type="String">
+			<hint name="max-length">20</hint>
+		</field>
+	</model>
+	<model name="com.tensoropt.search.eval.logger.model.SearchHit">
+		<field name="mvccVersion" type="long" />
+		<field name="searchHitId" type="long" />
+		<field name="searchEventUuid" type="String">
+			<hint name="max-length">75</hint>
+		</field>
+		<field name="rank" type="int" />
+		<field name="score" type="double" />
+		<field name="docUid" type="String">
+			<hint name="max-length">500</hint>
+		</field>
+		<field name="entryClassName" type="String">
+			<hint name="max-length">200</hint>
+		</field>
+		<field name="entryClassPK" type="long" />
+		<field name="title" type="String">
+			<hint name="max-length">1000</hint>
+		</field>
+		<field name="snippet" type="String">
+			<hint-collection name="CLOB" />
+		</field>
+		<field name="extraFields" type="String">
+			<hint-collection name="CLOB" />
+		</field>
+	</model>
+</model-hints>

@@ -1,4 +1,10 @@
 Bundle-Name: TensorOpt Search Eval Logger API
 Bundle-SymbolicName: com.tensoropt.search.eval.logger.api
 Bundle-Version: 1.0.0
-Export-Package: com.tensoropt.search.eval.logger.api
+Export-Package:\
+	com.tensoropt.search.eval.logger.api,\
+	com.tensoropt.search.eval.logger.exception,\
+	com.tensoropt.search.eval.logger.model,\
+	com.tensoropt.search.eval.logger.service,\
+	com.tensoropt.search.eval.logger.service.persistence
+-includeresource: META-INF/service.xml=../search-eval-logger-service/service.xml
