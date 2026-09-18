@@ -14,6 +14,8 @@ import com.liferay.portal.kernel.service.UserLocalService;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.transaction.TransactionInvokerUtil;
+import com.liferay.portal.kernel.util.StringBundler;
+import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.uuid.PortalUUIDUtil;
 
 import com.tensoropt.search.eval.logger.api.AudienceType;
@@ -141,6 +143,19 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		for (CapturedSearchHit capturedSearchHit : capturedSearchHits) {
 			_addSearchHit(uuid, capturedSearchHit);
 		}
+
+		if (_log.isDebugEnabled()) {
+			_log.debug(
+				StringBundler.concat(
+					"Persisted search event uuid=", uuid, ", companyId=",
+					String.valueOf(companyId), ", queryText=",
+					searchEvent.getQueryText(), ", audienceType=",
+					audienceType.name(), ", sourceType=",
+					searchEvent.getSourceType(), ", totalHits=",
+					String.valueOf(searchEvent.getTotalHits()),
+					", loggedHitCount=",
+					String.valueOf(searchEvent.getLoggedHitCount())));
+		}
 	}
 
 	private void _addSearchHit(
@@ -163,6 +178,21 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		searchHit.setExtraFields(capturedSearchHit.getExtraFields());
 
 		_searchHitLocalService.addSearchHit(searchHit);
+
+		if (_log.isDebugEnabled()) {
+			_log.debug(
+				StringBundler.concat(
+					"Persisted search hit searchEventUuid=", searchEventUuid,
+					", rank=", String.valueOf(searchHit.getRank()),
+					", docUid=", searchHit.getDocUid(), ", title=",
+					String.valueOf(Validator.isNotNull(searchHit.getTitle())),
+					", snippet=",
+					String.valueOf(
+						Validator.isNotNull(searchHit.getSnippet())),
+					", extraFields=",
+					String.valueOf(
+						Validator.isNotNull(searchHit.getExtraFields()))));
+		}
 	}
 
 	/**
