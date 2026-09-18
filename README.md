@@ -1,6 +1,6 @@
 # Liferay Search Eval Logger
 
-A Liferay DXP 7.4 plugin that produces the artifact relevance evaluation needs and
+A Liferay DXP plugin that produces the artifact relevance evaluation needs and
 base DXP does not provide: a persistent, structured `(query, result[])` interaction
 log.
 
@@ -87,11 +87,10 @@ actually present depends on the installation's search UI, not on this plugin.
 Prerequisites:
 
 - This repository is a Liferay Workspace; `./gradlew` bootstraps Gradle itself
-- Any JDK that Gradle 8.5 supports. Modules compile to Java 8 bytecode, pinned in
-  the root `build.gradle`, so the bundles resolve on a DXP 7.4 install running
-  JDK 8 or 11 whatever the build JDK was
+- JDK 17 or 21. DXP 2025.Q1 LTS ships Java 17 bytecode, so an older JDK cannot
+  compile against it; modules target Java 17, pinned in the root `build.gradle`
 - Network access to `repository-cdn.liferay.com` for the target platform artifacts
-- A Liferay DXP 7.4 instance to deploy to
+- A Liferay DXP 2025.Q1 LTS instance to deploy to (set by `liferay.workspace.product`)
 
 ```
 ./gradlew build          # build every module

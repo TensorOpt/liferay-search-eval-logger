@@ -1,12 +1,14 @@
 subprojects {
 	group = "com.tensoropt.search.eval.logger"
 
-	// Pinned to Java 8 because bnd derives the bundle's osgi.ee requirement from
-	// the class file version: building on a newer JDK without this emits
-	// osgi.ee=JavaSE version=11 (or later), and that bundle then fails to
-	// resolve on a DXP 7.4 install running JDK 8.
+	// Pinned to the level the target platform itself is built at. DXP 2025.Q1
+	// LTS ships Java 17 bytecode, so the build JDK must be 17 or newer, and
+	// there is no longer an older runtime to stay compatible with: this was 1.8
+	// while the target was DXP 7.4, which supported JDK 8. bnd derives the
+	// bundle's osgi.ee requirement from the class file version, so this is also
+	// what the bundles advertise.
 	tasks.withType(JavaCompile) {
-		sourceCompatibility = "1.8"
-		targetCompatibility = "1.8"
+		sourceCompatibility = "17"
+		targetCompatibility = "17"
 	}
 }

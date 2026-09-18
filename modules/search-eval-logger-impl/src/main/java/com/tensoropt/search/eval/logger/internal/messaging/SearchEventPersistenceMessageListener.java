@@ -208,7 +208,7 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 
 		User user = _userLocalService.fetchUser(userId);
 
-		if ((user == null) || user.isDefaultUser()) {
+		if ((user == null) || user.isGuestUser()) {
 			return AudienceType.GUEST;
 		}
 
