@@ -6,8 +6,10 @@ package com.tensoropt.search.eval.logger.internal.messaging;
 
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.messaging.Destination;
 import com.liferay.portal.kernel.messaging.Message;
 import com.liferay.portal.kernel.messaging.MessageBus;
+import com.liferay.portal.kernel.messaging.MessageListenerRegistry;
 
 import com.tensoropt.search.eval.logger.api.SearchEvalLoggerConstants;
 import com.tensoropt.search.eval.logger.internal.capture.CapturedSearchEvent;
@@ -25,6 +27,33 @@ import org.osgi.service.component.annotations.Reference;
  * here throws: a send that fails is a dropped log row, counted as such, not an
  * error the search is made to care about.
  * </p>
+ *
+ * <p>
+ * The {@code Destination} reference below is never read. It exists only so
+ * Felix SCR will not activate this component, and transitively
+ * {@code LoggingSearcher}, until {@code SearchEvalLogDestinationConfigurator}
+ * has registered the destination. Without it, a search that races the
+ * destination's own {@code Destination} service into existence would find
+ * {@link MessageBus#sendMessage(String, Message)} log a warning and return
+ * without throwing: a dropped row this class would still have counted as
+ * dispatched, since nothing here throws for it to catch. That race is real on
+ * a fresh install: the two components have no other dependency forcing an
+ * order, and it self-heals invisibly, which is exactly why the bug never
+ * gets caught by hand.
+ * </p>
+ *
+ * <p>
+ * A second, separate race sits one layer deeper: even once the destination
+ * exists, {@code BaseAsyncDestination.send(...)} looks up its listeners via
+ * {@link MessageListenerRegistry}, which is populated by its own OSGi service
+ * tracker reacting to {@code SearchEventPersistenceMessageListener}'s
+ * registration. If that has not propagated yet, <code>send</code> silently
+ * drops the message the same way, and there is no public API to gate a
+ * component's activation on "a tracker elsewhere has already noticed my
+ * service" the way {@code @Reference} can gate on a service simply existing.
+ * The registry is checked explicitly below instead, so that window is counted
+ * as a real drop rather than a false dispatched count.
+ * </p>
  */
 @Component(service = SearchEventDispatcher.class)
 public class SearchEventDispatcher {
@@ -35,6 +64,20 @@ public class SearchEventDispatcher {
 		}
 
 		try {
+			if (_messageListenerRegistry.getMessageListeners(
+					SearchEvalLoggerConstants.DESTINATION_NAME).isEmpty()) {
+
+				_searchEvalLoggerStatisticsImpl.incrementDroppedEventCount();
+
+				if (_log.isDebugEnabled()) {
+					_log.debug(
+						"Dropped a search event: no message listener is " +
+							"attached to the destination yet");
+				}
+
+				return;
+			}
+
 			Message message = new Message();
 
 			message.setPayload(capturedSearchEvent);
@@ -56,8 +99,17 @@ public class SearchEventDispatcher {
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEventDispatcher.class);
 
+	@Reference(
+		target = "(destination.name=" +
+			SearchEvalLoggerConstants.DESTINATION_NAME + ")"
+	)
+	private Destination _destination;
+
 	@Reference
 	private MessageBus _messageBus;
+
+	@Reference
+	private MessageListenerRegistry _messageListenerRegistry;
 
 	@Reference
 	private SearchEvalLoggerStatisticsImpl _searchEvalLoggerStatisticsImpl;
