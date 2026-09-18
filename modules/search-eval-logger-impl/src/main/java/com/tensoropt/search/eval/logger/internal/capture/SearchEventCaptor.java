@@ -6,12 +6,16 @@ package com.tensoropt.search.eval.logger.internal.capture;
 
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.search.Field;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.StringBundler;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.search.document.Document;
+import com.liferay.portal.search.highlight.HighlightField;
 import com.liferay.portal.search.hits.SearchHits;
 import com.liferay.portal.search.searcher.SearchRequest;
 import com.liferay.portal.search.searcher.SearchResponse;
@@ -20,10 +24,12 @@ import com.tensoropt.search.eval.logger.api.SearchEvalLoggerConstants;
 import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfiguration;
 import com.tensoropt.search.eval.logger.internal.context.SearchRequestOrigin;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -152,6 +158,18 @@ public class SearchEventCaptor {
 		capturedSearchHit.setEntryClassPK(
 			GetterUtil.getLong(document.getString(Field.ENTRY_CLASS_PK)));
 
+		if (_log.isDebugEnabled()) {
+			_log.debug(
+				StringBundler.concat(
+					"Capturing hit docUid=",
+					document.getString(Field.UID), ", capturedFieldNames=",
+					Arrays.toString(capturedFieldNames),
+					", document field names=",
+					_fieldNames(document.getFields()),
+					", highlight field names=",
+					_highlightFieldNames(hit.getHighlightFieldsMap())));
+		}
+
 		JSONObject extraFieldsJSONObject = null;
 
 		for (String fieldName : capturedFieldNames) {
@@ -161,7 +179,14 @@ public class SearchEventCaptor {
 
 			fieldName = StringUtil.trim(fieldName);
 
-			String value = _getFieldValue(document, fieldName, languageId);
+			String value;
+
+			if (SearchEvalLoggerConstants.FIELD_SNIPPET.equals(fieldName)) {
+				value = _getSnippetValue(hit, document, languageId);
+			}
+			else {
+				value = _getFieldValue(document, fieldName, languageId);
+			}
 
 			if (Validator.isNull(value)) {
 				continue;
@@ -187,6 +212,22 @@ public class SearchEventCaptor {
 			(extraFieldsJSONObject.length() > 0)) {
 
 			capturedSearchHit.setExtraFields(extraFieldsJSONObject.toString());
+		}
+
+		if (_log.isDebugEnabled()) {
+			_log.debug(
+				StringBundler.concat(
+					"Captured hit docUid=", document.getString(Field.UID),
+					", title=",
+					String.valueOf(
+						Validator.isNotNull(capturedSearchHit.getTitle())),
+					", snippet=",
+					String.valueOf(
+						Validator.isNotNull(capturedSearchHit.getSnippet())),
+					", extraFields=",
+					String.valueOf(
+						Validator.isNotNull(
+							capturedSearchHit.getExtraFields()))));
 		}
 
 		return capturedSearchHit;
@@ -256,10 +297,14 @@ public class SearchEventCaptor {
 
 	/**
 	 * Probes only what the response already carries (D8): the field as named,
-	 * then its localized variant, then, for the snippet field alone, Liferay's
-	 * legacy <code>snippet_&lt;field&gt;</code> highlight naming. Which of
-	 * these an installation actually returns is EC-4, and the export manifest
-	 * reports the resulting coverage rather than this code assuming it.
+	 * then its localized variant, then, for the snippet field alone, a
+	 * document-embedded <code>snippet_&lt;field&gt;</code> field. This is a
+	 * fallback for search engines that surface highlights inside the document
+	 * rather than through {@link
+	 * com.liferay.portal.search.hits.SearchHit#getHighlightFieldsMap()}, which
+	 * {@link #_getSnippetValue} checks first. Which of these an installation
+	 * actually returns is EC-4, and the export manifest reports the resulting
+	 * coverage rather than this code assuming it.
 	 */
 	private String _getFieldValue(
 		Document document, String fieldName, String languageId) {
@@ -283,6 +328,93 @@ public class SearchEventCaptor {
 		}
 
 		return null;
+	}
+
+	/**
+	 * The excerpt a search UI actually shows comes from
+	 * {@link com.liferay.portal.search.hits.SearchHit#getHighlightFieldsMap()},
+	 * a sibling of {@link Document} rather than a field inside it, so it is
+	 * probed separately from every other captured field. Fragments from every
+	 * highlighted field are joined, since no single named field corresponds to
+	 * what the UI renders. Falls back to a document-embedded value for search
+	 * engines that surface a snippet that way instead (EC-4).
+	 */
+	private String _getSnippetValue(
+		com.liferay.portal.search.hits.SearchHit hit, Document document,
+		String languageId) {
+
+		String value = _getHighlightSnippet(hit);
+
+		if (Validator.isNotNull(value)) {
+			return value;
+		}
+
+		return _getFieldValue(
+			document, SearchEvalLoggerConstants.FIELD_SNIPPET, languageId);
+	}
+
+	private String _getHighlightSnippet(
+		com.liferay.portal.search.hits.SearchHit hit) {
+
+		Map<String, HighlightField> highlightFieldsMap =
+			hit.getHighlightFieldsMap();
+
+		if ((highlightFieldsMap == null) || highlightFieldsMap.isEmpty()) {
+			if (_log.isDebugEnabled()) {
+				_log.debug("getHighlightFieldsMap() returned null or empty");
+			}
+
+			return null;
+		}
+
+		List<String> fragments = new ArrayList<>();
+
+		for (HighlightField highlightField : highlightFieldsMap.values()) {
+			if (highlightField == null) {
+				continue;
+			}
+
+			List<String> highlightFieldFragments =
+				highlightField.getFragments();
+
+			if (_log.isDebugEnabled()) {
+				_log.debug(
+					StringBundler.concat(
+						"Highlight field name=", highlightField.getName(),
+						", fragments=",
+						String.valueOf(highlightFieldFragments)));
+			}
+
+			if (highlightFieldFragments != null) {
+				fragments.addAll(highlightFieldFragments);
+			}
+		}
+
+		if (fragments.isEmpty()) {
+			return null;
+		}
+
+		return StringUtil.merge(fragments, " ... ");
+	}
+
+	private String _fieldNames(
+		Map<String, com.liferay.portal.search.document.Field> fields) {
+
+		if (fields == null) {
+			return "null";
+		}
+
+		return fields.keySet().toString();
+	}
+
+	private String _highlightFieldNames(
+		Map<String, HighlightField> highlightFieldsMap) {
+
+		if (highlightFieldsMap == null) {
+			return "null";
+		}
+
+		return highlightFieldsMap.keySet().toString();
 	}
 
 	private int _getInt(Integer value) {
@@ -394,6 +526,9 @@ public class SearchEventCaptor {
 	private static final String _UNDERLINE = "_";
 
 	private static final int _TITLE_MAX_LENGTH = 1000;
+
+	private static final Log _log = LogFactoryUtil.getLog(
+		SearchEventCaptor.class);
 
 	@Reference
 	private FacetExtractor _facetExtractor;
