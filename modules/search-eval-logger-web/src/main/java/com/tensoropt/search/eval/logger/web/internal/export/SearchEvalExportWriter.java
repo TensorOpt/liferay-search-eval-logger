@@ -5,9 +5,6 @@
 package com.tensoropt.search.eval.logger.web.internal.export;
 
 import com.liferay.portal.kernel.dao.orm.ActionableDynamicQuery;
-import com.liferay.portal.kernel.dao.orm.Property;
-import com.liferay.portal.kernel.dao.orm.PropertyFactoryUtil;
-import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.json.JSONArray;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
@@ -21,9 +18,7 @@ import com.liferay.portal.kernel.util.Validator;
 
 import com.tensoropt.search.eval.logger.api.SearchEvalLoggerConstants;
 import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfiguration;
-import com.tensoropt.search.eval.logger.model.SearchEvent;
 import com.tensoropt.search.eval.logger.service.SearchEventLocalService;
-import com.tensoropt.search.eval.logger.service.persistence.SearchHitPersistence;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -33,8 +28,10 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
 
 import java.util.Date;
+import java.util.Objects;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -228,55 +225,6 @@ public class SearchEvalExportWriter {
 		zipOutputStream.write(content.getBytes(StandardCharsets.UTF_8));
 	}
 
-	private void _writeEvent(
-			Writer writer, SearchEvent searchEvent,
-			SearchEvalExportResult searchEvalExportResult)
-		throws IOException {
-
-		// Seeded from a template so every line carries every key, with an
-		// explicit null where there is no value. Liferay's JSONObject drops a
-		// key whose value is null, which would make the schema vary line by
-		// line and leave a consumer unable to tell a field that was never
-		// captured from one this row happens to lack.
-
-		JSONObject jsonObject = _createFromTemplate(_EVENT_TEMPLATE);
-
-		_put(jsonObject, "event_id", searchEvent.getUuid());
-		_put(
-			jsonObject, "created_at",
-			ExportTimestamps.format(searchEvent.getCreateDate()));
-		_put(jsonObject, "query", searchEvent.getQueryText());
-		jsonObject.put("query_truncated", searchEvent.isQueryTruncated());
-		_put(jsonObject, "locale", searchEvent.getLocale());
-		jsonObject.put(
-			"scope_group_ids",
-			_toJSONArray(searchEvent.getScopeGroupIds(), true));
-		jsonObject.put(
-			"entry_class_names",
-			_toJSONArray(searchEvent.getEntryClassNames(), false));
-		_put(
-			jsonObject, "applied_facets",
-			_toJSONObject(searchEvent.getAppliedFacets()));
-		_put(
-			jsonObject, "facet_capture_status",
-			searchEvent.getFacetCaptureStatus());
-		_put(jsonObject, "blueprint_id", searchEvent.getBlueprintId());
-		_put(jsonObject, "audience_type", searchEvent.getAudienceType());
-		_put(jsonObject, "cohort_hash", searchEvent.getCohortHash());
-		jsonObject.put("requested_size", searchEvent.getRequestedSize());
-		jsonObject.put("requested_from", searchEvent.getRequestedFrom());
-		jsonObject.put("total_hits", searchEvent.getTotalHits());
-		jsonObject.put("logged_hit_count", searchEvent.getLoggedHitCount());
-		_put(jsonObject, "source_type", searchEvent.getSourceType());
-		jsonObject.put(
-			"hits", _toHitsJSONArray(
-				searchEvent.getUuid(), searchEvalExportResult));
-
-		writer.write(jsonObject.toString());
-		writer.write(_NEW_LINE);
-
-		searchEvalExportResult.incrementEventCount();
-	}
 
 	private void _writeEvents(
 			ZipOutputStream zipOutputStream, long companyId, Date startDate,
@@ -290,112 +238,159 @@ public class SearchEvalExportWriter {
 		Writer writer = new BufferedWriter(
 			new OutputStreamWriter(zipOutputStream, StandardCharsets.UTF_8));
 
-		ActionableDynamicQuery actionableDynamicQuery =
-			_searchEventLocalService.getActionableDynamicQuery();
+		// One ordered pass. The rows arrive grouped by event and ordered by
+		// rank, so an event is complete the moment its uuid changes, and only
+		// the current event's hits are held. That is what keeps memory flat
+		// (DESIGN.md 6.1) without buffering the result set.
 
-		actionableDynamicQuery.setCompanyId(companyId);
-		actionableDynamicQuery.setInterval(_INTERVAL);
+		EventAccumulator eventAccumulator = new EventAccumulator(
+			writer, searchEvalExportResult);
 
-		actionableDynamicQuery.setAddCriteriaMethod(
-			dynamicQuery -> {
-				Property createDateProperty = PropertyFactoryUtil.forName(
-					"createDate");
+		_searchEventLocalService.forEachExportRow(
+			companyId, startDate, endDate,
+			resultSet -> eventAccumulator.accept(resultSet));
 
-				if (startDate != null) {
-					dynamicQuery.add(createDateProperty.ge(startDate));
-				}
-
-				if (endDate != null) {
-					dynamicQuery.add(createDateProperty.lt(endDate));
-				}
-			});
-
-		// Without this the export dies on its first event. The background task
-		// thread carries no transaction, so the per-event hit lookup below
-		// cannot open a Hibernate session: "No current transaction executor".
-		// The event iteration alone would have survived, because
-		// ActionableDynamicQuery manages a session for its own paging, which
-		// is why the gap only appears once a nested read is added. Scoped per
-		// batch by setInterval, so this stays bounded rather than holding one
-		// transaction open for the whole export.
-
-		actionableDynamicQuery.setTransactionConfig(_TRANSACTION_CONFIG);
-
-		actionableDynamicQuery.setPerformActionMethod(
-			(SearchEvent searchEvent) -> {
-				try {
-					_writeEvent(writer, searchEvent, searchEvalExportResult);
-				}
-				catch (IOException ioException) {
-					throw new PortalException(ioException);
-				}
-			});
-
-		actionableDynamicQuery.performActions();
+		eventAccumulator.flushPending();
 
 		writer.flush();
 	}
 
-	private JSONArray _toHitsJSONArray(
-		String searchEventUuid, SearchEvalExportResult searchEvalExportResult) {
+	private class EventAccumulator {
 
-		JSONArray jsonArray = _jsonFactory.createJSONArray();
+		private EventAccumulator(
+			Writer writer, SearchEvalExportResult searchEvalExportResult) {
 
-		if (Validator.isNull(searchEventUuid)) {
-			return jsonArray;
+			_writer = writer;
+			_searchEvalExportResult = searchEvalExportResult;
 		}
 
-		// Bounded by capture depth, which is what keeps this from being the
-		// place memory grows. The join column is indexed for exactly this
-		// lookup (DESIGN.md 4.5).
+		private void accept(ResultSet resultSet) throws Exception {
+			String uuid = resultSet.getString("uuid_");
 
-		List<com.tensoropt.search.eval.logger.model.SearchHit> searchHits =
-			_searchHitPersistence.findBySearchEventUuid(searchEventUuid);
+			if (!Objects.equals(uuid, _currentUuid)) {
+				flushPending();
 
-		for (com.tensoropt.search.eval.logger.model.SearchHit searchHit :
-				searchHits) {
-
-			JSONObject jsonObject = _createFromTemplate(_HIT_TEMPLATE);
-
-			jsonObject.put("rank", searchHit.getRank());
-			jsonObject.put("score", searchHit.getScore());
-			_put(jsonObject, "doc_uid", searchHit.getDocUid());
-			_put(jsonObject, "entry_class_name", searchHit.getEntryClassName());
-			jsonObject.put("entry_class_pk", searchHit.getEntryClassPK());
-			_put(jsonObject, "title", searchHit.getTitle());
-			_put(jsonObject, "snippet", searchHit.getSnippet());
-
-			JSONObject extraFieldsJSONObject = _toJSONObject(
-				searchHit.getExtraFields());
-
-			if (extraFieldsJSONObject == null) {
-				extraFieldsJSONObject = _jsonFactory.createJSONObject();
+				_currentUuid = uuid;
+				_currentEventJSONObject = _toEventJSONObject(resultSet);
+				_currentHitsJSONArray = _jsonFactory.createJSONArray();
 			}
 
-			jsonObject.put("extra_fields", extraFieldsJSONObject);
+			// A left join yields one row with null hit columns for an event
+			// that returned nothing, which must not become a phantom hit.
 
-			_countCoverage(
-				searchEvalExportResult, searchHit, extraFieldsJSONObject);
-
-			jsonArray.put(jsonObject);
+			if (resultSet.getString("docUid") != null) {
+				_currentHitsJSONArray.put(
+					_toHitJSONObject(resultSet, _searchEvalExportResult));
+			}
 		}
 
-		return jsonArray;
+		private void flushPending() throws Exception {
+			if (_currentEventJSONObject == null) {
+				return;
+			}
+
+			_currentEventJSONObject.put("hits", _currentHitsJSONArray);
+
+			_writer.write(_currentEventJSONObject.toString());
+			_writer.write(_NEW_LINE);
+
+			_searchEvalExportResult.incrementEventCount();
+
+			_currentEventJSONObject = null;
+			_currentHitsJSONArray = null;
+		}
+
+		private JSONArray _currentHitsJSONArray;
+		private JSONObject _currentEventJSONObject;
+		private String _currentUuid;
+		private final SearchEvalExportResult _searchEvalExportResult;
+		private final Writer _writer;
+
 	}
 
+	private JSONObject _toEventJSONObject(ResultSet resultSet)
+		throws Exception {
+
+		JSONObject jsonObject = _createFromTemplate(_EVENT_TEMPLATE);
+
+		_put(jsonObject, "event_id", resultSet.getString("uuid_"));
+		_put(
+			jsonObject, "created_at",
+			ExportTimestamps.format(resultSet.getTimestamp("createDate")));
+		_put(jsonObject, "query", resultSet.getString("queryText"));
+		jsonObject.put(
+			"query_truncated", resultSet.getBoolean("queryTruncated"));
+		_put(jsonObject, "locale", resultSet.getString("locale"));
+		jsonObject.put(
+			"scope_group_ids",
+			_toJSONArray(resultSet.getString("scopeGroupIds"), true));
+		jsonObject.put(
+			"entry_class_names",
+			_toJSONArray(resultSet.getString("entryClassNames"), false));
+		_put(
+			jsonObject, "applied_facets",
+			_toJSONObject(resultSet.getString("appliedFacets")));
+		_put(
+			jsonObject, "facet_capture_status",
+			resultSet.getString("facetCaptureStatus"));
+		_put(jsonObject, "blueprint_id", resultSet.getString("blueprintId"));
+		_put(jsonObject, "audience_type", resultSet.getString("audienceType"));
+		_put(jsonObject, "cohort_hash", resultSet.getString("cohortHash"));
+		jsonObject.put("requested_size", resultSet.getInt("requestedSize"));
+		jsonObject.put("requested_from", resultSet.getInt("requestedFrom"));
+		jsonObject.put("total_hits", resultSet.getLong("totalHits"));
+		jsonObject.put(
+			"logged_hit_count", resultSet.getInt("loggedHitCount"));
+		_put(jsonObject, "source_type", resultSet.getString("sourceType"));
+
+		return jsonObject;
+	}
+
+	private JSONObject _toHitJSONObject(
+			ResultSet resultSet,
+			SearchEvalExportResult searchEvalExportResult)
+		throws Exception {
+		JSONObject jsonObject = _createFromTemplate(_HIT_TEMPLATE);
+
+		jsonObject.put("rank", resultSet.getInt("rank_"));
+		jsonObject.put("score", resultSet.getDouble("score"));
+		_put(jsonObject, "doc_uid", resultSet.getString("docUid"));
+		_put(
+			jsonObject, "entry_class_name",
+			resultSet.getString("entryClassName"));
+		jsonObject.put("entry_class_pk", resultSet.getLong("entryClassPK"));
+		_put(jsonObject, "title", resultSet.getString("title"));
+		_put(jsonObject, "snippet", resultSet.getString("snippet"));
+
+		JSONObject extraFieldsJSONObject = _toJSONObject(
+			resultSet.getString("extraFields"));
+
+		if (extraFieldsJSONObject == null) {
+			extraFieldsJSONObject = _jsonFactory.createJSONObject();
+		}
+
+		jsonObject.put("extra_fields", extraFieldsJSONObject);
+
+		_countCoverage(
+			searchEvalExportResult, resultSet, extraFieldsJSONObject);
+
+		return jsonObject;
+	}
+
+
 	private void _countCoverage(
-		SearchEvalExportResult searchEvalExportResult,
-		com.tensoropt.search.eval.logger.model.SearchHit searchHit,
-		JSONObject extraFieldsJSONObject) {
+			SearchEvalExportResult searchEvalExportResult,
+			ResultSet resultSet, JSONObject extraFieldsJSONObject)
+		throws Exception {
 
 		searchEvalExportResult.incrementHitCount();
 
-		if (Validator.isNotNull(searchHit.getTitle())) {
+		if (Validator.isNotNull(resultSet.getString("title"))) {
 			searchEvalExportResult.incrementFieldCount(
 				SearchEvalLoggerConstants.FIELD_TITLE);
 		}
 
-		if (Validator.isNotNull(searchHit.getSnippet())) {
+		if (Validator.isNotNull(resultSet.getString("snippet"))) {
 			searchEvalExportResult.incrementFieldCount(
 				SearchEvalLoggerConstants.FIELD_SNIPPET);
 		}
@@ -458,7 +453,5 @@ public class SearchEvalExportWriter {
 	@Reference
 	private SearchEventLocalService _searchEventLocalService;
 
-	@Reference
-	private SearchHitPersistence _searchHitPersistence;
 
 }
