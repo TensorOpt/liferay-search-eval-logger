@@ -15,6 +15,8 @@ import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.StringUtil;
+import com.liferay.portal.kernel.transaction.Propagation;
+import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.util.Validator;
 
 import com.tensoropt.search.eval.logger.api.SearchEvalLoggerConstants;
@@ -308,6 +310,17 @@ public class SearchEvalExportWriter {
 				}
 			});
 
+		// Without this the export dies on its first event. The background task
+		// thread carries no transaction, so the per-event hit lookup below
+		// cannot open a Hibernate session: "No current transaction executor".
+		// The event iteration alone would have survived, because
+		// ActionableDynamicQuery manages a session for its own paging, which
+		// is why the gap only appears once a nested read is added. Scoped per
+		// batch by setInterval, so this stays bounded rather than holding one
+		// transaction open for the whole export.
+
+		actionableDynamicQuery.setTransactionConfig(_TRANSACTION_CONFIG);
+
 		actionableDynamicQuery.setPerformActionMethod(
 			(SearchEvent searchEvent) -> {
 				try {
@@ -395,6 +408,10 @@ public class SearchEvalExportWriter {
 			}
 		}
 	}
+
+	private static final TransactionConfig _TRANSACTION_CONFIG =
+		TransactionConfig.Factory.create(
+			Propagation.REQUIRED, new Class<?>[] {Exception.class});
 
 	private static final String _EVENTS_FILE_NAME = "events.jsonl";
 

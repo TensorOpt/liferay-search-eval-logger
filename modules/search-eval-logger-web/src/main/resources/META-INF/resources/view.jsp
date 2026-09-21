@@ -24,15 +24,47 @@ List<BackgroundTask> backgroundTasks =
 SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
 Map<Long, String> backgroundTaskCreateDates = new HashMap<>();
+Map<Long, String> backgroundTaskCompletionDates = new HashMap<>();
+Map<Long, String> backgroundTaskDurations = new HashMap<>();
+Map<Long, Boolean> backgroundTaskDownloadable = new HashMap<>();
 
 for (BackgroundTask backgroundTask : backgroundTasks) {
+	long backgroundTaskId = backgroundTask.getBackgroundTaskId();
+
+	Date taskCreateDate = backgroundTask.getCreateDate();
+	Date taskCompletionDate = backgroundTask.getCompletionDate();
+
 	backgroundTaskCreateDates.put(
-		backgroundTask.getBackgroundTaskId(),
-		simpleDateFormat.format(backgroundTask.getCreateDate()));
+		backgroundTaskId, simpleDateFormat.format(taskCreateDate));
+
+	if (taskCompletionDate != null) {
+		backgroundTaskCompletionDates.put(
+			backgroundTaskId, simpleDateFormat.format(taskCompletionDate));
+
+		long seconds =
+			(taskCompletionDate.getTime() - taskCreateDate.getTime()) / 1000;
+
+		backgroundTaskDurations.put(
+			backgroundTaskId,
+			String.format("%d:%02d:%02d", seconds / 3600,
+				(seconds % 3600) / 60, seconds % 60));
+	}
+
+	// isCompleted() is true for a failed task as well as a successful one,
+	// so a failed export was offering a download for an archive that was
+	// never written. Only a successful run has an attachment.
+
+	backgroundTaskDownloadable.put(
+		backgroundTaskId,
+		backgroundTask.getStatus() ==
+			BackgroundTaskConstants.STATUS_SUCCESSFUL);
 }
 
 request.setAttribute("backgroundTasks", backgroundTasks);
+request.setAttribute("backgroundTaskCompletionDates", backgroundTaskCompletionDates);
 request.setAttribute("backgroundTaskCreateDates", backgroundTaskCreateDates);
+request.setAttribute("backgroundTaskDownloadable", backgroundTaskDownloadable);
+request.setAttribute("backgroundTaskDurations", backgroundTaskDurations);
 request.setAttribute("hasExportPermission", hasExportPermission);
 %>
 
@@ -131,6 +163,8 @@ request.setAttribute("hasExportPermission", hasExportPermission);
 				<thead>
 					<tr>
 						<th><liferay-ui:message key="started" /></th>
+						<th><liferay-ui:message key="finished" /></th>
+						<th><liferay-ui:message key="duration" /></th>
 						<th><liferay-ui:message key="status" /></th>
 						<th><liferay-ui:message key="download" /></th>
 					</tr>
@@ -142,11 +176,27 @@ request.setAttribute("hasExportPermission", hasExportPermission);
 								${backgroundTaskCreateDates[backgroundTask.backgroundTaskId]}
 							</td>
 							<td>
+								<c:choose>
+									<c:when test="${not empty backgroundTaskCompletionDates[backgroundTask.backgroundTaskId]}">
+										${backgroundTaskCompletionDates[backgroundTask.backgroundTaskId]}
+									</c:when>
+									<c:otherwise>&mdash;</c:otherwise>
+								</c:choose>
+							</td>
+							<td>
+								<c:choose>
+									<c:when test="${not empty backgroundTaskDurations[backgroundTask.backgroundTaskId]}">
+										${backgroundTaskDurations[backgroundTask.backgroundTaskId]}
+									</c:when>
+									<c:otherwise>&mdash;</c:otherwise>
+								</c:choose>
+							</td>
+							<td>
 								<liferay-ui:message key="${backgroundTask.statusLabel}" />
 							</td>
 							<td>
 								<c:choose>
-									<c:when test="${backgroundTask.completed and hasExportPermission}">
+									<c:when test="${backgroundTaskDownloadable[backgroundTask.backgroundTaskId] and hasExportPermission}">
 										<portlet:resourceURL var="downloadURL">
 											<portlet:param name="backgroundTaskId" value="${backgroundTask.backgroundTaskId}" />
 										</portlet:resourceURL>
