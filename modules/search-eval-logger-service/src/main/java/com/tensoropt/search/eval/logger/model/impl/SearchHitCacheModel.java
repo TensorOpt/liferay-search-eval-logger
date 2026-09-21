@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import java.util.Date;
+
 /**
  * The cache model class for representing SearchHit in entity cache.
  *
@@ -66,7 +68,7 @@ public class SearchHitCacheModel
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(23);
+		StringBundler sb = new StringBundler(27);
 
 		sb.append("{mvccVersion=");
 		sb.append(mvccVersion);
@@ -74,6 +76,10 @@ public class SearchHitCacheModel
 		sb.append(searchHitId);
 		sb.append(", searchEventUuid=");
 		sb.append(searchEventUuid);
+		sb.append(", companyId=");
+		sb.append(companyId);
+		sb.append(", createDate=");
+		sb.append(createDate);
 		sb.append(", rank=");
 		sb.append(rank);
 		sb.append(", score=");
@@ -107,6 +113,15 @@ public class SearchHitCacheModel
 		}
 		else {
 			searchHitImpl.setSearchEventUuid(searchEventUuid);
+		}
+
+		searchHitImpl.setCompanyId(companyId);
+
+		if (createDate == Long.MIN_VALUE) {
+			searchHitImpl.setCreateDate(null);
+		}
+		else {
+			searchHitImpl.setCreateDate(new Date(createDate));
 		}
 
 		searchHitImpl.setRank(rank);
@@ -163,6 +178,9 @@ public class SearchHitCacheModel
 		searchHitId = objectInput.readLong();
 		searchEventUuid = objectInput.readUTF();
 
+		companyId = objectInput.readLong();
+		createDate = objectInput.readLong();
+
 		rank = objectInput.readInt();
 
 		score = objectInput.readDouble();
@@ -187,6 +205,9 @@ public class SearchHitCacheModel
 		else {
 			objectOutput.writeUTF(searchEventUuid);
 		}
+
+		objectOutput.writeLong(companyId);
+		objectOutput.writeLong(createDate);
 
 		objectOutput.writeInt(rank);
 
@@ -233,6 +254,8 @@ public class SearchHitCacheModel
 	public long mvccVersion;
 	public long searchHitId;
 	public String searchEventUuid;
+	public long companyId;
+	public long createDate;
 	public int rank;
 	public double score;
 	public String docUid;

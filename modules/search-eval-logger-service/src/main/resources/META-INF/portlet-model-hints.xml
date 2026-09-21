@@ -49,6 +49,8 @@
 		<field name="searchEventUuid" type="String">
 			<hint name="max-length">75</hint>
 		</field>
+		<field name="companyId" type="long" />
+		<field name="createDate" type="Date" />
 		<field name="rank" type="int" />
 		<field name="score" type="double" />
 		<field name="docUid" type="String">

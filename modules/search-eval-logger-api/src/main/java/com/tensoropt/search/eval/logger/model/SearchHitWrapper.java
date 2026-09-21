@@ -8,6 +8,7 @@ package com.tensoropt.search.eval.logger.model;
 import com.liferay.portal.kernel.model.ModelWrapper;
 import com.liferay.portal.kernel.model.wrapper.BaseModelWrapper;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,6 +36,8 @@ public class SearchHitWrapper
 		attributes.put("mvccVersion", getMvccVersion());
 		attributes.put("searchHitId", getSearchHitId());
 		attributes.put("searchEventUuid", getSearchEventUuid());
+		attributes.put("companyId", getCompanyId());
+		attributes.put("createDate", getCreateDate());
 		attributes.put("rank", getRank());
 		attributes.put("score", getScore());
 		attributes.put("docUid", getDocUid());
@@ -65,6 +68,18 @@ public class SearchHitWrapper
 
 		if (searchEventUuid != null) {
 			setSearchEventUuid(searchEventUuid);
+		}
+
+		Long companyId = (Long)attributes.get("companyId");
+
+		if (companyId != null) {
+			setCompanyId(companyId);
+		}
+
+		Date createDate = (Date)attributes.get("createDate");
+
+		if (createDate != null) {
+			setCreateDate(createDate);
 		}
 
 		Integer rank = (Integer)attributes.get("rank");
@@ -119,6 +134,26 @@ public class SearchHitWrapper
 	@Override
 	public SearchHit cloneWithOriginalValues() {
 		return wrap(model.cloneWithOriginalValues());
+	}
+
+	/**
+	 * Returns the company ID of this search hit.
+	 *
+	 * @return the company ID of this search hit
+	 */
+	@Override
+	public long getCompanyId() {
+		return model.getCompanyId();
+	}
+
+	/**
+	 * Returns the create date of this search hit.
+	 *
+	 * @return the create date of this search hit
+	 */
+	@Override
+	public Date getCreateDate() {
+		return model.getCreateDate();
 	}
 
 	/**
@@ -244,6 +279,26 @@ public class SearchHitWrapper
 	@Override
 	public void persist() {
 		model.persist();
+	}
+
+	/**
+	 * Sets the company ID of this search hit.
+	 *
+	 * @param companyId the company ID of this search hit
+	 */
+	@Override
+	public void setCompanyId(long companyId) {
+		model.setCompanyId(companyId);
+	}
+
+	/**
+	 * Sets the create date of this search hit.
+	 *
+	 * @param createDate the create date of this search hit
+	 */
+	@Override
+	public void setCreateDate(Date createDate) {
+		model.setCreateDate(createDate);
 	}
 
 	/**

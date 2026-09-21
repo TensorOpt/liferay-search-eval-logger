@@ -17,6 +17,9 @@ import com.liferay.portal.kernel.dao.orm.Session;
 import com.liferay.portal.kernel.dao.orm.SessionFactory;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.security.auth.CompanyThreadLocal;
+import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.service.ServiceContextThreadLocal;
 import com.liferay.portal.kernel.service.persistence.impl.BasePersistenceImpl;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.OrderByComparator;
@@ -38,6 +41,9 @@ import java.io.Serializable;
 
 import java.lang.reflect.InvocationHandler;
 
+import java.sql.Timestamp;
+
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -631,6 +637,573 @@ public class SearchHitPersistenceImpl
 		_FINDER_COLUMN_SEARCHEVENTUUID_SEARCHEVENTUUID_3 =
 			"(searchHit.searchEventUuid IS NULL OR searchHit.searchEventUuid = '')";
 
+	private FinderPath _finderPathWithPaginationFindByC_LtCreateDate;
+	private FinderPath _finderPathWithPaginationCountByC_LtCreateDate;
+
+	/**
+	 * Returns all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @return the matching search hits
+	 */
+	@Override
+	public List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate) {
+
+		return findByC_LtCreateDate(
+			companyId, createDate, QueryUtil.ALL_POS, QueryUtil.ALL_POS, null);
+	}
+
+	/**
+	 * Returns a range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @return the range of matching search hits
+	 */
+	@Override
+	public List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end) {
+
+		return findByC_LtCreateDate(companyId, createDate, start, end, null);
+	}
+
+	/**
+	 * Returns an ordered range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search hits
+	 */
+	@Override
+	public List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		return findByC_LtCreateDate(
+			companyId, createDate, start, end, orderByComparator, true);
+	}
+
+	/**
+	 * Returns an ordered range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @param useFinderCache whether to use the finder cache
+	 * @return the ordered range of matching search hits
+	 */
+	@Override
+	public List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end,
+		OrderByComparator<SearchHit> orderByComparator,
+		boolean useFinderCache) {
+
+		FinderPath finderPath = null;
+		Object[] finderArgs = null;
+
+		finderPath = _finderPathWithPaginationFindByC_LtCreateDate;
+		finderArgs = new Object[] {
+			companyId, _getTime(createDate), start, end, orderByComparator
+		};
+
+		List<SearchHit> list = null;
+
+		if (useFinderCache) {
+			list = (List<SearchHit>)dummyFinderCache.getResult(
+				finderPath, finderArgs, this);
+
+			if ((list != null) && !list.isEmpty()) {
+				for (SearchHit searchHit : list) {
+					if ((companyId != searchHit.getCompanyId()) ||
+						(createDate.getTime() <= searchHit.getCreateDate(
+						).getTime())) {
+
+						list = null;
+
+						break;
+					}
+				}
+			}
+		}
+
+		if (list == null) {
+			StringBundler sb = null;
+
+			if (orderByComparator != null) {
+				sb = new StringBundler(
+					4 + (orderByComparator.getOrderByFields().length * 2));
+			}
+			else {
+				sb = new StringBundler(4);
+			}
+
+			sb.append(_SQL_SELECT_SEARCHHIT_WHERE);
+
+			sb.append(_FINDER_COLUMN_C_LTCREATEDATE_COMPANYID_2);
+
+			boolean bindCreateDate = false;
+
+			if (createDate == null) {
+				sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_1);
+			}
+			else {
+				bindCreateDate = true;
+
+				sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_2);
+			}
+
+			if (orderByComparator != null) {
+				appendOrderByComparator(
+					sb, _ORDER_BY_ENTITY_ALIAS, orderByComparator);
+			}
+			else {
+				sb.append(SearchHitModelImpl.ORDER_BY_JPQL);
+			}
+
+			String sql = sb.toString();
+
+			Session session = null;
+
+			try {
+				session = openSession();
+
+				Query query = session.createQuery(sql);
+
+				QueryPos queryPos = QueryPos.getInstance(query);
+
+				queryPos.add(companyId);
+
+				if (bindCreateDate) {
+					queryPos.add(new Timestamp(createDate.getTime()));
+				}
+
+				list = (List<SearchHit>)QueryUtil.list(
+					query, getDialect(), start, end);
+
+				cacheResult(list);
+
+				if (useFinderCache) {
+					dummyFinderCache.putResult(finderPath, finderArgs, list);
+				}
+			}
+			catch (Exception exception) {
+				throw processException(exception);
+			}
+			finally {
+				closeSession(session);
+			}
+		}
+
+		return list;
+	}
+
+	/**
+	 * Returns the first search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search hit
+	 * @throws NoSuchSearchHitException if a matching search hit could not be found
+	 */
+	@Override
+	public SearchHit findByC_LtCreateDate_First(
+			long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws NoSuchSearchHitException {
+
+		SearchHit searchHit = fetchByC_LtCreateDate_First(
+			companyId, createDate, orderByComparator);
+
+		if (searchHit != null) {
+			return searchHit;
+		}
+
+		StringBundler sb = new StringBundler(6);
+
+		sb.append(_NO_SUCH_ENTITY_WITH_KEY);
+
+		sb.append("companyId=");
+		sb.append(companyId);
+
+		sb.append(", createDate<");
+		sb.append(createDate);
+
+		sb.append("}");
+
+		throw new NoSuchSearchHitException(sb.toString());
+	}
+
+	/**
+	 * Returns the first search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search hit, or <code>null</code> if a matching search hit could not be found
+	 */
+	@Override
+	public SearchHit fetchByC_LtCreateDate_First(
+		long companyId, Date createDate,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		List<SearchHit> list = findByC_LtCreateDate(
+			companyId, createDate, 0, 1, orderByComparator);
+
+		if (!list.isEmpty()) {
+			return list.get(0);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the last search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search hit
+	 * @throws NoSuchSearchHitException if a matching search hit could not be found
+	 */
+	@Override
+	public SearchHit findByC_LtCreateDate_Last(
+			long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws NoSuchSearchHitException {
+
+		SearchHit searchHit = fetchByC_LtCreateDate_Last(
+			companyId, createDate, orderByComparator);
+
+		if (searchHit != null) {
+			return searchHit;
+		}
+
+		StringBundler sb = new StringBundler(6);
+
+		sb.append(_NO_SUCH_ENTITY_WITH_KEY);
+
+		sb.append("companyId=");
+		sb.append(companyId);
+
+		sb.append(", createDate<");
+		sb.append(createDate);
+
+		sb.append("}");
+
+		throw new NoSuchSearchHitException(sb.toString());
+	}
+
+	/**
+	 * Returns the last search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search hit, or <code>null</code> if a matching search hit could not be found
+	 */
+	@Override
+	public SearchHit fetchByC_LtCreateDate_Last(
+		long companyId, Date createDate,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		int count = countByC_LtCreateDate(companyId, createDate);
+
+		if (count == 0) {
+			return null;
+		}
+
+		List<SearchHit> list = findByC_LtCreateDate(
+			companyId, createDate, count - 1, count, orderByComparator);
+
+		if (!list.isEmpty()) {
+			return list.get(0);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the search hits before and after the current search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param searchHitId the primary key of the current search hit
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the previous, current, and next search hit
+	 * @throws NoSuchSearchHitException if a search hit with the primary key could not be found
+	 */
+	@Override
+	public SearchHit[] findByC_LtCreateDate_PrevAndNext(
+			long searchHitId, long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws NoSuchSearchHitException {
+
+		SearchHit searchHit = findByPrimaryKey(searchHitId);
+
+		Session session = null;
+
+		try {
+			session = openSession();
+
+			SearchHit[] array = new SearchHitImpl[3];
+
+			array[0] = getByC_LtCreateDate_PrevAndNext(
+				session, searchHit, companyId, createDate, orderByComparator,
+				true);
+
+			array[1] = searchHit;
+
+			array[2] = getByC_LtCreateDate_PrevAndNext(
+				session, searchHit, companyId, createDate, orderByComparator,
+				false);
+
+			return array;
+		}
+		catch (Exception exception) {
+			throw processException(exception);
+		}
+		finally {
+			closeSession(session);
+		}
+	}
+
+	protected SearchHit getByC_LtCreateDate_PrevAndNext(
+		Session session, SearchHit searchHit, long companyId, Date createDate,
+		OrderByComparator<SearchHit> orderByComparator, boolean previous) {
+
+		StringBundler sb = null;
+
+		if (orderByComparator != null) {
+			sb = new StringBundler(
+				5 + (orderByComparator.getOrderByConditionFields().length * 3) +
+					(orderByComparator.getOrderByFields().length * 3));
+		}
+		else {
+			sb = new StringBundler(4);
+		}
+
+		sb.append(_SQL_SELECT_SEARCHHIT_WHERE);
+
+		sb.append(_FINDER_COLUMN_C_LTCREATEDATE_COMPANYID_2);
+
+		boolean bindCreateDate = false;
+
+		if (createDate == null) {
+			sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_1);
+		}
+		else {
+			bindCreateDate = true;
+
+			sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_2);
+		}
+
+		if (orderByComparator != null) {
+			String[] orderByConditionFields =
+				orderByComparator.getOrderByConditionFields();
+
+			if (orderByConditionFields.length > 0) {
+				sb.append(WHERE_AND);
+			}
+
+			for (int i = 0; i < orderByConditionFields.length; i++) {
+				sb.append(_ORDER_BY_ENTITY_ALIAS);
+				sb.append(orderByConditionFields[i]);
+
+				if ((i + 1) < orderByConditionFields.length) {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(WHERE_GREATER_THAN_HAS_NEXT);
+					}
+					else {
+						sb.append(WHERE_LESSER_THAN_HAS_NEXT);
+					}
+				}
+				else {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(WHERE_GREATER_THAN);
+					}
+					else {
+						sb.append(WHERE_LESSER_THAN);
+					}
+				}
+			}
+
+			sb.append(ORDER_BY_CLAUSE);
+
+			String[] orderByFields = orderByComparator.getOrderByFields();
+
+			for (int i = 0; i < orderByFields.length; i++) {
+				sb.append(_ORDER_BY_ENTITY_ALIAS);
+				sb.append(orderByFields[i]);
+
+				if ((i + 1) < orderByFields.length) {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(ORDER_BY_ASC_HAS_NEXT);
+					}
+					else {
+						sb.append(ORDER_BY_DESC_HAS_NEXT);
+					}
+				}
+				else {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(ORDER_BY_ASC);
+					}
+					else {
+						sb.append(ORDER_BY_DESC);
+					}
+				}
+			}
+		}
+		else {
+			sb.append(SearchHitModelImpl.ORDER_BY_JPQL);
+		}
+
+		String sql = sb.toString();
+
+		Query query = session.createQuery(sql);
+
+		query.setFirstResult(0);
+		query.setMaxResults(2);
+
+		QueryPos queryPos = QueryPos.getInstance(query);
+
+		queryPos.add(companyId);
+
+		if (bindCreateDate) {
+			queryPos.add(new Timestamp(createDate.getTime()));
+		}
+
+		if (orderByComparator != null) {
+			for (Object orderByConditionValue :
+					orderByComparator.getOrderByConditionValues(searchHit)) {
+
+				queryPos.add(orderByConditionValue);
+			}
+		}
+
+		List<SearchHit> list = query.list();
+
+		if (list.size() == 2) {
+			return list.get(1);
+		}
+		else {
+			return null;
+		}
+	}
+
+	/**
+	 * Removes all the search hits where companyId = &#63; and createDate &lt; &#63; from the database.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 */
+	@Override
+	public void removeByC_LtCreateDate(long companyId, Date createDate) {
+		for (SearchHit searchHit :
+				findByC_LtCreateDate(
+					companyId, createDate, QueryUtil.ALL_POS, QueryUtil.ALL_POS,
+					null)) {
+
+			remove(searchHit);
+		}
+	}
+
+	/**
+	 * Returns the number of search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @return the number of matching search hits
+	 */
+	@Override
+	public int countByC_LtCreateDate(long companyId, Date createDate) {
+		FinderPath finderPath = _finderPathWithPaginationCountByC_LtCreateDate;
+
+		Object[] finderArgs = new Object[] {companyId, _getTime(createDate)};
+
+		Long count = (Long)dummyFinderCache.getResult(
+			finderPath, finderArgs, this);
+
+		if (count == null) {
+			StringBundler sb = new StringBundler(3);
+
+			sb.append(_SQL_COUNT_SEARCHHIT_WHERE);
+
+			sb.append(_FINDER_COLUMN_C_LTCREATEDATE_COMPANYID_2);
+
+			boolean bindCreateDate = false;
+
+			if (createDate == null) {
+				sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_1);
+			}
+			else {
+				bindCreateDate = true;
+
+				sb.append(_FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_2);
+			}
+
+			String sql = sb.toString();
+
+			Session session = null;
+
+			try {
+				session = openSession();
+
+				Query query = session.createQuery(sql);
+
+				QueryPos queryPos = QueryPos.getInstance(query);
+
+				queryPos.add(companyId);
+
+				if (bindCreateDate) {
+					queryPos.add(new Timestamp(createDate.getTime()));
+				}
+
+				count = (Long)query.uniqueResult();
+
+				dummyFinderCache.putResult(finderPath, finderArgs, count);
+			}
+			catch (Exception exception) {
+				throw processException(exception);
+			}
+			finally {
+				closeSession(session);
+			}
+		}
+
+		return count.intValue();
+	}
+
+	private static final String _FINDER_COLUMN_C_LTCREATEDATE_COMPANYID_2 =
+		"searchHit.companyId = ? AND ";
+
+	private static final String _FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_1 =
+		"searchHit.createDate IS NULL";
+
+	private static final String _FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_2 =
+		"searchHit.createDate < ?";
+
 	public SearchHitPersistenceImpl() {
 		Map<String, String> dbColumnNames = new HashMap<String, String>();
 
@@ -736,6 +1309,8 @@ public class SearchHitPersistenceImpl
 
 		searchHit.setNew(true);
 		searchHit.setPrimaryKey(searchHitId);
+
+		searchHit.setCompanyId(CompanyThreadLocal.getCompanyId());
 
 		return searchHit;
 	}
@@ -844,6 +1419,20 @@ public class SearchHitPersistenceImpl
 		}
 
 		SearchHitModelImpl searchHitModelImpl = (SearchHitModelImpl)searchHit;
+
+		if (isNew && (searchHit.getCreateDate() == null)) {
+			ServiceContext serviceContext =
+				ServiceContextThreadLocal.getServiceContext();
+
+			Date date = new Date();
+
+			if (serviceContext == null) {
+				searchHit.setCreateDate(date);
+			}
+			else {
+				searchHit.setCreateDate(serviceContext.getCreateDate(date));
+			}
+		}
 
 		Session session = null;
 
@@ -1168,6 +1757,20 @@ public class SearchHitPersistenceImpl
 			new String[] {String.class.getName()},
 			new String[] {"searchEventUuid"}, false);
 
+		_finderPathWithPaginationFindByC_LtCreateDate = new FinderPath(
+			FINDER_CLASS_NAME_LIST_WITH_PAGINATION, "findByC_LtCreateDate",
+			new String[] {
+				Long.class.getName(), Date.class.getName(),
+				Integer.class.getName(), Integer.class.getName(),
+				OrderByComparator.class.getName()
+			},
+			new String[] {"companyId", "createDate"}, true);
+
+		_finderPathWithPaginationCountByC_LtCreateDate = new FinderPath(
+			FINDER_CLASS_NAME_LIST_WITH_PAGINATION, "countByC_LtCreateDate",
+			new String[] {Long.class.getName(), Date.class.getName()},
+			new String[] {"companyId", "createDate"}, false);
+
 		SearchHitUtil.setPersistence(this);
 	}
 
@@ -1202,6 +1805,14 @@ public class SearchHitPersistenceImpl
 	)
 	public void setSessionFactory(SessionFactory sessionFactory) {
 		super.setSessionFactory(sessionFactory);
+	}
+
+	private static Long _getTime(Date date) {
+		if (date == null) {
+			return null;
+		}
+
+		return date.getTime();
 	}
 
 	private static final String _SQL_SELECT_SEARCHHIT =

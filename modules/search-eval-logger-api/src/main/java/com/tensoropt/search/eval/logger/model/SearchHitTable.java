@@ -11,6 +11,8 @@ import com.liferay.petra.sql.dsl.base.BaseTable;
 import java.sql.Clob;
 import java.sql.Types;
 
+import java.util.Date;
+
 /**
  * The table class for the &quot;SEL_SearchHit&quot; database table.
  *
@@ -28,6 +30,10 @@ public class SearchHitTable extends BaseTable<SearchHitTable> {
 		"searchHitId", Long.class, Types.BIGINT, Column.FLAG_PRIMARY);
 	public final Column<SearchHitTable, String> searchEventUuid = createColumn(
 		"searchEventUuid", String.class, Types.VARCHAR, Column.FLAG_DEFAULT);
+	public final Column<SearchHitTable, Long> companyId = createColumn(
+		"companyId", Long.class, Types.BIGINT, Column.FLAG_DEFAULT);
+	public final Column<SearchHitTable, Date> createDate = createColumn(
+		"createDate", Date.class, Types.TIMESTAMP, Column.FLAG_DEFAULT);
 	public final Column<SearchHitTable, Integer> rank = createColumn(
 		"rank_", Integer.class, Types.INTEGER, Column.FLAG_DEFAULT);
 	public final Column<SearchHitTable, Double> score = createColumn(

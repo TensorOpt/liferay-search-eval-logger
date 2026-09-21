@@ -13,6 +13,7 @@ import com.liferay.portal.kernel.model.CacheModel;
 import com.liferay.portal.kernel.model.ModelWrapper;
 import com.liferay.portal.kernel.model.impl.BaseModelImpl;
 import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.ProxyUtil;
 import com.liferay.portal.kernel.util.StringUtil;
 
@@ -58,7 +59,8 @@ public class SearchHitModelImpl
 
 	public static final Object[][] TABLE_COLUMNS = {
 		{"mvccVersion", Types.BIGINT}, {"searchHitId", Types.BIGINT},
-		{"searchEventUuid", Types.VARCHAR}, {"rank_", Types.INTEGER},
+		{"searchEventUuid", Types.VARCHAR}, {"companyId", Types.BIGINT},
+		{"createDate", Types.TIMESTAMP}, {"rank_", Types.INTEGER},
 		{"score", Types.DOUBLE}, {"docUid", Types.VARCHAR},
 		{"entryClassName", Types.VARCHAR}, {"entryClassPK", Types.BIGINT},
 		{"title", Types.VARCHAR}, {"snippet", Types.CLOB},
@@ -72,6 +74,8 @@ public class SearchHitModelImpl
 		TABLE_COLUMNS_MAP.put("mvccVersion", Types.BIGINT);
 		TABLE_COLUMNS_MAP.put("searchHitId", Types.BIGINT);
 		TABLE_COLUMNS_MAP.put("searchEventUuid", Types.VARCHAR);
+		TABLE_COLUMNS_MAP.put("companyId", Types.BIGINT);
+		TABLE_COLUMNS_MAP.put("createDate", Types.TIMESTAMP);
 		TABLE_COLUMNS_MAP.put("rank_", Types.INTEGER);
 		TABLE_COLUMNS_MAP.put("score", Types.DOUBLE);
 		TABLE_COLUMNS_MAP.put("docUid", Types.VARCHAR);
@@ -83,7 +87,7 @@ public class SearchHitModelImpl
 	}
 
 	public static final String TABLE_SQL_CREATE =
-		"create table SEL_SearchHit (mvccVersion LONG default 0 not null,searchHitId LONG not null primary key,searchEventUuid VARCHAR(75) null,rank_ INTEGER,score DOUBLE,docUid VARCHAR(500) null,entryClassName VARCHAR(200) null,entryClassPK LONG,title VARCHAR(1000) null,snippet TEXT null,extraFields TEXT null)";
+		"create table SEL_SearchHit (mvccVersion LONG default 0 not null,searchHitId LONG not null primary key,searchEventUuid VARCHAR(75) null,companyId LONG,createDate DATE null,rank_ INTEGER,score DOUBLE,docUid VARCHAR(500) null,entryClassName VARCHAR(200) null,entryClassPK LONG,title VARCHAR(1000) null,snippet TEXT null,extraFields TEXT null)";
 
 	public static final String TABLE_SQL_DROP = "drop table SEL_SearchHit";
 
@@ -102,14 +106,26 @@ public class SearchHitModelImpl
 	 * @deprecated As of Athanasius (7.3.x), replaced by {@link #getColumnBitmask(String)}
 	 */
 	@Deprecated
-	public static final long SEARCHEVENTUUID_COLUMN_BITMASK = 1L;
+	public static final long COMPANYID_COLUMN_BITMASK = 1L;
+
+	/**
+	 * @deprecated As of Athanasius (7.3.x), replaced by {@link #getColumnBitmask(String)}
+	 */
+	@Deprecated
+	public static final long CREATEDATE_COLUMN_BITMASK = 2L;
+
+	/**
+	 * @deprecated As of Athanasius (7.3.x), replaced by {@link #getColumnBitmask(String)}
+	 */
+	@Deprecated
+	public static final long SEARCHEVENTUUID_COLUMN_BITMASK = 4L;
 
 	/**
 	 * @deprecated As of Athanasius (7.3.x), replaced by {@link
 	 *		#getColumnBitmask(String)}
 	 */
 	@Deprecated
-	public static final long RANK_COLUMN_BITMASK = 2L;
+	public static final long RANK_COLUMN_BITMASK = 8L;
 
 	/**
 	 * @deprecated As of Athanasius (7.3.x), with no direct replacement
@@ -224,6 +240,9 @@ public class SearchHitModelImpl
 				"searchHitId", SearchHit::getSearchHitId);
 			attributeGetterFunctions.put(
 				"searchEventUuid", SearchHit::getSearchEventUuid);
+			attributeGetterFunctions.put("companyId", SearchHit::getCompanyId);
+			attributeGetterFunctions.put(
+				"createDate", SearchHit::getCreateDate);
 			attributeGetterFunctions.put("rank", SearchHit::getRank);
 			attributeGetterFunctions.put("score", SearchHit::getScore);
 			attributeGetterFunctions.put("docUid", SearchHit::getDocUid);
@@ -260,6 +279,12 @@ public class SearchHitModelImpl
 			attributeSetterBiConsumers.put(
 				"searchEventUuid",
 				(BiConsumer<SearchHit, String>)SearchHit::setSearchEventUuid);
+			attributeSetterBiConsumers.put(
+				"companyId",
+				(BiConsumer<SearchHit, Long>)SearchHit::setCompanyId);
+			attributeSetterBiConsumers.put(
+				"createDate",
+				(BiConsumer<SearchHit, Date>)SearchHit::setCreateDate);
 			attributeSetterBiConsumers.put(
 				"rank", (BiConsumer<SearchHit, Integer>)SearchHit::setRank);
 			attributeSetterBiConsumers.put(
@@ -341,6 +366,53 @@ public class SearchHitModelImpl
 	@Deprecated
 	public String getOriginalSearchEventUuid() {
 		return getColumnOriginalValue("searchEventUuid");
+	}
+
+	@Override
+	public long getCompanyId() {
+		return _companyId;
+	}
+
+	@Override
+	public void setCompanyId(long companyId) {
+		if (_columnOriginalValues == Collections.EMPTY_MAP) {
+			_setColumnOriginalValues();
+		}
+
+		_companyId = companyId;
+	}
+
+	/**
+	 * @deprecated As of Athanasius (7.3.x), replaced by {@link
+	 *             #getColumnOriginalValue(String)}
+	 */
+	@Deprecated
+	public long getOriginalCompanyId() {
+		return GetterUtil.getLong(
+			this.<Long>getColumnOriginalValue("companyId"));
+	}
+
+	@Override
+	public Date getCreateDate() {
+		return _createDate;
+	}
+
+	@Override
+	public void setCreateDate(Date createDate) {
+		if (_columnOriginalValues == Collections.EMPTY_MAP) {
+			_setColumnOriginalValues();
+		}
+
+		_createDate = createDate;
+	}
+
+	/**
+	 * @deprecated As of Athanasius (7.3.x), replaced by {@link
+	 *             #getColumnOriginalValue(String)}
+	 */
+	@Deprecated
+	public Date getOriginalCreateDate() {
+		return getColumnOriginalValue("createDate");
 	}
 
 	@Override
@@ -507,7 +579,7 @@ public class SearchHitModelImpl
 	@Override
 	public ExpandoBridge getExpandoBridge() {
 		return ExpandoBridgeFactoryUtil.getExpandoBridge(
-			0, SearchHit.class.getName(), getPrimaryKey());
+			getCompanyId(), SearchHit.class.getName(), getPrimaryKey());
 	}
 
 	@Override
@@ -539,6 +611,8 @@ public class SearchHitModelImpl
 		searchHitImpl.setMvccVersion(getMvccVersion());
 		searchHitImpl.setSearchHitId(getSearchHitId());
 		searchHitImpl.setSearchEventUuid(getSearchEventUuid());
+		searchHitImpl.setCompanyId(getCompanyId());
+		searchHitImpl.setCreateDate(getCreateDate());
 		searchHitImpl.setRank(getRank());
 		searchHitImpl.setScore(getScore());
 		searchHitImpl.setDocUid(getDocUid());
@@ -563,6 +637,10 @@ public class SearchHitModelImpl
 			this.<Long>getColumnOriginalValue("searchHitId"));
 		searchHitImpl.setSearchEventUuid(
 			this.<String>getColumnOriginalValue("searchEventUuid"));
+		searchHitImpl.setCompanyId(
+			this.<Long>getColumnOriginalValue("companyId"));
+		searchHitImpl.setCreateDate(
+			this.<Date>getColumnOriginalValue("createDate"));
 		searchHitImpl.setRank(this.<Integer>getColumnOriginalValue("rank_"));
 		searchHitImpl.setScore(this.<Double>getColumnOriginalValue("score"));
 		searchHitImpl.setDocUid(this.<String>getColumnOriginalValue("docUid"));
@@ -666,6 +744,17 @@ public class SearchHitModelImpl
 
 		if ((searchEventUuid != null) && (searchEventUuid.length() == 0)) {
 			searchHitCacheModel.searchEventUuid = null;
+		}
+
+		searchHitCacheModel.companyId = getCompanyId();
+
+		Date createDate = getCreateDate();
+
+		if (createDate != null) {
+			searchHitCacheModel.createDate = createDate.getTime();
+		}
+		else {
+			searchHitCacheModel.createDate = Long.MIN_VALUE;
 		}
 
 		searchHitCacheModel.rank = getRank();
@@ -778,6 +867,8 @@ public class SearchHitModelImpl
 	private long _mvccVersion;
 	private long _searchHitId;
 	private String _searchEventUuid;
+	private long _companyId;
+	private Date _createDate;
 	private int _rank;
 	private double _score;
 	private String _docUid;
@@ -820,6 +911,8 @@ public class SearchHitModelImpl
 		_columnOriginalValues.put("mvccVersion", _mvccVersion);
 		_columnOriginalValues.put("searchHitId", _searchHitId);
 		_columnOriginalValues.put("searchEventUuid", _searchEventUuid);
+		_columnOriginalValues.put("companyId", _companyId);
+		_columnOriginalValues.put("createDate", _createDate);
 		_columnOriginalValues.put("rank_", _rank);
 		_columnOriginalValues.put("score", _score);
 		_columnOriginalValues.put("docUid", _docUid);
@@ -857,21 +950,25 @@ public class SearchHitModelImpl
 
 		columnBitmasks.put("searchEventUuid", 4L);
 
-		columnBitmasks.put("rank_", 8L);
+		columnBitmasks.put("companyId", 8L);
 
-		columnBitmasks.put("score", 16L);
+		columnBitmasks.put("createDate", 16L);
 
-		columnBitmasks.put("docUid", 32L);
+		columnBitmasks.put("rank_", 32L);
 
-		columnBitmasks.put("entryClassName", 64L);
+		columnBitmasks.put("score", 64L);
 
-		columnBitmasks.put("entryClassPK", 128L);
+		columnBitmasks.put("docUid", 128L);
 
-		columnBitmasks.put("title", 256L);
+		columnBitmasks.put("entryClassName", 256L);
 
-		columnBitmasks.put("snippet", 512L);
+		columnBitmasks.put("entryClassPK", 512L);
 
-		columnBitmasks.put("extraFields", 1024L);
+		columnBitmasks.put("title", 1024L);
+
+		columnBitmasks.put("snippet", 2048L);
+
+		columnBitmasks.put("extraFields", 4096L);
 
 		_columnBitmasks = Collections.unmodifiableMap(columnBitmasks);
 	}

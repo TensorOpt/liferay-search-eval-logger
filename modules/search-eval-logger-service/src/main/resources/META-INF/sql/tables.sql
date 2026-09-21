@@ -25,6 +25,8 @@ create table SEL_SearchHit (
 	mvccVersion LONG default 0 not null,
 	searchHitId LONG not null primary key,
 	searchEventUuid VARCHAR(75) null,
+	companyId LONG,
+	createDate DATE null,
 	rank_ INTEGER,
 	score DOUBLE,
 	docUid VARCHAR(500) null,

@@ -8,6 +8,9 @@ package com.tensoropt.search.eval.logger.model;
 import com.liferay.portal.kernel.bean.AutoEscape;
 import com.liferay.portal.kernel.model.BaseModel;
 import com.liferay.portal.kernel.model.MVCCModel;
+import com.liferay.portal.kernel.model.ShardedModel;
+
+import java.util.Date;
 
 import org.osgi.annotation.versioning.ProviderType;
 
@@ -23,7 +26,8 @@ import org.osgi.annotation.versioning.ProviderType;
  * @generated
  */
 @ProviderType
-public interface SearchHitModel extends BaseModel<SearchHit>, MVCCModel {
+public interface SearchHitModel
+	extends BaseModel<SearchHit>, MVCCModel, ShardedModel {
 
 	/*
 	 * NOTE FOR DEVELOPERS:
@@ -89,6 +93,36 @@ public interface SearchHitModel extends BaseModel<SearchHit>, MVCCModel {
 	 * @param searchEventUuid the search event uuid of this search hit
 	 */
 	public void setSearchEventUuid(String searchEventUuid);
+
+	/**
+	 * Returns the company ID of this search hit.
+	 *
+	 * @return the company ID of this search hit
+	 */
+	@Override
+	public long getCompanyId();
+
+	/**
+	 * Sets the company ID of this search hit.
+	 *
+	 * @param companyId the company ID of this search hit
+	 */
+	@Override
+	public void setCompanyId(long companyId);
+
+	/**
+	 * Returns the create date of this search hit.
+	 *
+	 * @return the create date of this search hit
+	 */
+	public Date getCreateDate();
+
+	/**
+	 * Sets the create date of this search hit.
+	 *
+	 * @param createDate the create date of this search hit
+	 */
+	public void setCreateDate(Date createDate);
 
 	/**
 	 * Returns the rank of this search hit.

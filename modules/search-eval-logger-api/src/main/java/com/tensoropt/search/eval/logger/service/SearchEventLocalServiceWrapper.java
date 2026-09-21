@@ -71,6 +71,34 @@ public class SearchEventLocalServiceWrapper
 	}
 
 	/**
+	 * Deletes every event older than the cutoff for one virtual instance,
+	 * in a single statement, and returns how many rows went.
+	 *
+	 * <p>
+	 * Service Builder's generated <code>removeByC_LtCreateDate</code> is not
+	 * usable for this: it loads every matching row with
+	 * <code>QueryUtil.ALL_POS</code> and deletes them one at a time, so a
+	 * backlog would be pulled into the heap before anything was freed. This
+	 * goes to JDBC instead, which is safe here specifically because both
+	 * entities are <code>cache-enabled="false"</code> and nothing listens for
+	 * their removal, so no cache is left holding rows that no longer exist.
+	 * </p>
+	 *
+	 * <p>
+	 * The connection is the one bound to the current transaction where there
+	 * is one, matching what the generated <code>runSQL</code> does, so the
+	 * delete commits or rolls back with its caller.
+	 * </p>
+	 */
+	@Override
+	public int deleteByCompanyIdAndCreateDateBefore(
+		long companyId, java.util.Date cutoffDate) {
+
+		return _searchEventLocalService.deleteByCompanyIdAndCreateDateBefore(
+			companyId, cutoffDate);
+	}
+
+	/**
 	 * @throws PortalException
 	 */
 	@Override

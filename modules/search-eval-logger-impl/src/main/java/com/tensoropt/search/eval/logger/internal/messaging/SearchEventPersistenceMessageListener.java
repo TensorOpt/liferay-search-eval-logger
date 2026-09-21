@@ -141,7 +141,9 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		_searchEventLocalService.addSearchEvent(searchEvent);
 
 		for (CapturedSearchHit capturedSearchHit : capturedSearchHits) {
-			_addSearchHit(uuid, capturedSearchHit);
+			_addSearchHit(
+				uuid, companyId, searchEvent.getCreateDate(),
+				capturedSearchHit);
 		}
 
 		if (_log.isDebugEnabled()) {
@@ -159,7 +161,8 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 	}
 
 	private void _addSearchHit(
-		String searchEventUuid, CapturedSearchHit capturedSearchHit) {
+		String searchEventUuid, long companyId, Date createDate,
+		CapturedSearchHit capturedSearchHit) {
 
 		com.tensoropt.search.eval.logger.model.SearchHit searchHit =
 			_searchHitLocalService.createSearchHit(
@@ -168,6 +171,12 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 						getName()));
 
 		searchHit.setSearchEventUuid(searchEventUuid);
+
+		// Duplicated from the event so the purge can delete hits without
+		// resolving their parents first. Same transaction, never updated.
+
+		searchHit.setCompanyId(companyId);
+		searchHit.setCreateDate(createDate);
 		searchHit.setRank(capturedSearchHit.getRank());
 		searchHit.setScore(capturedSearchHit.getScore());
 		searchHit.setDocUid(capturedSearchHit.getDocUid());

@@ -85,6 +85,24 @@
 
 		<column name="searchEventUuid" type="String" />
 
+		<!--
+		A hit carries its own companyId and createDate, duplicated from its
+		event. They are written in the same transaction and never updated, so
+		they cannot drift.
+
+		This is what lets the retention purge delete hits and events as two
+		independent statements rather than resolving parents first: each
+		filters on its own indexed predicate, in any order. It also means a
+		hit that somehow outlived its event is still reachable and still
+		purged, instead of becoming a row nothing can ever find. companyId is
+		here and not just createDate because retention is a per-instance
+		setting, so a purge must not cross virtual instances. See DESIGN.md
+		3.4 and 4.2.
+		-->
+
+		<column name="companyId" type="long" />
+		<column name="createDate" type="Date" />
+
 		<!-- Hit -->
 
 		<column db-name="rank_" name="rank" type="int" />
@@ -110,6 +128,18 @@
 
 		<finder name="SearchEventUuid" return-type="Collection">
 			<finder-column name="searchEventUuid" />
+		</finder>
+
+		<!--
+		Mirrors the event index, so the purge's delete is an index range scan
+		on a narrow daily window and a sequential scan only when it is
+		deleting a large fraction of the table, which is the right plan for
+		that case.
+		-->
+
+		<finder name="C_LtCreateDate" return-type="Collection">
+			<finder-column name="companyId" />
+			<finder-column comparator="&lt;" name="createDate" />
 		</finder>
 	</entity>
 </service-builder>

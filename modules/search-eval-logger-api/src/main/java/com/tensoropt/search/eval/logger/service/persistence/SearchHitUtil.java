@@ -13,6 +13,7 @@ import com.tensoropt.search.eval.logger.model.SearchHit;
 
 import java.io.Serializable;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -288,6 +289,197 @@ public class SearchHitUtil {
 	 */
 	public static int countBySearchEventUuid(String searchEventUuid) {
 		return getPersistence().countBySearchEventUuid(searchEventUuid);
+	}
+
+	/**
+	 * Returns all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @return the matching search hits
+	 */
+	public static List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate) {
+
+		return getPersistence().findByC_LtCreateDate(companyId, createDate);
+	}
+
+	/**
+	 * Returns a range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @return the range of matching search hits
+	 */
+	public static List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end) {
+
+		return getPersistence().findByC_LtCreateDate(
+			companyId, createDate, start, end);
+	}
+
+	/**
+	 * Returns an ordered range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search hits
+	 */
+	public static List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		return getPersistence().findByC_LtCreateDate(
+			companyId, createDate, start, end, orderByComparator);
+	}
+
+	/**
+	 * Returns an ordered range of all the search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchHitModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param start the lower bound of the range of search hits
+	 * @param end the upper bound of the range of search hits (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @param useFinderCache whether to use the finder cache
+	 * @return the ordered range of matching search hits
+	 */
+	public static List<SearchHit> findByC_LtCreateDate(
+		long companyId, Date createDate, int start, int end,
+		OrderByComparator<SearchHit> orderByComparator,
+		boolean useFinderCache) {
+
+		return getPersistence().findByC_LtCreateDate(
+			companyId, createDate, start, end, orderByComparator,
+			useFinderCache);
+	}
+
+	/**
+	 * Returns the first search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search hit
+	 * @throws NoSuchSearchHitException if a matching search hit could not be found
+	 */
+	public static SearchHit findByC_LtCreateDate_First(
+			long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws com.tensoropt.search.eval.logger.exception.
+			NoSuchSearchHitException {
+
+		return getPersistence().findByC_LtCreateDate_First(
+			companyId, createDate, orderByComparator);
+	}
+
+	/**
+	 * Returns the first search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search hit, or <code>null</code> if a matching search hit could not be found
+	 */
+	public static SearchHit fetchByC_LtCreateDate_First(
+		long companyId, Date createDate,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		return getPersistence().fetchByC_LtCreateDate_First(
+			companyId, createDate, orderByComparator);
+	}
+
+	/**
+	 * Returns the last search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search hit
+	 * @throws NoSuchSearchHitException if a matching search hit could not be found
+	 */
+	public static SearchHit findByC_LtCreateDate_Last(
+			long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws com.tensoropt.search.eval.logger.exception.
+			NoSuchSearchHitException {
+
+		return getPersistence().findByC_LtCreateDate_Last(
+			companyId, createDate, orderByComparator);
+	}
+
+	/**
+	 * Returns the last search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search hit, or <code>null</code> if a matching search hit could not be found
+	 */
+	public static SearchHit fetchByC_LtCreateDate_Last(
+		long companyId, Date createDate,
+		OrderByComparator<SearchHit> orderByComparator) {
+
+		return getPersistence().fetchByC_LtCreateDate_Last(
+			companyId, createDate, orderByComparator);
+	}
+
+	/**
+	 * Returns the search hits before and after the current search hit in the ordered set where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param searchHitId the primary key of the current search hit
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the previous, current, and next search hit
+	 * @throws NoSuchSearchHitException if a search hit with the primary key could not be found
+	 */
+	public static SearchHit[] findByC_LtCreateDate_PrevAndNext(
+			long searchHitId, long companyId, Date createDate,
+			OrderByComparator<SearchHit> orderByComparator)
+		throws com.tensoropt.search.eval.logger.exception.
+			NoSuchSearchHitException {
+
+		return getPersistence().findByC_LtCreateDate_PrevAndNext(
+			searchHitId, companyId, createDate, orderByComparator);
+	}
+
+	/**
+	 * Removes all the search hits where companyId = &#63; and createDate &lt; &#63; from the database.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 */
+	public static void removeByC_LtCreateDate(long companyId, Date createDate) {
+		getPersistence().removeByC_LtCreateDate(companyId, createDate);
+	}
+
+	/**
+	 * Returns the number of search hits where companyId = &#63; and createDate &lt; &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param createDate the create date
+	 * @return the number of matching search hits
+	 */
+	public static int countByC_LtCreateDate(long companyId, Date createDate) {
+		return getPersistence().countByC_LtCreateDate(companyId, createDate);
 	}
 
 	/**
