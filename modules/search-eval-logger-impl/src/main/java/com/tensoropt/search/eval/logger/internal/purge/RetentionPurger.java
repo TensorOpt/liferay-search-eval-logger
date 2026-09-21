@@ -17,6 +17,8 @@ import com.tensoropt.search.eval.logger.service.SearchEventLocalService;
 import com.tensoropt.search.eval.logger.service.persistence.SearchEventPersistence;
 import com.tensoropt.search.eval.logger.service.persistence.SearchHitPersistence;
 
+import java.time.Clock;
+
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +59,7 @@ public class RetentionPurger {
 			searchEvalLoggerConfiguration.retentionDays(), 1);
 
 		Date cutoffDate = new Date(
-			System.currentTimeMillis() - TimeUnit.DAYS.toMillis(retentionDays));
+			_clock.millis() - TimeUnit.DAYS.toMillis(retentionDays));
 
 		int deletedEventCount = 0;
 
@@ -127,6 +129,15 @@ public class RetentionPurger {
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		RetentionPurger.class);
+
+	/**
+	 * Visible for testing, so the cutoff can be placed without waiting.
+	 */
+	void setClock(Clock clock) {
+		_clock = clock;
+	}
+
+	private Clock _clock = Clock.systemUTC();
 
 	@Reference
 	private SearchEvalLoggerConfigurationRegistry

@@ -13,9 +13,7 @@ import com.liferay.portal.kernel.util.Validator;
 import com.tensoropt.search.eval.logger.api.SearchEvalLoggerStatistics;
 import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfiguration;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.time.Clock;
 
 import java.util.Date;
 import java.util.Map;
@@ -46,14 +44,14 @@ public class SearchEvalExportManifestBuilder {
 		JSONObject jsonObject = _jsonFactory.createJSONObject();
 
 		jsonObject.put("company_id", companyId);
-		jsonObject.put("exported_at", _format(new Date()));
+		jsonObject.put("exported_at", ExportTimestamps.format(_clock.instant()));
 		jsonObject.put(
 			"export_range",
 			_jsonFactory.createJSONObject(
 			).put(
-				"from", _format(startDate)
+				"from", ExportTimestamps.format(startDate)
 			).put(
-				"to", _format(endDate)
+				"to", ExportTimestamps.format(endDate)
 			));
 		jsonObject.put(
 			"counts",
@@ -153,17 +151,6 @@ public class SearchEvalExportManifestBuilder {
 		return jsonObject;
 	}
 
-	private String _format(Date date) {
-		if (date == null) {
-			return null;
-		}
-
-		Instant instant = date.toInstant();
-
-		return _DATE_TIME_FORMATTER.format(
-			instant.truncatedTo(ChronoUnit.SECONDS));
-	}
-
 	private String _getPluginVersion() {
 		Bundle bundle = FrameworkUtil.getBundle(
 			SearchEvalExportManifestBuilder.class);
@@ -193,8 +180,14 @@ public class SearchEvalExportManifestBuilder {
 		return jsonArray;
 	}
 
-	private static final DateTimeFormatter _DATE_TIME_FORMATTER =
-		DateTimeFormatter.ISO_INSTANT;
+	/**
+	 * Visible for testing, so a manifest is byte-comparable across runs.
+	 */
+	void setClock(Clock clock) {
+		_clock = clock;
+	}
+
+	private Clock _clock = Clock.systemUTC();
 
 	@Reference
 	private JSONFactory _jsonFactory;

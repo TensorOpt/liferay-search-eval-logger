@@ -6,10 +6,6 @@ package com.tensoropt.search.eval.logger.web.internal.export;
 
 import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfiguration;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-
 import java.util.Date;
 import java.util.Map;
 
@@ -38,9 +34,9 @@ public class SearchEvalExportReadmeBuilder {
 
 		sb.append("# Search Evaluation Export\n\n");
 		sb.append("Range: ");
-		sb.append(_format(startDate));
+		sb.append(ExportTimestamps.format(startDate));
 		sb.append(" to ");
-		sb.append(_format(endDate));
+		sb.append(ExportTimestamps.format(endDate));
 		sb.append(" (UTC, end exclusive)  \nEvents: ");
 		sb.append(searchEvalExportResult.getEventCount());
 		sb.append("  \nHits: ");
@@ -65,17 +61,6 @@ public class SearchEvalExportReadmeBuilder {
 		sb.append(_HANDLING);
 
 		return sb.toString();
-	}
-
-	private String _format(Date date) {
-		if (date == null) {
-			return "(unbounded)";
-		}
-
-		Instant instant = date.toInstant();
-
-		return _DATE_TIME_FORMATTER.format(
-			instant.truncatedTo(ChronoUnit.SECONDS));
 	}
 
 	private String _getCoverageSection(
@@ -150,9 +135,6 @@ public class SearchEvalExportReadmeBuilder {
 						"configuration at export time, backpressure counts " +
 							"and per-field coverage rates.\n- `README.md` - " +
 								"this file.\n\n";
-
-	private static final DateTimeFormatter _DATE_TIME_FORMATTER =
-		DateTimeFormatter.ISO_INSTANT;
 
 	private static final String _DROP_COUNTS =
 		"**Drop counts are process-wide.** Under load the collector drops " +

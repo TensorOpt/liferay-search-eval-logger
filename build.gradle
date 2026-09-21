@@ -12,3 +12,34 @@ subprojects {
 		targetCompatibility = "17"
 	}
 }
+
+// Unit tests run on plain JUnit against the module's own logic. Nothing here
+// starts a portal: anything that would need one is covered by the empirical
+// checks in DESIGN.md section 7 instead, deliberately, because a mocked portal
+// proves only that the mock matches the assumption being tested.
+//
+// Wired inside plugins.withId because the Liferay workspace plugin applies the
+// java plugin to each module after this block is evaluated, so the test
+// configurations do not exist yet at this point.
+subprojects {
+	plugins.withId("java") {
+		repositories {
+			mavenCentral()
+		}
+
+		dependencies {
+			testImplementation group: "org.junit.jupiter", name: "junit-jupiter", version: "5.10.2"
+			testImplementation group: "org.mockito", name: "mockito-core", version: "5.11.0"
+			testRuntimeOnly group: "org.junit.platform", name: "junit-platform-launcher", version: "1.10.2"
+		}
+
+		tasks.withType(Test) {
+			useJUnitPlatform()
+
+			testLogging {
+				events "failed"
+				exceptionFormat "full"
+			}
+		}
+	}
+}

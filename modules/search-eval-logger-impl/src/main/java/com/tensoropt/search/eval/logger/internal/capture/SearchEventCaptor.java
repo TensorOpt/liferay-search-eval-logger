@@ -24,6 +24,8 @@ import com.tensoropt.search.eval.logger.api.SearchEvalLoggerConstants;
 import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfiguration;
 import com.tensoropt.search.eval.logger.internal.context.SearchRequestOrigin;
 
+import java.time.Clock;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -58,7 +60,7 @@ public class SearchEventCaptor {
 		CapturedSearchEvent capturedSearchEvent = new CapturedSearchEvent();
 
 		capturedSearchEvent.setCompanyId(searchContext.getCompanyId());
-		capturedSearchEvent.setCreateTime(System.currentTimeMillis());
+		capturedSearchEvent.setCreateTime(_clock.millis());
 		capturedSearchEvent.setUserId(searchContext.getUserId());
 		capturedSearchEvent.setSourceType(searchRequestOrigin.getSourceType());
 
@@ -529,6 +531,15 @@ public class SearchEventCaptor {
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEventCaptor.class);
+
+	/**
+	 * Visible for testing, so a captured event's timestamp is deterministic.
+	 */
+	void setClock(Clock clock) {
+		_clock = clock;
+	}
+
+	private Clock _clock = Clock.systemUTC();
 
 	@Reference
 	private FacetExtractor _facetExtractor;

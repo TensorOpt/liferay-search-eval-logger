@@ -1,4 +1,9 @@
 dependencies {
 	compileOnly group: "com.liferay.portal", name: "release.dxp.api"
 	compileOnly project(":modules:search-eval-logger-api")
+
+	// compileOnly keeps these out of the bundle, but unit tests still need
+	// them on the classpath to run against.
+	testImplementation group: "com.liferay.portal", name: "release.dxp.api"
+	testImplementation project(":modules:search-eval-logger-api")
 }

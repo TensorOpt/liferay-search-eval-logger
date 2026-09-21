@@ -32,10 +32,6 @@ import java.io.Writer;
 
 import java.nio.charset.StandardCharsets;
 
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-
 import java.util.Date;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -136,17 +132,6 @@ public class SearchEvalExportWriter {
 
 			return _jsonFactory.createJSONObject();
 		}
-	}
-
-	private String _formatInstant(Date date) {
-		if (date == null) {
-			return null;
-		}
-
-		Instant instant = date.toInstant();
-
-		return _DATE_TIME_FORMATTER.format(
-			instant.truncatedTo(ChronoUnit.SECONDS));
 	}
 
 	/**
@@ -257,7 +242,7 @@ public class SearchEvalExportWriter {
 		_put(jsonObject, "event_id", searchEvent.getUuid());
 		_put(
 			jsonObject, "created_at",
-			_formatInstant(searchEvent.getCreateDate()));
+			ExportTimestamps.format(searchEvent.getCreateDate()));
 		_put(jsonObject, "query", searchEvent.getQueryText());
 		jsonObject.put("query_truncated", searchEvent.isQueryTruncated());
 		_put(jsonObject, "locale", searchEvent.getLocale());
@@ -410,9 +395,6 @@ public class SearchEvalExportWriter {
 			}
 		}
 	}
-
-	private static final DateTimeFormatter _DATE_TIME_FORMATTER =
-		DateTimeFormatter.ISO_INSTANT;
 
 	private static final String _EVENTS_FILE_NAME = "events.jsonl";
 

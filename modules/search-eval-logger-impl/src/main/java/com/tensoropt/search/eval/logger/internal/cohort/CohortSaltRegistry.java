@@ -7,8 +7,12 @@ package com.tensoropt.search.eval.logger.internal.cohort;
 import java.nio.charset.StandardCharsets;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
+import java.time.Clock;
+
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -52,22 +56,38 @@ public class CohortSaltRegistry {
 
 		byte[] salt = _getSalt(companyId, rotationMillis);
 
+		MessageDigest messageDigest = _getMessageDigest();
+
+		messageDigest.update(salt);
+		messageDigest.update(
+			String.valueOf(userId).getBytes(StandardCharsets.UTF_8));
+
+		return HexFormat.of().formatHex(messageDigest.digest());
+	}
+
+	/**
+	 * Visible for testing, so rotation can be driven without sleeping.
+	 */
+	void setClock(Clock clock) {
+		_clock = clock;
+	}
+
+	private MessageDigest _getMessageDigest() {
 		try {
-			MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-
-			messageDigest.update(salt);
-			messageDigest.update(
-				String.valueOf(userId).getBytes(StandardCharsets.UTF_8));
-
-			return _toHexString(messageDigest.digest());
+			return MessageDigest.getInstance(_ALGORITHM);
 		}
-		catch (Exception exception) {
-			return null;
+		catch (NoSuchAlgorithmException noSuchAlgorithmException) {
+
+			// Every conformant JVM ships SHA-256, so this cannot happen and
+			// swallowing it would hide a broken runtime rather than a missing
+			// hash.
+
+			throw new IllegalStateException(noSuchAlgorithmException);
 		}
 	}
 
 	private byte[] _getSalt(long companyId, long rotationMillis) {
-		long now = System.currentTimeMillis();
+		long now = _clock.millis();
 
 		Salt salt = _salts.compute(
 			companyId,
@@ -92,19 +112,11 @@ public class CohortSaltRegistry {
 		return salt;
 	}
 
-	private String _toHexString(byte[] bytes) {
-		StringBuilder sb = new StringBuilder(bytes.length * 2);
-
-		for (byte b : bytes) {
-			sb.append(Character.forDigit((b >> 4) & 0xf, 16));
-			sb.append(Character.forDigit(b & 0xf, 16));
-		}
-
-		return sb.toString();
-	}
+	private static final String _ALGORITHM = "SHA-256";
 
 	private static final int _SALT_LENGTH = 32;
 
+	private Clock _clock = Clock.systemUTC();
 	private final Map<Long, Salt> _salts = new ConcurrentHashMap<>();
 	private final SecureRandom _secureRandom = new SecureRandom();
 
