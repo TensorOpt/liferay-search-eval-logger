@@ -11,21 +11,62 @@ relevance analysis. Capture is designed to be passive — it wraps the public
 fails a search.
 
 See [DESIGN.md](DESIGN.md) for the full design, including the settled constraints
-(D1-D8) that any change must satisfy and the open empirical checks (EC-1-EC-13)
-that still have to be validated against a running instance.
+(D1-D8) that any change must satisfy and the empirical checks (EC-1-EC-13), each
+recorded there with what running the plugin actually showed.
 
 ## Status
 
-**Feature complete, unverified. Not released.** Capture, filtering, asynchronous
-persistence, the retention purge, the admin screen and the export are all
-implemented, and the four modules build together as one workspace. None of it has
-yet been deployed to or run against a real Liferay instance, and the open empirical
-checks in DESIGN.md section 7 are exactly that work: until EC-1 is confirmed on a
-live instance, even the interception point this plugin is built on is an
-assumption. Treat everything below as designed behaviour rather than observed
-behaviour.
+**Running and measured on a real instance. Not released.**
 
-## What is intended to be collected
+Every part of the pipeline — capture, filtering, asynchronous persistence, the
+retention purge, the admin screen and the export — has been deployed to and
+exercised against Liferay DXP 2025.Q1.27 LTS on PostgreSQL 15. The figures below
+are observed rather than projected.
+
+Verified:
+
+- **Interception** (EC-1, EC-2). The Search Results widget routes through
+  `Searcher`; searches issued from a browser are captured, persisted and exported.
+  Suggestion traffic reaches the wrapper too and is classifiable, so it can be
+  excluded rather than silently counted as user intent.
+- **The restart constraint** (EC-3). Overriding `Searcher` by `service.ranking`
+  works, but only for consumers that bind after the wrapper registers — see
+  [Restart the portal after installing and after every redeploy](#restart-the-portal-after-installing-and-after-every-redeploy).
+  The plugin's detection of that state has been confirmed firing in the admin
+  screen.
+- **Field availability** (EC-4), and thinner than the design assumed. Title and a
+  highlighted snippet are both present on the widget path, but the snippet comes
+  from `SearchHit#getHighlightFieldsMap()`, not from any field inside the
+  `Document`.
+- **Export at scale.** A synthetic corpus of 600,017 events and 6,000,056 hits
+  exports in about two and a half minutes to a 114 MB archive, streamed in constant
+  memory. The result was checked rather than assumed: one JSONL line per event,
+  chronologically ordered end to end, every `manifest.json` key from DESIGN.md 6.2
+  present, and per-field coverage matching the generator's own ratios to fourteen
+  decimal places.
+- **Retention purge.** Against that corpus, deleting one day costs 0.168 s, a first
+  application to a 400,000-event backlog about 13 s, and a run with nothing to
+  delete 13 ms. Rows with backdated timestamps were included deliberately, so the
+  sliding window is exercised rather than only the empty case.
+- **Unit tests.** 41, run by `./gradlew test` — 15 in api, 16 in impl, 10 in web.
+  The service module has none: it is entirely Service Builder output.
+
+Not verified:
+
+- Blueprints (EC-6, EC-13) and the headless Search API (EC-5). The first needs
+  Liferay Enterprise Search; the second is gated behind feature flag `LPS-179669`,
+  which could not be opened on the test instance. Code inspection says the headless
+  path resolves `Searcher` through the registry and would be wrapped, inheriting
+  EC-3's constraint, but that is reasoning, not a measurement.
+- DXP Cloud (EC-9). Never deployed there.
+- The `EXPORT` permission gate has only ever been exercised as an administrator who
+  holds it. That it correctly refuses a user who does not is untested.
+- The internal-traffic ratio (EC-10) was measured only on an idle instance, where
+  the denominator was dominated by test searches. It is not a production figure.
+
+See DESIGN.md section 7 for each check in full.
+
+## What is collected
 
 - The user's query text, locale, scope and requested asset types
 - Applied facet selections, where the search path exposes them. Where they cannot
@@ -36,7 +77,9 @@ behaviour.
   `UNAVAILABLE` rather than as "no facets applied" (DESIGN.md 3.2, EC-12)
 - The result set that was returned: rank, score, document UID, entry class, and the
   whitelisted fields (`title` and `snippet` by default) when the response already
-  contains them
+  contains them. `snippet` is not one of the indexed fields — it is read from the
+  response's highlight fragments, so it is present only for searches the UI ran
+  with highlighting on, and absent rather than empty otherwise (EC-4)
 - Pagination context (`requestedSize`, `requestedFrom`, `totalHits`,
   `loggedHitCount`), so a capped result set is never mistaken for a short one
 - A coarse evaluation cohort: `GUEST` or `AUTHENTICATED`, plus a salted hash of the
@@ -52,14 +95,20 @@ a daily purge.
 - No raw user identifiers, names, emails or IP addresses
 - No document bodies. Field capture is an explicit whitelist, never "whatever the
   response contains"
+- Nothing in the portal log. Query text and result snippets are written to the
+  plugin's own tables and nowhere else, so the retention window is a guarantee the
+  plugin can actually keep: a log file it does not control would outlive the purge
+  and travel to wherever logs are shipped
 - Nothing the caller did not already request. Snippets appear only where the search
   UI already enabled highlighting; the plugin never widens a query to capture more
 - Most internal Liferay traffic. Only searches carrying user keywords are admitted,
   which is the strongest available discriminator against Asset Publisher
   collections, Control Panel listings, workflow and DDM lookups. It is a filter,
-  not a guarantee: what share of internal traffic survives it has not yet been
-  measured on a real instance (DESIGN.md 3.2, EC-10), and the admission rules in
-  force are recorded in each export's manifest
+  not a guarantee: on an otherwise idle instance the keyword condition removed 8 of
+  18 observed searches, so internal keyword-free traffic is real and non-trivial
+  even at rest, and the share on a busy instance is unmeasured (DESIGN.md 3.2,
+  EC-10). Both the admission rules in force and the resulting funnel are recorded
+  in each export's manifest
 - Nothing is transmitted anywhere. Export is a manual admin action against the
   local instance
 
@@ -74,8 +123,9 @@ numeric virtual instance ID, not a site or host name. Inside:
 - `events.jsonl` — one JSON object per line: a search event with its hits nested,
   so each line is a complete `(query, result[])` record with no join to reconstruct
 - `manifest.json` — the range, event and hit counts, plugin and Liferay versions,
-  the collector's configuration at export time, backpressure counts and per-field
-  coverage rates
+  the collector's configuration at export time, the admission counters (searches
+  observed, of those carrying keywords, of those admitted, then dispatched, dropped
+  and persisted) and per-field coverage rates
 - `README.md` — the structural caveats in plain language, so the archive can be
   read correctly on its own
 
@@ -105,7 +155,7 @@ the export screen under Configuration as Search Eval Export. Collection stays of
 until an administrator enables it, and exporting is gated by its own `EXPORT`
 permission, granted to nobody by default.
 
-## Restart the portal once after installing
+## Restart the portal after installing, and after every redeploy
 
 **Installing onto a running portal is not enough. Restart it before enabling
 collection, or nothing will be recorded.**
@@ -117,9 +167,20 @@ called: searches are served normally, no error is logged, and the tables stay em
 no matter what the configuration says. Restarting makes the search components bind
 the wrapper as they start.
 
-This bites exactly once, on installation. The plugin detects the state rather than
-leaving it to be found as an empty export: it logs a warning on startup and shows it
-on the export screen. If that warning is present, a restart is still outstanding.
+This is not a one-time installation step. For `search-eval-logger-impl`, the bundle
+holding the wrapper, a redeploy is the same event as an install: refreshing it
+unregisters the wrapper and registers a new instance, while the already-bound
+consumers keep the reference they resolved at their own activation — by then, the
+portal's own searcher again. Anyone developing against the capture path is on a
+deploy, restart, test loop, and a `./gradlew deploy` that reports success against a
+portal still happily serving searches will collect nothing until the restart.
+
+The other three modules are ordinary bundles. Redeploying `search-eval-logger-web`
+— the admin screen and the export — takes effect immediately and needs no restart.
+
+The plugin detects the state rather than leaving it to be found as an empty export:
+it logs a warning on startup and shows it on the export screen. If that warning is
+present, a restart is still outstanding.
 
 A restart of the whole portal is the supported route. Refreshing only
 `com.liferay.portal.search.web`, `com.liferay.portal.search.rest.impl` and
