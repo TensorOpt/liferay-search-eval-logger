@@ -56,6 +56,8 @@ public class LoggingSearcher implements Searcher {
 		SearchResponse searchResponse = _searcher.search(searchRequest);
 
 		try {
+			_searchInterceptionStatusImpl.recordInterception();
+
 			_capture(searchRequest, searchResponse);
 		}
 		catch (Throwable throwable) {
@@ -176,6 +178,9 @@ public class LoggingSearcher implements Searcher {
 
 	@Reference
 	private SearchEventDispatcher _searchEventDispatcher;
+
+	@Reference
+	private SearchInterceptionStatusImpl _searchInterceptionStatusImpl;
 
 	@Reference
 	private SearchRequestBuilderFactory _searchRequestBuilderFactory;

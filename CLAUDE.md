@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **All four modules implemented and building together; nothing validated against a running instance.** The api, service, impl and web modules exist, and `./gradlew build` from the repo root builds all four in one pass. Collection (§3, §5) and export (§6) are implemented end to end.
 
-What is *not* done: this has never been deployed to a real Liferay, or run at all. Every empirical check in DESIGN.md §7 is still open, EC-1 above all — if the Search Results widget does not route through `Searcher`, the interception approach needs rework and nothing downstream of it matters. EC-2 (are suggestions classifiable), EC-4 (which fields the response actually carries), EC-11 (which ThreadLocals are populated) and EC-12 (where facets are readable) each decide how much of the captured data is real rather than empty. Those are open by design, not gaps to close from a desk. Treat the code as a well-formed hypothesis, not as working software.
+What is *not* done: every empirical check in DESIGN.md §7 is still open except EC-1 and EC-3. **EC-1 is confirmed:** the Search Results widget does route through `Searcher`, and events are captured end to end against a real DXP instance. **EC-3 is resolved with a constraint:** the `service.ranking` override only wins for consumers that bind after the wrapper registers, and Liferay's search consumers use static reluctant references, so the portal must be restarted once after installing or nothing is collected at all — silently. That is detected (`SearchInterceptionStatus`) and surfaced in the log and the admin screen. What remains open: EC-2 (are suggestions classifiable), EC-11 (which ThreadLocals are populated) and EC-12 (where facets are readable) each decide how much of the captured data is real rather than empty. EC-4 is partly answered: title and highlighted snippets do come back on the widget path, the latter via `SearchHit#getHighlightFieldsMap()` rather than any field inside the `Document`. Those are open by design, not gaps to close from a desk. The capture path is proven end to end; the export path has still never been run against real data.
 
 ### First things to know
 
@@ -63,7 +63,7 @@ Key mechanisms to know before touching any of these:
 
 ## Before implementing a component
 
-Check `DESIGN.md` §7 (Open Questions and Empirical Checks) for any EC item relevant to what you're building. EC-1 is blocking — it must be confirmed (does the Search Results widget actually route through `Searcher`?) before the interception approach is trusted. Several other ECs (facet extraction paths, suggestion-traffic classification, ThreadLocal availability) directly determine what a given code path can and cannot reliably read — don't assume a field is available without checking the relevant EC.
+Check `DESIGN.md` §7 (Open Questions and Empirical Checks) for any EC item relevant to what you're building. EC-1 and EC-3 are now answered (see §7). The one that bites during manual testing: after deploying onto a running portal the wrapper is registered but never called, because Liferay's search consumers hold static reluctant `@Reference`s and do not rebind. Restart the portal, or the tables stay empty with no error anywhere. Several other ECs (facet extraction paths, suggestion-traffic classification, ThreadLocal availability) directly determine what a given code path can and cannot reliably read — don't assume a field is available without checking the relevant EC.
 
 ## Available user-level agent configs
 

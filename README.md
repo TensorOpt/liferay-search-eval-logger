@@ -105,6 +105,29 @@ the export screen under Configuration as Search Eval Export. Collection stays of
 until an administrator enables it, and exporting is gated by its own `EXPORT`
 permission, granted to nobody by default.
 
+## Restart the portal once after installing
+
+**Installing onto a running portal is not enough. Restart it before enabling
+collection, or nothing will be recorded.**
+
+Liferay's search components bind the `Searcher` service once, when they start, with
+a reference that does not switch to a higher-ranked one that appears later. A plugin
+installed onto an already-running portal is registered correctly and simply never
+called: searches are served normally, no error is logged, and the tables stay empty
+no matter what the configuration says. Restarting makes the search components bind
+the wrapper as they start.
+
+This bites exactly once, on installation. The plugin detects the state rather than
+leaving it to be found as an empty export: it logs a warning on startup and shows it
+on the export screen. If that warning is present, a restart is still outstanding.
+
+A restart of the whole portal is the supported route. Refreshing only
+`com.liferay.portal.search.web`, `com.liferay.portal.search.rest.impl` and
+`com.liferay.portal.search` has the same effect for their respective search paths
+and avoids downtime, but it is not something this plugin does on an administrator's
+behalf: a logging tool restarting core portal bundles is not a thing an operations
+team should have to approve.
+
 ## Modules
 
 | Module | Contents |

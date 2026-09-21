@@ -36,6 +36,14 @@ request.setAttribute("backgroundTaskCreateDates", backgroundTaskCreateDates);
 request.setAttribute("hasExportPermission", hasExportPermission);
 %>
 
+<c:if test="${not intercepting}">
+	<div class="alert alert-danger">
+		<strong><liferay-ui:message key="restart-required" /></strong>
+
+		<p class="mb-0"><liferay-ui:message key="restart-required-detail" /></p>
+	</div>
+</c:if>
+
 <liferay-ui:success key="export-started" message="export-started" />
 
 <liferay-ui:error key="invalid-date-range" message="invalid-date-range" />
