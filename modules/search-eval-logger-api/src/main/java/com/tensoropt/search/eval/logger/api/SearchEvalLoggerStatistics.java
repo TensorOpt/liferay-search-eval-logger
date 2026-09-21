@@ -36,4 +36,27 @@ public interface SearchEvalLoggerStatistics {
 	 */
 	public long getPersistedEventCount();
 
+	/**
+	 * Searches this wrapper saw while collection was enabled, admitted or not.
+	 *
+	 * <p>
+	 * The denominator for EC-10 in DESIGN.md section 7: Liferay issues many
+	 * searches of its own, and the share of them that survives the
+	 * keywords-present condition is the measure of whether the allowlist in
+	 * 3.2 is doing its job.
+	 * </p>
+	 */
+	public long getObservedSearchCount();
+
+	/**
+	 * Searches that carried user keywords, the admission filter's strongest
+	 * discriminator (DESIGN.md 3.2, condition 1).
+	 */
+	public long getKeywordSearchCount();
+
+	/**
+	 * Searches that passed every admission condition and were captured.
+	 */
+	public long getAdmittedSearchCount();
+
 }

@@ -42,6 +42,33 @@ public class SearchEvalLoggerStatisticsImpl
 		return _persistedEventCount.get();
 	}
 
+	@Override
+	public long getObservedSearchCount() {
+		return _observedSearchCount.get();
+	}
+
+	@Override
+	public long getKeywordSearchCount() {
+		return _keywordSearchCount.get();
+	}
+
+	@Override
+	public long getAdmittedSearchCount() {
+		return _admittedSearchCount.get();
+	}
+
+	public void incrementObservedSearchCount() {
+		_observedSearchCount.incrementAndGet();
+	}
+
+	public void incrementKeywordSearchCount() {
+		_keywordSearchCount.incrementAndGet();
+	}
+
+	public void incrementAdmittedSearchCount() {
+		_admittedSearchCount.incrementAndGet();
+	}
+
 	public void incrementDispatchedEventCount() {
 		_dispatchedEventCount.incrementAndGet();
 	}
@@ -54,7 +81,10 @@ public class SearchEvalLoggerStatisticsImpl
 		_persistedEventCount.incrementAndGet();
 	}
 
+	private final AtomicLong _admittedSearchCount = new AtomicLong();
 	private final AtomicLong _dispatchedEventCount = new AtomicLong();
+	private final AtomicLong _keywordSearchCount = new AtomicLong();
+	private final AtomicLong _observedSearchCount = new AtomicLong();
 	private final AtomicLong _droppedEventCount = new AtomicLong();
 	private final AtomicLong _persistedEventCount = new AtomicLong();
 

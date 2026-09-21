@@ -13,6 +13,7 @@ import com.tensoropt.search.eval.logger.configuration.SearchEvalLoggerConfigurat
 import com.tensoropt.search.eval.logger.internal.capture.FacetCapture;
 import com.tensoropt.search.eval.logger.internal.capture.FacetExtractor;
 import com.tensoropt.search.eval.logger.internal.context.SearchRequestOrigin;
+import com.tensoropt.search.eval.logger.internal.statistics.SearchEvalLoggerStatisticsImpl;
 import com.tensoropt.search.eval.logger.internal.context.SearchRequestOriginResolver;
 
 import java.util.Arrays;
@@ -64,6 +65,8 @@ public class AdmissionFilter {
 			return null;
 		}
 
+		_searchEvalLoggerStatisticsImpl.incrementKeywordSearchCount();
+
 		SearchRequestOrigin searchRequestOrigin =
 			_searchRequestOriginResolver.resolve();
 
@@ -80,6 +83,8 @@ public class AdmissionFilter {
 		if (!_passesSamplingDraw(configuration.samplingRate())) {
 			return null;
 		}
+
+		_searchEvalLoggerStatisticsImpl.incrementAdmittedSearchCount();
 
 		return searchRequestOrigin;
 	}
@@ -215,6 +220,9 @@ public class AdmissionFilter {
 
 		return threadLocalRandom.nextDouble() < samplingRate;
 	}
+
+	@Reference
+	private SearchEvalLoggerStatisticsImpl _searchEvalLoggerStatisticsImpl;
 
 	@Reference
 	private FacetExtractor _facetExtractor;

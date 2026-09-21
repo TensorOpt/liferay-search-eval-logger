@@ -21,6 +21,7 @@ import com.tensoropt.search.eval.logger.internal.capture.SearchEventCaptor;
 import com.tensoropt.search.eval.logger.internal.configuration.SearchEvalLoggerConfigurationRegistry;
 import com.tensoropt.search.eval.logger.internal.context.SearchRequestOrigin;
 import com.tensoropt.search.eval.logger.internal.messaging.SearchEventDispatcher;
+import com.tensoropt.search.eval.logger.internal.statistics.SearchEvalLoggerStatisticsImpl;
 
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -102,6 +103,11 @@ public class LoggingSearcher implements Searcher {
 			return;
 		}
 
+		// Everything from here on is traffic this plugin saw while switched
+		// on, which is the denominator EC-10 needs.
+
+		_searchEvalLoggerStatisticsImpl.incrementObservedSearchCount();
+
 		// The filter resolves the origin itself, once condition 1 has passed,
 		// and hands it back for capture. See AdmissionFilter#admit.
 
@@ -172,6 +178,9 @@ public class LoggingSearcher implements Searcher {
 	@Reference
 	private SearchEvalLoggerConfigurationRegistry
 		_searchEvalLoggerConfigurationRegistry;
+
+	@Reference
+	private SearchEvalLoggerStatisticsImpl _searchEvalLoggerStatisticsImpl;
 
 	@Reference
 	private SearchEventCaptor _searchEventCaptor;

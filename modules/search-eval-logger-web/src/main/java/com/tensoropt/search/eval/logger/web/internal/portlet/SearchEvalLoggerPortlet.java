@@ -16,6 +16,7 @@ import com.liferay.portal.kernel.util.ContentTypes;
 import com.liferay.portal.kernel.util.ParamUtil;
 import com.liferay.portal.kernel.util.WebKeys;
 
+import com.tensoropt.search.eval.logger.api.SearchEvalLoggerStatistics;
 import com.tensoropt.search.eval.logger.api.SearchInterceptionStatus;
 import com.tensoropt.search.eval.logger.web.internal.constants.SearchEvalLoggerPortletKeys;
 import com.tensoropt.search.eval.logger.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
@@ -91,6 +92,8 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 		renderRequest.setAttribute(
 			"intercepting", _searchInterceptionStatus.isIntercepting());
+		renderRequest.setAttribute(
+			"statistics", _searchEvalLoggerStatistics);
 
 		super.doView(renderRequest, renderResponse);
 	}
@@ -150,6 +153,9 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 				inputStream, ContentTypes.APPLICATION_ZIP);
 		}
 	}
+
+	@Reference
+	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;
 
 	@Reference
 	private SearchInterceptionStatus _searchInterceptionStatus;

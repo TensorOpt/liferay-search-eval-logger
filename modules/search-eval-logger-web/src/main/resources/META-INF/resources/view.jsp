@@ -85,6 +85,39 @@ request.setAttribute("hasExportPermission", hasExportPermission);
 		</c:otherwise>
 	</c:choose>
 
+	<h3><liferay-ui:message key="admission-counters" /></h3>
+
+	<p class="text-muted"><liferay-ui:message key="admission-counters-help" /></p>
+
+	<table class="table table-autofit table-list">
+		<tbody>
+			<tr>
+				<td><liferay-ui:message key="searches-observed" /></td>
+				<td>${statistics.observedSearchCount}</td>
+			</tr>
+			<tr>
+				<td><liferay-ui:message key="searches-with-keywords" /></td>
+				<td>${statistics.keywordSearchCount}</td>
+			</tr>
+			<tr>
+				<td><liferay-ui:message key="searches-admitted" /></td>
+				<td>${statistics.admittedSearchCount}</td>
+			</tr>
+			<tr>
+				<td><liferay-ui:message key="events-dispatched" /></td>
+				<td>${statistics.dispatchedEventCount}</td>
+			</tr>
+			<tr>
+				<td><liferay-ui:message key="events-dropped" /></td>
+				<td>${statistics.droppedEventCount}</td>
+			</tr>
+			<tr>
+				<td><liferay-ui:message key="events-persisted" /></td>
+				<td>${statistics.persistedEventCount}</td>
+			</tr>
+		</tbody>
+	</table>
+
 	<h3><liferay-ui:message key="recent-exports" /></h3>
 
 	<c:choose>
