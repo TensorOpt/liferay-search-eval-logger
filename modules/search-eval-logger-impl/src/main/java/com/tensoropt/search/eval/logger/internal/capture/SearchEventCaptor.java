@@ -379,12 +379,21 @@ public class SearchEventCaptor {
 			List<String> highlightFieldFragments =
 				highlightField.getFragments();
 
+			// The fragment count, not the fragments. A fragment is indexed
+			// content with the user's terms marked up inside it, so printing
+			// one puts both the document text and the query into the portal
+			// log, where nothing this plugin controls will ever purge them.
+			// The count is what the diagnostic was actually for: whether the
+			// highlighter returned anything at all.
+
 			if (_log.isDebugEnabled()) {
 				_log.debug(
 					StringBundler.concat(
 						"Highlight field name=", highlightField.getName(),
-						", fragments=",
-						String.valueOf(highlightFieldFragments)));
+						", fragmentCount=",
+						String.valueOf(
+							(highlightFieldFragments == null) ? 0 :
+								highlightFieldFragments.size())));
 			}
 
 			if (highlightFieldFragments != null) {

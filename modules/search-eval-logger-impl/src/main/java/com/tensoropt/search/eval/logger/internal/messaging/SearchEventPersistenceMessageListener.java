@@ -146,13 +146,22 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 				capturedSearchHit);
 		}
 
+		// The query text itself is deliberately not logged. It is user input,
+		// and the portal log is outside everything that governs this data:
+		// retention purges the table but not the log, and log aggregation
+		// ships it somewhere this plugin has no say over. The uuid is here
+		// instead, which is enough to join back to the row for as long as the
+		// row is supposed to exist.
+
 		if (_log.isDebugEnabled()) {
 			_log.debug(
 				StringBundler.concat(
 					"Persisted search event uuid=", uuid, ", companyId=",
-					String.valueOf(companyId), ", queryText=",
-					searchEvent.getQueryText(), ", audienceType=",
-					audienceType.name(), ", sourceType=",
+					String.valueOf(companyId), ", queryLength=",
+					String.valueOf(_length(searchEvent.getQueryText())),
+					", queryTruncated=",
+					String.valueOf(searchEvent.isQueryTruncated()),
+					", audienceType=", audienceType.name(), ", sourceType=",
 					searchEvent.getSourceType(), ", totalHits=",
 					String.valueOf(searchEvent.getTotalHits()),
 					", loggedHitCount=",
@@ -231,6 +240,14 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		return _cohortSaltRegistry.hash(
 			companyId, userId,
 			searchEvalLoggerConfiguration.cohortSaltRotationDays());
+	}
+
+	private int _length(String value) {
+		if (value == null) {
+			return 0;
+		}
+
+		return value.length();
 	}
 
 	private static final Log _log = LogFactoryUtil.getLog(
