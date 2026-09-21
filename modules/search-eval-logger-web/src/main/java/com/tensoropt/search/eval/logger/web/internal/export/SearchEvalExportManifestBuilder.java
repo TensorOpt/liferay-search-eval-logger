@@ -66,7 +66,7 @@ public class SearchEvalExportManifestBuilder {
 		jsonObject.put(
 			"configuration", _getConfiguration(searchEvalLoggerConfiguration));
 		jsonObject.put(
-			"backpressure", _getBackpressure());
+			"admission_counters", _getAdmissionCounters());
 		jsonObject.put(
 			"field_coverage_rates",
 			_getFieldCoverageRates(searchEvalExportResult));
@@ -75,14 +75,38 @@ public class SearchEvalExportManifestBuilder {
 	}
 
 	/**
-	 * The drop count is process-wide and resets when the bundle restarts, so it
-	 * cannot be attributed to the exported window. It is reported with that
-	 * caveat attached rather than silently presented as a figure for the
-	 * period, which would misstate exactly the thing an evaluator would rely on
-	 * it for.
+	 * The whole funnel, not just its last three stages.
+	 *
+	 * <p>
+	 * The drop count on its own answers whether the log lost anything after
+	 * admission. It cannot answer the question an evaluator actually has,
+	 * which is what the log is a sample <em>of</em>: a dataset holding every
+	 * event that was admitted is still a narrow slice if the admission filter
+	 * rejected most of the traffic. Reporting the observed, keyword-bearing
+	 * and admitted counts alongside makes that ratio, the EC-10 measurement in
+	 * DESIGN.md section 7, readable from the archive instead of only from the
+	 * admin screen of a portal that may since have restarted.
+	 * </p>
+	 *
+	 * <p>
+	 * Every counter here is process-wide and resets when the bundle restarts,
+	 * so none of them can be attributed to the exported window. They are
+	 * reported with that caveat attached rather than silently presented as
+	 * figures for the period, which would misstate exactly the thing an
+	 * evaluator would rely on them for.
+	 * </p>
 	 */
-	private JSONObject _getBackpressure() {
+	private JSONObject _getAdmissionCounters() {
 		return _jsonFactory.createJSONObject(
+		).put(
+			"observed_search_count",
+			_searchEvalLoggerStatistics.getObservedSearchCount()
+		).put(
+			"keyword_search_count",
+			_searchEvalLoggerStatistics.getKeywordSearchCount()
+		).put(
+			"admitted_search_count",
+			_searchEvalLoggerStatistics.getAdmittedSearchCount()
 		).put(
 			"dispatched_event_count",
 			_searchEvalLoggerStatistics.getDispatchedEventCount()
@@ -95,8 +119,10 @@ public class SearchEvalExportManifestBuilder {
 		).put(
 			"scope",
 			"Counted since this plugin last started, not for the exported " +
-				"range. A restart inside the range means drops before it are " +
-					"not represented."
+				"range, and not restricted to this company. A restart inside " +
+					"the range means traffic before it is not represented, " +
+						"and these counts can be far smaller than the " +
+							"exported row counts."
 		);
 	}
 
@@ -185,6 +211,20 @@ public class SearchEvalExportManifestBuilder {
 	 */
 	void setClock(Clock clock) {
 		_clock = clock;
+	}
+
+	/**
+	 * Visible for testing, alongside {@link #setClock}, so the builder can be
+	 * exercised without an OSGi container.
+	 */
+	void setJSONFactory(JSONFactory jsonFactory) {
+		_jsonFactory = jsonFactory;
+	}
+
+	void setSearchEvalLoggerStatistics(
+		SearchEvalLoggerStatistics searchEvalLoggerStatistics) {
+
+		_searchEvalLoggerStatistics = searchEvalLoggerStatistics;
 	}
 
 	private Clock _clock = Clock.systemUTC();

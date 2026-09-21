@@ -57,6 +57,7 @@ public class SearchEvalExportReadmeBuilder {
 		sb.append(_INTERNAL_TRAFFIC);
 		sb.append(_FACET_CAPTURE);
 		sb.append(_BLUEPRINTS);
+		sb.append(_ADMISSION_COUNTERS);
 		sb.append(_DROP_COUNTS);
 		sb.append(_HANDLING);
 
@@ -132,16 +133,31 @@ public class SearchEvalExportReadmeBuilder {
 			"search event with its hits nested, so each line is a complete " +
 				"(query, result[]) record.\n- `manifest.json` - range, " +
 					"counts, plugin and Liferay versions, the collector's " +
-						"configuration at export time, backpressure counts " +
+						"configuration at export time, admission counters " +
 							"and per-field coverage rates.\n- `README.md` - " +
 								"this file.\n\n";
 
+	private static final String _ADMISSION_COUNTERS =
+		"**The admission funnel is in the manifest.** Reading down " +
+			"`admission_counters`: `observed_search_count` is every search " +
+				"the collector saw, `keyword_search_count` those carrying " +
+					"user keywords, `admitted_search_count` those that " +
+						"passed every admission rule, then dispatched, " +
+							"dropped and persisted. The gap between the " +
+								"first two is internal Liferay traffic the " +
+									"collector ignores on purpose; the ratio " +
+										"tells you how narrow a slice of all " +
+											"search activity this dataset " +
+												"is.\n\n";
+
 	private static final String _DROP_COUNTS =
-		"**Drop counts are process-wide.** Under load the collector drops " +
-			"events rather than slowing search down. The counts in " +
-				"`manifest.json` are since the plugin last started, not for " +
-					"this range, so they bound the loss rather than " +
-						"measuring it.\n\n";
+		"**Those counters are process-wide.** They count since the plugin " +
+			"last started, across every company, not for this range, so " +
+				"they bound the loss rather than measuring it and will " +
+					"usually be far smaller than the row counts above. " +
+						"Under load the collector drops events rather than " +
+							"slowing search down; `dropped_event_count` is " +
+								"that loss.\n\n";
 
 	private static final String _FACET_CAPTURE =
 		"**Facet capture is not uniform.** `facet_capture_status` says which " +

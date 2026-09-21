@@ -36,6 +36,13 @@ subprojects {
 		tasks.withType(Test) {
 			useJUnitPlatform()
 
+			// Petra's StringBundler reaches for MethodHandles.Lookup.IMPL_LOOKUP
+			// in a static initializer, so any test that touches a class using it
+			// dies on JDK 17 with InaccessibleObjectException before reaching an
+			// assertion. The portal's own launcher passes the same open; the
+			// tests need it for the same reason.
+			jvmArgs "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
+
 			testLogging {
 				events "failed"
 				exceptionFormat "full"
