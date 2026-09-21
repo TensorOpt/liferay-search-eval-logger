@@ -61,6 +61,16 @@ Key mechanisms to know before touching any of these:
 - **Data model**: two tables, `SEL_SearchEvent` and `SEL_SearchHit`, joined by `searchEventUuid` (§4). Every text column needs an explicit `max-length` in `portlet-model-hints.xml` or must be a `Clob` — Service Builder's default `VARCHAR(75)` silently truncates otherwise.
 - **Export**: must stream (`ActionableDynamicQuery` or raw JDBC cursor → JSONL → `ZipOutputStream`) — never load the full dataset into memory. JSONL, not CSV, because snippets contain quotes/newlines/highlight markup. See §6 for exact archive layout and `manifest.json` contents.
 
+## JSPs compile at render time, so the build cannot vet them
+
+`./gradlew build` never compiles `view.jsp` or `init.jsp`; Jasper does, on first
+render. A green build therefore says nothing about them, and the failure surfaces
+as "Search Eval Export is temporarily unavailable" with the real cause only in the
+log. The 2025.Q1.27 retarget hit exactly this: `BackgroundTaskCreateDateComparator`'s
+`(boolean)` constructor became private in favour of a static `getInstance(boolean)`,
+which the Java build could not see. After any platform change, render the admin
+screen once and check the log before believing the upgrade is clean.
+
 ## Before implementing a component
 
 Check `DESIGN.md` §7 (Open Questions and Empirical Checks) for any EC item relevant to what you're building. EC-1 and EC-3 are now answered (see §7). The one that bites during manual testing: after deploying onto a running portal the wrapper is registered but never called, because Liferay's search consumers hold static reluctant `@Reference`s and do not rebind. Restart the portal, or the tables stay empty with no error anywhere. Several other ECs (facet extraction paths, suggestion-traffic classification, ThreadLocal availability) directly determine what a given code path can and cannot reliably read — don't assume a field is available without checking the relevant EC.

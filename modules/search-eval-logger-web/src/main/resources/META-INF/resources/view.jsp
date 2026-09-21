@@ -19,7 +19,7 @@ List<BackgroundTask> backgroundTasks =
 	BackgroundTaskManagerUtil.getBackgroundTasks(
 		themeDisplay.getScopeGroupId(),
 		SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME, 0, 20,
-		new BackgroundTaskCreateDateComparator(false));
+		BackgroundTaskCreateDateComparator.getInstance(false));
 
 SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
