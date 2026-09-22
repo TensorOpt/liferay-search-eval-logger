@@ -18,9 +18,7 @@ import org.osgi.annotation.versioning.ProviderType;
  * @see SearchHitModel
  * @generated
  */
-@ImplementationClassName(
-	"ai.tensoropt.sel.model.impl.SearchHitImpl"
-)
+@ImplementationClassName("ai.tensoropt.sel.model.impl.SearchHitImpl")
 @ProviderType
 public interface SearchHit extends PersistedModel, SearchHitModel {
 

@@ -28,7 +28,7 @@ import org.osgi.service.component.annotations.Component;
  * @author Brian Wing Shun Chan
  */
 @Component(
-	property = "model.class.name=model.ai.tensoropt.sel.SearchEvent",
+	property = "model.class.name=ai.tensoropt.sel.model.SearchEvent",
 	service = AopService.class
 )
 public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl {

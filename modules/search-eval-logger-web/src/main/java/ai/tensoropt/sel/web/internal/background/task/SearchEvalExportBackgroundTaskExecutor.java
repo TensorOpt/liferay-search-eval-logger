@@ -54,7 +54,7 @@ import org.osgi.service.component.annotations.Reference;
  * </p>
  */
 @Component(
-	property = "background.task.executor.class.name=task.background.internal.web.ai.tensoropt.sel.SearchEvalExportBackgroundTaskExecutor",
+	property = "background.task.executor.class.name=ai.tensoropt.sel.web.internal.background.task.SearchEvalExportBackgroundTaskExecutor",
 	service = BackgroundTaskExecutor.class
 )
 public class SearchEvalExportBackgroundTaskExecutor

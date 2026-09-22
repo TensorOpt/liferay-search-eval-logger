@@ -5,6 +5,15 @@
 
 package ai.tensoropt.sel.service.persistence.impl;
 
+import ai.tensoropt.sel.exception.NoSuchSearchEventException;
+import ai.tensoropt.sel.model.SearchEvent;
+import ai.tensoropt.sel.model.SearchEventTable;
+import ai.tensoropt.sel.model.impl.SearchEventImpl;
+import ai.tensoropt.sel.model.impl.SearchEventModelImpl;
+import ai.tensoropt.sel.service.persistence.SearchEventPersistence;
+import ai.tensoropt.sel.service.persistence.SearchEventUtil;
+import ai.tensoropt.sel.service.persistence.impl.constants.SELPersistenceConstants;
+
 import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.configuration.Configuration;
 import com.liferay.portal.kernel.dao.orm.EntityCache;
@@ -29,15 +38,6 @@ import com.liferay.portal.kernel.util.ProxyUtil;
 import com.liferay.portal.kernel.util.SetUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.uuid.PortalUUIDUtil;
-
-import ai.tensoropt.sel.exception.NoSuchSearchEventException;
-import ai.tensoropt.sel.model.SearchEvent;
-import ai.tensoropt.sel.model.SearchEventTable;
-import ai.tensoropt.sel.model.impl.SearchEventImpl;
-import ai.tensoropt.sel.model.impl.SearchEventModelImpl;
-import ai.tensoropt.sel.service.persistence.SearchEventPersistence;
-import ai.tensoropt.sel.service.persistence.SearchEventUtil;
-import ai.tensoropt.sel.service.persistence.impl.constants.SELPersistenceConstants;
 
 import java.io.Serializable;
 

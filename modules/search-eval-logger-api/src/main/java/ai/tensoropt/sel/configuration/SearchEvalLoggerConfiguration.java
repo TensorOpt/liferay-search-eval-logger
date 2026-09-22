@@ -27,7 +27,7 @@ import org.osgi.annotation.versioning.ProviderType;
 	scope = ExtendedObjectClassDefinition.Scope.COMPANY
 )
 @Meta.OCD(
-	id = "configuration.ai.tensoropt.sel.SearchEvalLoggerConfiguration",
+	id = "ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration",
 	localization = "content/Language",
 	name = "search-eval-logger-configuration-name"
 )

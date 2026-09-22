@@ -5,6 +5,8 @@
 
 package ai.tensoropt.sel.service;
 
+import ai.tensoropt.sel.model.SearchHit;
+
 import com.liferay.petra.sql.dsl.query.DSLQuery;
 import com.liferay.portal.kernel.dao.orm.ActionableDynamicQuery;
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
@@ -21,8 +23,6 @@ import com.liferay.portal.kernel.transaction.Isolation;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.Transactional;
 import com.liferay.portal.kernel.util.OrderByComparator;
-
-import ai.tensoropt.sel.model.SearchHit;
 
 import java.io.Serializable;
 

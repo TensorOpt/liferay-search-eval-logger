@@ -5,14 +5,14 @@
 
 package ai.tensoropt.sel.service;
 
+import ai.tensoropt.sel.model.SearchHit;
+
 import com.liferay.petra.sql.dsl.query.DSLQuery;
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.model.PersistedModel;
 import com.liferay.portal.kernel.module.service.Snapshot;
 import com.liferay.portal.kernel.util.OrderByComparator;
-
-import ai.tensoropt.sel.model.SearchHit;
 
 import java.io.Serializable;
 

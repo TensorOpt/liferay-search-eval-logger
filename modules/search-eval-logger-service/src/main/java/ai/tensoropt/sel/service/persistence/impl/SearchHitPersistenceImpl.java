@@ -5,6 +5,15 @@
 
 package ai.tensoropt.sel.service.persistence.impl;
 
+import ai.tensoropt.sel.exception.NoSuchSearchHitException;
+import ai.tensoropt.sel.model.SearchHit;
+import ai.tensoropt.sel.model.SearchHitTable;
+import ai.tensoropt.sel.model.impl.SearchHitImpl;
+import ai.tensoropt.sel.model.impl.SearchHitModelImpl;
+import ai.tensoropt.sel.service.persistence.SearchHitPersistence;
+import ai.tensoropt.sel.service.persistence.SearchHitUtil;
+import ai.tensoropt.sel.service.persistence.impl.constants.SELPersistenceConstants;
+
 import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.configuration.Configuration;
 import com.liferay.portal.kernel.dao.orm.EntityCache;
@@ -27,15 +36,6 @@ import com.liferay.portal.kernel.util.PropsKeys;
 import com.liferay.portal.kernel.util.PropsUtil;
 import com.liferay.portal.kernel.util.ProxyUtil;
 import com.liferay.portal.kernel.util.SetUtil;
-
-import ai.tensoropt.sel.exception.NoSuchSearchHitException;
-import ai.tensoropt.sel.model.SearchHit;
-import ai.tensoropt.sel.model.SearchHitTable;
-import ai.tensoropt.sel.model.impl.SearchHitImpl;
-import ai.tensoropt.sel.model.impl.SearchHitModelImpl;
-import ai.tensoropt.sel.service.persistence.SearchHitPersistence;
-import ai.tensoropt.sel.service.persistence.SearchHitUtil;
-import ai.tensoropt.sel.service.persistence.impl.constants.SELPersistenceConstants;
 
 import java.io.Serializable;
 

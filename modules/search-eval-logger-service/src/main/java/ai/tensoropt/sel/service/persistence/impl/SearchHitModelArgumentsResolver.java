@@ -5,13 +5,13 @@
 
 package ai.tensoropt.sel.service.persistence.impl;
 
-import com.liferay.portal.kernel.dao.orm.ArgumentsResolver;
-import com.liferay.portal.kernel.dao.orm.FinderPath;
-import com.liferay.portal.kernel.model.BaseModel;
-
 import ai.tensoropt.sel.model.SearchHitTable;
 import ai.tensoropt.sel.model.impl.SearchHitImpl;
 import ai.tensoropt.sel.model.impl.SearchHitModelImpl;
+
+import com.liferay.portal.kernel.dao.orm.ArgumentsResolver;
+import com.liferay.portal.kernel.dao.orm.FinderPath;
+import com.liferay.portal.kernel.model.BaseModel;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,7 +26,7 @@ import org.osgi.service.component.annotations.Component;
  */
 @Component(
 	property = {
-		"class.name=impl.model.ai.tensoropt.sel.SearchHitImpl",
+		"class.name=ai.tensoropt.sel.model.impl.SearchHitImpl",
 		"table.name=SEL_SearchHit"
 	},
 	service = ArgumentsResolver.class

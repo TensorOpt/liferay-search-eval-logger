@@ -5,12 +5,12 @@
 
 package ai.tensoropt.sel.model.impl;
 
+import ai.tensoropt.sel.model.SearchHit;
+
 import com.liferay.petra.lang.HashUtil;
 import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.CacheModel;
 import com.liferay.portal.kernel.model.MVCCModel;
-
-import ai.tensoropt.sel.model.SearchHit;
 
 import java.io.Externalizable;
 import java.io.IOException;

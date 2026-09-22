@@ -5,10 +5,10 @@
 
 package ai.tensoropt.sel.service.persistence;
 
-import com.liferay.portal.kernel.service.persistence.BasePersistence;
-
 import ai.tensoropt.sel.exception.NoSuchSearchEventException;
 import ai.tensoropt.sel.model.SearchEvent;
+
+import com.liferay.portal.kernel.service.persistence.BasePersistence;
 
 import java.util.Date;
 

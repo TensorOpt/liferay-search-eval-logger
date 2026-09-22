@@ -18,9 +18,7 @@ import org.osgi.annotation.versioning.ProviderType;
  * @see SearchEventModel
  * @generated
  */
-@ImplementationClassName(
-	"ai.tensoropt.sel.model.impl.SearchEventImpl"
-)
+@ImplementationClassName("ai.tensoropt.sel.model.impl.SearchEventImpl")
 @ProviderType
 public interface SearchEvent extends PersistedModel, SearchEventModel {
 

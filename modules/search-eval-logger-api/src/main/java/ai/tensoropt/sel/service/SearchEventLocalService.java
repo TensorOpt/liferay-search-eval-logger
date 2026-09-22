@@ -5,6 +5,8 @@
 
 package ai.tensoropt.sel.service;
 
+import ai.tensoropt.sel.model.SearchEvent;
+
 import com.liferay.petra.function.UnsafeConsumer;
 import com.liferay.petra.sql.dsl.query.DSLQuery;
 import com.liferay.portal.kernel.dao.orm.ActionableDynamicQuery;
@@ -22,8 +24,6 @@ import com.liferay.portal.kernel.transaction.Isolation;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.Transactional;
 import com.liferay.portal.kernel.util.OrderByComparator;
-
-import ai.tensoropt.sel.model.SearchEvent;
 
 import java.io.Serializable;
 
@@ -249,6 +249,14 @@ public interface SearchEventLocalService
 	 * columns and never sees an entity. Keeping this in the service module
 	 * means the web module still depends on a service rather than a
 	 * DataSource.
+	 * </p>
+	 *
+	 * <p>
+	 * Ordered by createDate first, then uuid. Grouping only needs the uuid,
+	 * but ordering by it alone scattered the export in time: the log stopped
+	 * being chronological, which is how anyone reading it expects to consume
+	 * it, and adjacent records stopped sharing temporal context, which cost
+	 * seven percent of the compressed size for identical content.
 	 * </p>
 	 *
 	 * <p>

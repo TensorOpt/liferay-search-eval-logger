@@ -5,12 +5,11 @@
 
 package ai.tensoropt.sel.service.persistence;
 
-import ai.tensoropt.sel.exception.NoSuchSearchHitException;
+import ai.tensoropt.sel.model.SearchHit;
+
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.util.OrderByComparator;
-
-import ai.tensoropt.sel.model.SearchHit;
 
 import java.io.Serializable;
 
@@ -199,7 +198,7 @@ public class SearchHitUtil {
 	public static SearchHit findBySearchEventUuid_First(
 			String searchEventUuid,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findBySearchEventUuid_First(
 			searchEventUuid, orderByComparator);
@@ -231,7 +230,7 @@ public class SearchHitUtil {
 	public static SearchHit findBySearchEventUuid_Last(
 			String searchEventUuid,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findBySearchEventUuid_Last(
 			searchEventUuid, orderByComparator);
@@ -264,7 +263,7 @@ public class SearchHitUtil {
 	public static SearchHit[] findBySearchEventUuid_PrevAndNext(
 			long searchHitId, String searchEventUuid,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findBySearchEventUuid_PrevAndNext(
 			searchHitId, searchEventUuid, orderByComparator);
@@ -381,7 +380,7 @@ public class SearchHitUtil {
 	public static SearchHit findByC_LtCreateDate_First(
 			long companyId, Date createDate,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findByC_LtCreateDate_First(
 			companyId, createDate, orderByComparator);
@@ -415,7 +414,7 @@ public class SearchHitUtil {
 	public static SearchHit findByC_LtCreateDate_Last(
 			long companyId, Date createDate,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findByC_LtCreateDate_Last(
 			companyId, createDate, orderByComparator);
@@ -450,7 +449,7 @@ public class SearchHitUtil {
 	public static SearchHit[] findByC_LtCreateDate_PrevAndNext(
 			long searchHitId, long companyId, Date createDate,
 			OrderByComparator<SearchHit> orderByComparator)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findByC_LtCreateDate_PrevAndNext(
 			searchHitId, companyId, createDate, orderByComparator);
@@ -513,7 +512,7 @@ public class SearchHitUtil {
 	 * @throws NoSuchSearchHitException if a search hit with the primary key could not be found
 	 */
 	public static SearchHit remove(long searchHitId)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().remove(searchHitId);
 	}
@@ -530,7 +529,7 @@ public class SearchHitUtil {
 	 * @throws NoSuchSearchHitException if a search hit with the primary key could not be found
 	 */
 	public static SearchHit findByPrimaryKey(long searchHitId)
-		throws NoSuchSearchHitException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchHitException {
 
 		return getPersistence().findByPrimaryKey(searchHitId);
 	}

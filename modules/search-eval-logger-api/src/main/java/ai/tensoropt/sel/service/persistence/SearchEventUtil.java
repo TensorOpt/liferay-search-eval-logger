@@ -5,12 +5,11 @@
 
 package ai.tensoropt.sel.service.persistence;
 
-import ai.tensoropt.sel.exception.NoSuchSearchEventException;
+import ai.tensoropt.sel.model.SearchEvent;
+
 import com.liferay.portal.kernel.dao.orm.DynamicQuery;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.util.OrderByComparator;
-
-import ai.tensoropt.sel.model.SearchEvent;
 
 import java.io.Serializable;
 
@@ -194,7 +193,7 @@ public class SearchEventUtil {
 	 */
 	public static SearchEvent findByUuid_First(
 			String uuid, OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_First(uuid, orderByComparator);
 	}
@@ -222,7 +221,7 @@ public class SearchEventUtil {
 	 */
 	public static SearchEvent findByUuid_Last(
 			String uuid, OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_Last(uuid, orderByComparator);
 	}
@@ -252,7 +251,7 @@ public class SearchEventUtil {
 	public static SearchEvent[] findByUuid_PrevAndNext(
 			long searchEventId, String uuid,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_PrevAndNext(
 			searchEventId, uuid, orderByComparator);
@@ -365,7 +364,7 @@ public class SearchEventUtil {
 	public static SearchEvent findByUuid_C_First(
 			String uuid, long companyId,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_C_First(
 			uuid, companyId, orderByComparator);
@@ -399,7 +398,7 @@ public class SearchEventUtil {
 	public static SearchEvent findByUuid_C_Last(
 			String uuid, long companyId,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_C_Last(
 			uuid, companyId, orderByComparator);
@@ -434,7 +433,7 @@ public class SearchEventUtil {
 	public static SearchEvent[] findByUuid_C_PrevAndNext(
 			long searchEventId, String uuid, long companyId,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByUuid_C_PrevAndNext(
 			searchEventId, uuid, companyId, orderByComparator);
@@ -553,7 +552,7 @@ public class SearchEventUtil {
 	public static SearchEvent findByC_LtCreateDate_First(
 			long companyId, Date createDate,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByC_LtCreateDate_First(
 			companyId, createDate, orderByComparator);
@@ -587,7 +586,7 @@ public class SearchEventUtil {
 	public static SearchEvent findByC_LtCreateDate_Last(
 			long companyId, Date createDate,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByC_LtCreateDate_Last(
 			companyId, createDate, orderByComparator);
@@ -622,7 +621,7 @@ public class SearchEventUtil {
 	public static SearchEvent[] findByC_LtCreateDate_PrevAndNext(
 			long searchEventId, long companyId, Date createDate,
 			OrderByComparator<SearchEvent> orderByComparator)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByC_LtCreateDate_PrevAndNext(
 			searchEventId, companyId, createDate, orderByComparator);
@@ -685,7 +684,7 @@ public class SearchEventUtil {
 	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
 	 */
 	public static SearchEvent remove(long searchEventId)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().remove(searchEventId);
 	}
@@ -702,7 +701,7 @@ public class SearchEventUtil {
 	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
 	 */
 	public static SearchEvent findByPrimaryKey(long searchEventId)
-		throws NoSuchSearchEventException {
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
 
 		return getPersistence().findByPrimaryKey(searchEventId);
 	}

@@ -5,7 +5,6 @@
 
 package ai.tensoropt.sel.service;
 
-import ai.tensoropt.sel.model.SearchEvent;
 import com.liferay.portal.kernel.service.ServiceWrapper;
 import com.liferay.portal.kernel.service.persistence.BasePersistence;
 
@@ -41,8 +40,8 @@ public class SearchEventLocalServiceWrapper
 	 * @return the search event that was added
 	 */
 	@Override
-	public SearchEvent addSearchEvent(
-		SearchEvent searchEvent) {
+	public ai.tensoropt.sel.model.SearchEvent addSearchEvent(
+		ai.tensoropt.sel.model.SearchEvent searchEvent) {
 
 		return _searchEventLocalService.addSearchEvent(searchEvent);
 	}
@@ -65,7 +64,7 @@ public class SearchEventLocalServiceWrapper
 	 * @return the new search event
 	 */
 	@Override
-	public SearchEvent createSearchEvent(
+	public ai.tensoropt.sel.model.SearchEvent createSearchEvent(
 		long searchEventId) {
 
 		return _searchEventLocalService.createSearchEvent(searchEventId);
@@ -122,7 +121,7 @@ public class SearchEventLocalServiceWrapper
 	 * @throws PortalException if a search event with the primary key could not be found
 	 */
 	@Override
-	public SearchEvent deleteSearchEvent(
+	public ai.tensoropt.sel.model.SearchEvent deleteSearchEvent(
 			long searchEventId)
 		throws com.liferay.portal.kernel.exception.PortalException {
 
@@ -140,8 +139,8 @@ public class SearchEventLocalServiceWrapper
 	 * @return the search event that was removed
 	 */
 	@Override
-	public SearchEvent deleteSearchEvent(
-		SearchEvent searchEvent) {
+	public ai.tensoropt.sel.model.SearchEvent deleteSearchEvent(
+		ai.tensoropt.sel.model.SearchEvent searchEvent) {
 
 		return _searchEventLocalService.deleteSearchEvent(searchEvent);
 	}
@@ -249,7 +248,7 @@ public class SearchEventLocalServiceWrapper
 	}
 
 	@Override
-	public SearchEvent fetchSearchEvent(
+	public ai.tensoropt.sel.model.SearchEvent fetchSearchEvent(
 		long searchEventId) {
 
 		return _searchEventLocalService.fetchSearchEvent(searchEventId);
@@ -263,7 +262,7 @@ public class SearchEventLocalServiceWrapper
 	 * @return the matching search event, or <code>null</code> if a matching search event could not be found
 	 */
 	@Override
-	public SearchEvent
+	public ai.tensoropt.sel.model.SearchEvent
 		fetchSearchEventByUuidAndCompanyId(String uuid, long companyId) {
 
 		return _searchEventLocalService.fetchSearchEventByUuidAndCompanyId(
@@ -289,6 +288,14 @@ public class SearchEventLocalServiceWrapper
 	 * columns and never sees an entity. Keeping this in the service module
 	 * means the web module still depends on a service rather than a
 	 * DataSource.
+	 * </p>
+	 *
+	 * <p>
+	 * Ordered by createDate first, then uuid. Grouping only needs the uuid,
+	 * but ordering by it alone scattered the export in time: the log stopped
+	 * being chronological, which is how anyone reading it expects to consume
+	 * it, and adjacent records stopped sharing temporal context, which cost
+	 * seven percent of the compressed size for identical content.
 	 * </p>
 	 *
 	 * <p>
@@ -350,8 +357,7 @@ public class SearchEventLocalServiceWrapper
 	 * @throws PortalException if a search event with the primary key could not be found
 	 */
 	@Override
-	public SearchEvent getSearchEvent(
-			long searchEventId)
+	public ai.tensoropt.sel.model.SearchEvent getSearchEvent(long searchEventId)
 		throws com.liferay.portal.kernel.exception.PortalException {
 
 		return _searchEventLocalService.getSearchEvent(searchEventId);
@@ -366,8 +372,8 @@ public class SearchEventLocalServiceWrapper
 	 * @throws PortalException if a matching search event could not be found
 	 */
 	@Override
-	public SearchEvent
-			getSearchEventByUuidAndCompanyId(String uuid, long companyId)
+	public ai.tensoropt.sel.model.SearchEvent getSearchEventByUuidAndCompanyId(
+			String uuid, long companyId)
 		throws com.liferay.portal.kernel.exception.PortalException {
 
 		return _searchEventLocalService.getSearchEventByUuidAndCompanyId(
@@ -386,8 +392,8 @@ public class SearchEventLocalServiceWrapper
 	 * @return the range of search events
 	 */
 	@Override
-	public java.util.List<SearchEvent>
-		getSearchEvents(int start, int end) {
+	public java.util.List<ai.tensoropt.sel.model.SearchEvent> getSearchEvents(
+		int start, int end) {
 
 		return _searchEventLocalService.getSearchEvents(start, end);
 	}
@@ -413,8 +419,8 @@ public class SearchEventLocalServiceWrapper
 	 * @return the search event that was updated
 	 */
 	@Override
-	public SearchEvent updateSearchEvent(
-		SearchEvent searchEvent) {
+	public ai.tensoropt.sel.model.SearchEvent updateSearchEvent(
+		ai.tensoropt.sel.model.SearchEvent searchEvent) {
 
 		return _searchEventLocalService.updateSearchEvent(searchEvent);
 	}

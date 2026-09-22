@@ -5,7 +5,6 @@
 
 package ai.tensoropt.sel.service;
 
-import ai.tensoropt.sel.model.SearchHit;
 import com.liferay.portal.kernel.service.ServiceWrapper;
 import com.liferay.portal.kernel.service.persistence.BasePersistence;
 
@@ -40,8 +39,8 @@ public class SearchHitLocalServiceWrapper
 	 * @return the search hit that was added
 	 */
 	@Override
-	public SearchHit addSearchHit(
-		SearchHit searchHit) {
+	public ai.tensoropt.sel.model.SearchHit addSearchHit(
+		ai.tensoropt.sel.model.SearchHit searchHit) {
 
 		return _searchHitLocalService.addSearchHit(searchHit);
 	}
@@ -64,9 +63,7 @@ public class SearchHitLocalServiceWrapper
 	 * @return the new search hit
 	 */
 	@Override
-	public SearchHit createSearchHit(
-		long searchHitId) {
-
+	public ai.tensoropt.sel.model.SearchHit createSearchHit(long searchHitId) {
 		return _searchHitLocalService.createSearchHit(searchHitId);
 	}
 
@@ -121,8 +118,7 @@ public class SearchHitLocalServiceWrapper
 	 * @throws PortalException if a search hit with the primary key could not be found
 	 */
 	@Override
-	public SearchHit deleteSearchHit(
-			long searchHitId)
+	public ai.tensoropt.sel.model.SearchHit deleteSearchHit(long searchHitId)
 		throws com.liferay.portal.kernel.exception.PortalException {
 
 		return _searchHitLocalService.deleteSearchHit(searchHitId);
@@ -139,8 +135,8 @@ public class SearchHitLocalServiceWrapper
 	 * @return the search hit that was removed
 	 */
 	@Override
-	public SearchHit deleteSearchHit(
-		SearchHit searchHit) {
+	public ai.tensoropt.sel.model.SearchHit deleteSearchHit(
+		ai.tensoropt.sel.model.SearchHit searchHit) {
 
 		return _searchHitLocalService.deleteSearchHit(searchHit);
 	}
@@ -248,9 +244,7 @@ public class SearchHitLocalServiceWrapper
 	}
 
 	@Override
-	public SearchHit fetchSearchHit(
-		long searchHitId) {
-
+	public ai.tensoropt.sel.model.SearchHit fetchSearchHit(long searchHitId) {
 		return _searchHitLocalService.fetchSearchHit(searchHitId);
 	}
 
@@ -297,8 +291,7 @@ public class SearchHitLocalServiceWrapper
 	 * @throws PortalException if a search hit with the primary key could not be found
 	 */
 	@Override
-	public SearchHit getSearchHit(
-			long searchHitId)
+	public ai.tensoropt.sel.model.SearchHit getSearchHit(long searchHitId)
 		throws com.liferay.portal.kernel.exception.PortalException {
 
 		return _searchHitLocalService.getSearchHit(searchHitId);
@@ -316,8 +309,8 @@ public class SearchHitLocalServiceWrapper
 	 * @return the range of search hits
 	 */
 	@Override
-	public java.util.List<SearchHit>
-		getSearchHits(int start, int end) {
+	public java.util.List<ai.tensoropt.sel.model.SearchHit> getSearchHits(
+		int start, int end) {
 
 		return _searchHitLocalService.getSearchHits(start, end);
 	}
@@ -343,8 +336,8 @@ public class SearchHitLocalServiceWrapper
 	 * @return the search hit that was updated
 	 */
 	@Override
-	public SearchHit updateSearchHit(
-		SearchHit searchHit) {
+	public ai.tensoropt.sel.model.SearchHit updateSearchHit(
+		ai.tensoropt.sel.model.SearchHit searchHit) {
 
 		return _searchHitLocalService.updateSearchHit(searchHit);
 	}

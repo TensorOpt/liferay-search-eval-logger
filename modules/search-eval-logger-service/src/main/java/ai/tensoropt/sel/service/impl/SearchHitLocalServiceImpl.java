@@ -25,7 +25,7 @@ import org.osgi.service.component.annotations.Component;
  * @author Brian Wing Shun Chan
  */
 @Component(
-	property = "model.class.name=model.ai.tensoropt.sel.SearchHit",
+	property = "model.class.name=ai.tensoropt.sel.model.SearchHit",
 	service = AopService.class
 )
 public class SearchHitLocalServiceImpl extends SearchHitLocalServiceBaseImpl {
