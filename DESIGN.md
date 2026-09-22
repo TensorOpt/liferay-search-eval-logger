@@ -1,7 +1,7 @@
 # Liferay Search Eval Logger: Design Doc
 
-**Status:** Implemented and partly validated against a running instance. Section 7 carries the empirical results; EC-2, EC-5, EC-6, EC-9 and EC-13 remain unmeasured. The design below is unchanged except where an empirical check contradicted it, which is called out in place (see 3.1).
-**Date:** 2026-09-17, results appended 2026-09-21
+**Status:** Implemented and partly validated against a running instance. Section 7 carries the empirical results; EC-5, EC-6, EC-9 and EC-13 remain unmeasured. The design below is unchanged except where an empirical check contradicted it, which is called out in place (see 3.1). Section 10 (funnel integration) is specified but not yet implemented.
+**Date:** 2026-09-17, results appended 2026-09-21, funnel integration specified 2026-09-22
 **Target:** Designed against Liferay DXP 7.4; currently built and run against DXP 2025.Q1.27 LTS
 **License:** Apache 2.0
 **Distribution:** Public GitHub repository
@@ -45,6 +45,7 @@ These are the fixed constraints. Everything below must satisfy them.
 | D6 | No query-text redaction in v1. | Deferred deliberately (see Section 8). Target workloads are document, web content and knowledge-base search, where queries are predominantly non-PII. Revisit on first concrete customer objection. |
 | D7 | Capture is allowlist-based: only user-originated searches are logged. | Liferay uses the search engine heavily for internal work. A denylist would leak administrative traffic into the dataset. See 3.2. |
 | D8 | Whatever is not already in the `SearchResponse` is not captured. | Direct consequence of D2. The plugin reads what the caller asked for and nothing else. |
+| D9 | Zero egress. The plugin never initiates an outbound network request, neither from the server nor from the admin's browser. Every link to TensorOpt is a static, user-clicked hyperlink carrying no dataset or instance information. | Production app servers in the target sectors often have outbound traffic blocked, and "it reports back to its author" is the sentence that fails a security review. See Section 10. |
 
 ---
 
@@ -56,17 +57,19 @@ A single OSGi component wraps the `Searcher` service using a higher `service.ran
 
 ```java
 @Component(
-    property = "service.ranking:Integer=100",
+    property = {
+        "search.eval.logger=true", "service.ranking:Integer=100"
+    },
     service = Searcher.class
 )
 public class LoggingSearcher implements Searcher {
 
-    @Reference(target = "(!(service.ranking=100))")
-    private Searcher _delegate;
+    @Reference(target = "(!(search.eval.logger=true))")
+    private Searcher _searcher;
 
     @Override
     public SearchResponse search(SearchRequest searchRequest) {
-        SearchResponse searchResponse = _delegate.search(searchRequest);
+        SearchResponse searchResponse = _searcher.search(searchRequest);
 
         // Never throws into the caller. Never blocks.
         _dispatcher.dispatch(searchRequest, searchResponse);
@@ -76,9 +79,9 @@ public class LoggingSearcher implements Searcher {
 }
 ```
 
-The reference filter must be tuned so the ranked component does not bind to itself. Exact filter semantics are an empirical check (EC-3).
+Self-binding is avoided with a marker property of its own rather than by negating the ranking (EC-3). The two are not equivalent. Negating `service.ranking=100` would exclude every service at that ranking, so a second wrapper installed by another application, which has no reason to pick a different number, would be filtered out and its interception silently lost. Negating a property only this component sets excludes exactly this component: an absent property makes the negation true in OSGi filter semantics, so the portal's own unranked `Searcher` matches, and so does any other wrapper. Wrappers then chain by ranking instead of one of them disappearing.
 
-**A higher ranking only wins at bind time.** Liferay's search consumers declare a plain `@Reference` to `Searcher`, which is static and reluctant, so a consumer that has already bound the portal's own searcher does not rebind when this wrapper appears. Installing the plugin onto a running portal leaves it registered, healthy, and never called: collection records nothing at all, with no error anywhere, until the portal restarts and those consumers bind again. **The portal must be restarted after installation, and again after every redeploy of the impl bundle.** A redeploy is not a special case of installation, it is the same event: refreshing the bundle unregisters the wrapper and registers a new instance, and the already-bound consumers keep the reference they resolved at their own activation, which by then is the portal's own searcher again. So the development loop is deploy-then-restart every time, not deploy-then-restart once — and a `gradlew deploy` that appears to succeed, against a portal that keeps serving searches, still collects nothing until the restart. That is a property of how Liferay binds the service, not something the plugin can work around from inside its own bundle: there is no response-side extension point in `com.liferay.portal.search.spi.searcher` to switch to (only `SearchRequestContributor`, which is request-only and would violate D2), and the alternative — having this plugin restart Liferay's own search bundles to force a rebind — trades a documented one-time step for exactly the kind of invasive behavior Section 9 says must not survive a security review.
+**A higher ranking only wins at bind time.** Liferay's search consumers declare a plain `@Reference` to `Searcher`, which is static and reluctant, so a consumer that has already bound the portal's own searcher does not rebind when this wrapper appears. Installing the plugin onto a running portal leaves it registered, healthy, and never called: collection records nothing at all, with no error anywhere, until the portal restarts and those consumers bind again. **The portal must be restarted after installation, and again after every redeploy of the impl bundle.** A redeploy is not a special case of installation, it is the same event: refreshing the bundle unregisters the wrapper and registers a new instance, and the already-bound consumers keep the reference they resolved at their own activation, which by then is the portal's own searcher again. So the development loop is deploy-then-restart every time, not deploy-then-restart once. A `gradlew deploy` that appears to succeed, against a portal that keeps serving searches, still collects nothing until the restart. That is a property of how Liferay binds the service, not something the plugin can work around from inside its own bundle: there is no response-side extension point in `com.liferay.portal.search.spi.searcher` to switch to (only `SearchRequestContributor`, which is request-only and would violate D2), and the alternative (having this plugin restart Liferay's own search bundles to force a rebind) trades a documented one-time step for exactly the kind of invasive behavior Section 9 says must not survive a security review.
 
 Because the failure is invisible, it is detected rather than left to be discovered as an empty table. The plugin asks the OSGi registry whether any bundle other than its own is still using a `Searcher` that is not the wrapper; if so, interception is being bypassed. That state is logged as a warning on activation and shown in the admin screen.
 
@@ -95,7 +98,7 @@ A request is admitted only if **all** of the following hold:
 3. The requested entry class names are not in the configured exclusion list.
 4. The sampling draw passes, when sampling is below 1.0.
 
-Everything else is dropped before dispatch, with no allocation beyond the check itself. The realistic share of internal traffic that survives condition 1 is unknown and must be measured (EC-10); if it is material, condition 1 gains a companion requirement that a web request context is present.
+Everything else is dropped before dispatch, with no allocation beyond the check itself. EC-10 measured condition 1 on an otherwise idle instance: it removed 8 of 18 observed searches, with nobody browsing Asset Publisher pages, so internal keyword-free traffic is real and non-trivial even at rest. That sample is dominated by test searches, so it does not settle the follow-on question. Whether condition 1 needs a companion requirement that a web request context is present, enabled by default rather than offered as the setting in Section 5, remains open until the ratio is measured on a real workload.
 
 **Facet-driven interactions.** Applied facet selections are recorded wherever they can be obtained (4.1), because the same query text under different facets returns a different result list. Without them, an evaluator sees what looks like nondeterminism for a single query and cannot compare rows correctly.
 
@@ -163,6 +166,23 @@ liferay-search-eval-logger/
     search-eval-logger-impl/       Searcher wrapper, admission filter, listener, purge
     search-eval-logger-web/        Admin portlet (config + export)
 ```
+
+### 3.6 Collection-start tracking and local notifications
+
+*Specified, not yet implemented.*
+
+**Collection start, not enable date.** Because of the restart requirement in 3.1, switching "Logging enabled" on does not mean collection has started. An admin who installs and enables without restarting records nothing, silently. Any date anchored on the toggle would therefore be wrong exactly in the failure case that matters most. The plugin instead persists `collectionStartDate`: the UTC date of the first event persisted after logging is enabled. It also persists `enabledByUserId`, the administrator who switched logging on. Both stay local, are never exported, and are never transmitted. `enabledByUserId` identifies an administrator, not a search user, so it is outside D3's scope, but it is still excluded from the export. Disabling logging clears `collectionStartDate`; re-enabling starts a new cycle.
+
+**Daily check.** A daily job, using the same scheduler mechanism as the retention purge (3.4, EC-7), evaluates two conditions while logging is enabled:
+
+1. **Stall.** Interception is bypassed (the registry check in 3.1 reports a consumer still bound to a non-wrapper `Searcher`) and no event has been persisted in this cycle. The plugin sends one notification: logging is enabled but nothing is being collected, and the portal must be restarted. Sent once per cycle.
+2. **Readiness.** `collectionStartDate` is set, days since it meet the configured minimum, and admitted events since it meet the configured minimum (Section 5). The plugin sends one notification that the search log is ready for export, linking to the plugin's export screen. Sent once per cycle, recorded as `readinessNotifiedDate`.
+
+**Delivery.** Notifications go to `enabledByUserId` through Liferay's user notification framework (`UserNotificationEventLocalService` with a registered `UserNotificationHandler`), subject to EC-14. If that user no longer exists or is inactive, they go to the instance administrators. Notifications contain no external link.
+
+The stall notification exists because the bypass is otherwise only visible to someone who happens to open the admin screen. Without it, an admin who enabled logging and forgot to restart would learn about it weeks later, from an empty export.
+
+The job lives in `search-eval-logger-impl`, the notification handler in `search-eval-logger-web`.
 
 ---
 
@@ -236,10 +256,14 @@ Session-ID hashing was considered as an alternative and rejected: session contex
 
 Per D8, the plugin captures only what the caller already requested. Elasticsearch returns only the fields named in the request (via `_source` filtering or selected field names), and Liferay's search widgets frequently do not request full document content, instead resolving result summaries through the Indexer. Consequently:
 
-- **Snippets** are captured only when the calling code already enabled highlighting, which most user-facing search UIs do in order to bold matched terms. Where it did not, `snippet` is null.
+- **Snippets** are captured only when the calling code already enabled highlighting. Where it did not, `snippet` is null. How often that holds is an installation property and is not assumed here; see the measured result below.
 - **Titles and whitelisted extra fields** are captured only when present in the returned `Document`. A configured field that the caller did not request is simply absent.
 
 There is no fallback. An earlier draft proposed excerpting from a stored content or description field inside the async listener; that is not possible, because such a field is only in the response if the caller requested it, and causing it to be requested would violate D2.
+
+**Measured (EC-4).** On a stock Search Results widget query: `title` present on 9 of 10 hits, `snippet` on 1 of 10, no extra fields (the whitelist is title and snippet). The two are close to mutually exclusive, because highlighting produces fragments only for fields that matched: the one hit carrying a snippet, a `User`, carried no title, and every hit carrying a title carried no snippet. Coverage is asset-type dependent, so these ratios are a reading of one install's content mix rather than a constant.
+
+Two structural findings came with it. Snippets are not in the `Document` at all; they are read from `SearchHit#getHighlightFieldsMap()`, which is where the highlighter puts them. And every captured hit carried a usable `entryClassPK` (EC-8), across `User`, `DLFolder`, `DLFileEntry` and `Layout`, so a hit always resolves back to the content it refers to even where the text fields are thin. For LLM-assisted judging, title-plus-snippet on the same row is materially rarer than assumed, which is the risk this section exists to flag.
 
 The practical consequence for downstream judging: coverage of snippet and auxiliary fields is a property of the installation's search UI, not of this plugin, and it varies. The export manifest reports per-field coverage rates so an evaluator knows what they actually received before designing a judging pass. If coverage turns out to be too thin for LLM-based judging on a given install, the fix is a change to that installation's search configuration, not to this plugin.
 
@@ -251,7 +275,7 @@ Query text is additionally capped in application code (default 2000 characters) 
 
 Indexes: `SEL_SearchEvent(companyId, createDate)` for both export range selection and the retention purge; `SEL_SearchHit(searchEventUuid)` for the export's per-event lookup; `SEL_SearchHit(companyId, createDate)` for the purge. Measured on ten million hits, the last of these builds in four seconds and costs 67 MB.
 
-Volume: at 20 captured hits per event (a realistic figure given widget pagination) and 5,000 admitted searches per day, the hit table grows by roughly 100,000 rows per day and holds around 9 million rows at a 90-day retention window. Manageable, but only with the indexing and batched purge above.
+Volume: at 20 captured hits per event (a realistic figure given widget pagination) and 5,000 admitted searches per day, the hit table grows by roughly 100,000 rows per day and holds around 9 million rows at a 90-day retention window. Manageable, but only with the indexing and set-based purge above.
 
 ---
 
@@ -263,7 +287,7 @@ Exposed through a Configuration Admin-backed admin screen (`@Meta.OCD`), scoped 
 |---|---|---|
 | Logging enabled | `false` | **Off on install.** Installing the plugin must not silently begin collecting data. An admin opts in explicitly. |
 | Capture depth (K) | `100` | A ceiling, not a target. Actual capture is `min(K, hits returned)`. With typical widget pagination expect 10 to 20 rows per event. |
-| Retention window | `90 days` | Purge deletes events and hits older than this, in bounded batches. |
+| Retention window | `90 days` | Purge deletes events and hits older than this, as a set-based delete (3.4). |
 | Captured field list | `title`, `snippet` | Whitelist. Additional fields are opt-in per installation. Never "whatever the response contains". |
 | Exclude suggestion traffic | `true` | See 5.1. |
 | Admit facet-only searches | `false` | Keyword-free, facet-driven interactions. Off by default: no query string to evaluate, and admitting them weakens the admission filter (3.2). |
@@ -272,6 +296,9 @@ Exposed through a Configuration Admin-backed admin screen (`@Meta.OCD`), scoped 
 | Query text cap | `2000` chars | See 4.5. |
 | Sampling rate | `1.0` | Escape hatch for very high-volume instances. |
 | Excluded asset types | empty | Skips noisy or sensitive content types. |
+| Readiness: minimum days | `30` | Days since `collectionStartDate` before the readiness notification can fire (3.6). Proposed default; tune once real install data exists. |
+| Readiness: minimum events | `500` | Admitted events since `collectionStartDate` required before the readiness notification can fire. Proposed default; tune once real install data exists. |
+| Show evaluation service links | `true` | Hides both TensorOpt links (Section 10). Lets an admin remove them without forking. |
 
 The whitelist matters more than it looks. It is the difference between an export an admin approves after one read and an export that goes to legal. Full document bodies are never captured.
 
@@ -281,7 +308,7 @@ Search Bar Suggestions (DXP 7.4 U36+/GA36+) issues a fresh query each time the c
 
 Suggestions run through a distinct headless endpoint, `/o/search/v1.0/suggestions` (previously `/o/portal-search-rest/v1.0/suggestions`), driven by named contributors (`basic`, or `sxpBlueprint` on LES). That distinct entry point is the filtering handle: the wrapper classifies the request via the current request thread-local and drops it when exclusion is on.
 
-Whether suggestion requests reach `Searcher` at all, and whether the thread-local is reliably populated on that path, is an empirical check (EC-2). Because context extraction is defensive (3.2), an unpopulated ThreadLocal results in the request being dropped rather than misclassified, which fails in the safe direction.
+EC-2 confirms this works by direct signal rather than heuristic. A real browser suggestions request does reach `Searcher`, and the wrapper classifies it correctly: `sourceType=HEADLESS`, `suggestion=true`, `path=/o/search/v1.0/suggestions`. With exclusion on, which is the default, no row is written. The URI is intact on this path, so the filtering handle is the endpoint itself as designed. Because context extraction is defensive (3.2), an unpopulated ThreadLocal results in the request being dropped rather than misclassified, which fails in the safe direction.
 
 ---
 
@@ -289,7 +316,7 @@ Whether suggestion requests reach `Searcher` at all, and whether the thread-loca
 
 ### 6.1 Trigger
 
-An admin opens the plugin's Control Panel screen, selects a start and end date, and runs the export. It executes as a background task so progress and history are visible. The resulting archive is offered as a download. Nothing is transmitted anywhere automatically.
+An admin opens the plugin's Control Panel screen, selects a start and end date, and runs the export. It executes as a background task so progress and history are visible. The resulting archive is offered as a download. Nothing is transmitted anywhere automatically. On successful completion, the export screen shows the export-complete link described in 10.3.
 
 Access is gated by a dedicated resource permission, so exporting can be restricted independently of general portal administration.
 
@@ -341,7 +368,7 @@ Nesting also eliminates the join. Each line is exactly the `(query, result[])` r
 }
 ```
 
-**`manifest.json`** records the export time range, event and hit counts, plugin version, Liferay version, the plugin's configuration at export time (capture depth, field whitelist, sampling rate, exclusions, admission filter settings), the **admission counters** (searches observed, of those carrying keywords, of those admitted, then dispatched, dropped and persisted — the EC-10 funnel, process-wide and labelled as such), and **per-field coverage rates** (what fraction of hits carry a snippet, a title, each whitelisted extra field). An evaluator needs the coverage figures to know whether a judging pass is feasible before starting one, and the drop count to know whether the log is a census or a lossy sample.
+**`manifest.json`** records the export time range, event and hit counts, plugin version, Liferay version, the plugin's configuration at export time (capture depth, field whitelist, sampling rate, exclusions, admission filter settings), the **admission counters** (searches observed, of those carrying keywords, of those admitted, then dispatched, dropped and persisted: the EC-10 funnel, process-wide and labelled as such), and **per-field coverage rates** (what fraction of hits carry a snippet, a title, each whitelisted extra field). An evaluator needs the coverage figures to know whether a judging pass is feasible before starting one, and the drop count to know whether the log is a census or a lossy sample.
 
 `README.md` states the structural caveats in plain language: capture depth is bounded by caller pagination, results are permission-filtered, field coverage depends on the installation's search UI, internal traffic was filtered out by the admission rules recorded in the manifest, facet capture may be unavailable on some paths (`facet_capture_status`), and Blueprints may impose filters not represented in `applied_facets` (see 8).
 
@@ -359,7 +386,7 @@ Where a check lists a starting hypothesis, that is a place to look first, not a 
 |---|---|---|---|
 | **EC-1** | Does Liferay's Search Results widget route through `Searcher`, or through the legacy `SearchContext` path (`Indexer.search(SearchContext)`, `FacetedSearcher`, `com.liferay.portal.search.legacy.searcher.SearchRequestBuilderFactory`)? | **Blocking.** If the main site search box bypasses `Searcher`, the plugin logs nothing useful. Method: deploy a no-op ranked wrapper that logs on entry, search from a standard search page, confirm it fires. Hypothesis: it does route through `Searcher`. Confirm by observation only. If it does not fire, investigate the code path; do not assume a configuration toggle exists. | **Confirmed.** The Search Results widget does route through `Searcher`; events are captured end to end on a real DXP 2025.Q1.27 instance. |
 | **EC-2** | Do Search Bar Suggestions requests reach `Searcher`, and can they be reliably classified from within the wrapper? | Determines whether 5.1 exclusion works by direct signal or needs a heuristic. | **Confirmed working.** A real browser suggestions request reaches `Searcher` and is classified correctly: the wrapper sees `sourceType=HEADLESS`, `suggestion=true`, `path=/o/search/v1.0/suggestions`, and with exclusion on (the default) no row is written. The URI is intact on this path; the `/c/portal/layout` rewrite noted in EC-11 applies to the widget page request only, not to headless calls. Section 5.1 works as designed. |
-| **EC-3** | Is `Searcher` cleanly overridable by `service.ranking`, and what is the correct `@Reference` target filter to avoid self-binding? | Core mechanism. Also: behavior if a second app wraps `Searcher`. Document a distinct ranking value and make delegate lookup defensive. | **Resolved, with a constraint.** Overriding works, but only for consumers that bind *after* the wrapper is registered. Liferay's search consumers (`SearchDisplayContextFactoryImpl` and `PortletSharedSearchRequestImpl` in `com.liferay.portal.search.web`, `SearchResultResourceImpl` and `FacetResponseProcessor` in `com.liferay.portal.search.rest.impl`, `BasicSuggestionsContributor` in `com.liferay.portal.search`) declare a plain `@Reference`, which is static and reluctant: a consumer already bound to the portal's own `Searcher` never rebinds when a higher-ranked one appears. Installing onto a running portal therefore collects nothing, silently, until a restart — and so does every subsequent redeploy of the impl bundle, since refreshing it drops the wrapper the bound consumers would have had to be holding. See 3.1. Self-binding is avoided with a marker property rather than a ranking negation, so a second wrapper stays reachable instead of being filtered out. |
+| **EC-3** | Is `Searcher` cleanly overridable by `service.ranking`, and what is the correct `@Reference` target filter to avoid self-binding? | Core mechanism. Also: behavior if a second app wraps `Searcher`. Document a distinct ranking value and make delegate lookup defensive. | **Resolved, with a constraint.** Overriding works, but only for consumers that bind *after* the wrapper is registered. Liferay's search consumers (`SearchDisplayContextFactoryImpl` and `PortletSharedSearchRequestImpl` in `com.liferay.portal.search.web`, `SearchResultResourceImpl` and `FacetResponseProcessor` in `com.liferay.portal.search.rest.impl`, `BasicSuggestionsContributor` in `com.liferay.portal.search`) declare a plain `@Reference`, which is static and reluctant: a consumer already bound to the portal's own `Searcher` never rebinds when a higher-ranked one appears. Installing onto a running portal therefore collects nothing, silently, until a restart, and so does every subsequent redeploy of the impl bundle, since refreshing it drops the wrapper the bound consumers would have had to be holding. See 3.1. Self-binding is avoided with a marker property rather than a ranking negation, so a second wrapper stays reachable instead of being filtered out. |
 | **EC-4** | Confirm which fields are actually present in the `SearchResponse` for a default Search Results widget query: title, snippet, description, custom fields. | Sets realistic expectations for judging (4.4). Determines whether title-plus-snippet is typically available or the dataset is thinner than assumed. | **Answered, and thinner than assumed.** On a stock widget query: `title` on 9 of 10 hits, `snippet` on 1 of 10, `extraFields` 0 (whitelist is title+snippet). Coverage is asset-type dependent and the two are near mutually exclusive: highlighting only produces fragments for fields that matched, so the hit carrying a snippet (a `User`) carried no title, and every hit with a title carried no snippet. Snippets live on `SearchHit#getHighlightFieldsMap()`, not in the `Document`. For LLM-assisted judging this is materially thinner than title-plus-snippet, exactly the risk 4.4 warns about. |
 | **EC-5** | Does the headless Search API (`/o/search/v1.0/...`, GA in DXP 2025.Q4+) route through `Searcher`? | Coverage completeness for API-driven consumers. | **Not measured; blocked by feature flag `LPS-179669`, and structurally yes.** `SearchResultResourceImpl` declares `<reference name="_searcher" interface="com.liferay.portal.search.searcher.Searcher"/>`, so the headless path resolves `Searcher` through the registry and would be wrapped, inheriting EC-3's static-reluctant constraint. The endpoint answers 404 because the resource opens with `if (!FeatureFlagManagerUtil.isEnabled("LPS-179669")) throw new NotFoundException()`. Evidence that this is the operative cause, rather than the application failing to register: within the same application, both flag-gated resources (`SearchResultResourceImpl`, `EmbeddingModelResourceImpl`) answer 404 while the one ungated resource (`SuggestionsResourceImpl`) answers 200. The flag has no row in `PortalPreferenceValue` under namespace `com.liferay.portal.kernel.feature.flag.FeatureFlag`, so its value falls back to the portal property, and setting `feature.flag.LPS-179669=true` in `portal-ext.properties` at both Liferay Home and `WEB-INF/classes` did not take effect across two restarts. Toggling the flag in Control Panel writes a preference row and would open the gate; that has not been done. |
 | **EC-6** | Does interception behave identically with LES Blueprints active? | The whole no-branch premise depends on this. | **Blocked.** Blueprints are installed and the SXP REST API works, but driving a Blueprint search needs either the flag in EC-5 or widget configuration. Not measured. |
@@ -367,13 +394,16 @@ Where a check lists a starting hypothesis, that is a place to look first, not a 
 | **EC-8** | Is `entryClassPK` reliably present on the returned `Document` for all asset types? | Affects whether hits resolve back to content. | **Confirmed.** Every captured hit carried a non-zero `entryClassPK`, across `User`, `DLFolder`, `DLFileEntry` and `Layout`. Hits resolve back to content. |
 | **EC-9** | Deploy and smoke-test on the current DXP Cloud quarterly release, not only numbered 7.4 updates. | PaaS/SaaS customers are on the continuous-release train. | **Not done.** No DXP Cloud access from the development environment. |
 | **EC-10** | Measure what share of `Searcher` traffic on a realistic instance is internal (Asset Publisher, Control Panel, workflow, DDM), and how much of it survives the keywords-present admission condition. Separately, measure how much internal traffic would be admitted if facet-only searches were allowed. | Determines whether the allowlist in 3.2 is sufficient or needs the web-request-context requirement enabled by default, and whether facet-only admission is viable at all. | **Partly measured; the ratio is not yet a production figure.** On an otherwise idle instance: 18 searches observed while enabled, 10 carried keywords, 10 admitted. Condition 1 removed 8 of 18 (44%) with nobody browsing Asset Publisher pages, so internal keyword-free traffic is real and non-trivial at rest; on a busy instance the share would be higher. Conditions 2 to 4 removed nothing (no suggestion traffic, no exclusions configured, sampling 1.0). The pipeline was lossless: 10 admitted, 10 dispatched, 10 persisted, 0 dropped. The denominator here is dominated by test searches, so this does not yet answer whether the web-request-context requirement should default on. |
+| **EC-11** | Verify which ThreadLocals (`ThemeDisplay`, `PermissionThreadLocal`, request) are populated on each search path that reaches `Searcher`. | Underpins suggestion classification and any context-dependent field. Determines how much is droppable versus recoverable. | **Answered for the widget path.** Authenticated and guest both populate everything: request, `ThemeDisplay`, `ServiceContext`, `CompanyThreadLocal`, `PrincipalThreadLocal` and `PermissionThreadLocal`. The defensive null-guarding in 3.2 is justified but is not exercised here. One finding with consequences: the path visible to the wrapper is `/c/portal/layout`, the friendly URL having already been resolved, which is what casts doubt on EC-2 (since resolved: EC-2 confirms the URI is intact on the headless path). A PJAX/XHR search classified as `WIDGET` like any other. No data yet for background or internal paths, because the probe runs after admission condition 1 and keyword-free traffic never reaches it. |
 | **EC-12** | Determine on which paths applied facet and filter selections are readable, and from where. Probe in order: `searchContext.getFacets()`, then `searchContext.getAttributes()` (UI components sometimes place raw state there), then the query tree. Expected to be the hardest item here, since facets may already be translated into query clauses before the `SearchRequest` is finalized. | Sets the real coverage of `applied_facets` and how often `facetCaptureStatus` is `UNAVAILABLE` (3.2). Skew toward particular UI types must be reported to the evaluator. **Acceptance:** widget-path capture working is sufficient for v1. Headless paths resolving to `UNAVAILABLE` is an accepted outcome, not a failure; reading facets out of the request payload stream is explicitly out of scope. | **Answered for the widget path, which is the stated v1 bar.** A date-facet search recorded `CAPTURED` with `{"modified":["[20250921083454 TO 20260921083454]"]}`; an unfaceted search correctly recorded `NONE_APPLIED`. Note for evaluators: the facet is stored as the resolved range, not the user's selection, so `past-year` never appears in the data. Only the date facet could be exercised (the type facet is not active on this search page), so multi-facet capture is untested, and the headless path is untested pending EC-5. |
 | **EC-13** | Is a Blueprint identifier (for example `searchContext.getAttribute("search.experiences.blueprint.id")`) readable on Blueprint-driven searches? **Test both a widget-applied Blueprint and a globally applied one** (Control Panel, System Settings, Search): the two may resolve differently, and testing only one risks a false pass. | Decides whether the invisible-filter problem in Section 8 gets a partition key or only a README caveat. LES installs only. | **Blocked.** Same dependency as EC-6: a Blueprint-driven search cannot be triggered without the EC-5 flag or widget configuration. Not measured. |
-| **EC-11** | Verify which ThreadLocals (`ThemeDisplay`, `PermissionThreadLocal`, request) are populated on each search path that reaches `Searcher`. | Underpins suggestion classification and any context-dependent field. Determines how much is droppable versus recoverable. | **Answered for the widget path.** Authenticated and guest both populate everything: request, `ThemeDisplay`, `ServiceContext`, `CompanyThreadLocal`, `PrincipalThreadLocal` and `PermissionThreadLocal`. The defensive null-guarding in 3.2 is justified but is not exercised here. One finding with consequences: the path visible to the wrapper is `/c/portal/layout`, the friendly URL having already been resolved, which is what casts doubt on EC-2. A PJAX/XHR search classified as `WIDGET` like any other. No data yet for background or internal paths, because the probe runs after admission condition 1 and keyword-free traffic never reaches it. |
+| **EC-14** | Verify Liferay's user notification framework on the target platform (`UserNotificationEventLocalService`, a registered `UserNotificationHandler`) for a plugin-originated notification to a specific user. Confirm the enabling user's ID is available when logging is switched on from the configuration screen. | 3.6 depends on it. Fallback if unavailable: stall and readiness states shown as banners on the plugin's own admin screen only. | Open |
 
 ---
 
 ## 8. Non-Goals and Deferred Items
+
+**Telemetry and usage reporting.** The plugin reports nothing to anyone: no install pings, no usage counts, no export events. TensorOpt does not learn that an installation exists unless someone clicks one of the links in Section 10. The accepted cost is that installations whose admins never click are invisible to TensorOpt. They still receive the local notifications in 3.6.
 
 **Liferay search configuration export.** Capturing Blueprints, Result Rankings, Synonym Sets, index mappings and widget configuration was considered and deliberately dropped from v1. It is not one artifact but several, and the relevant Search Results and Facet widget configuration is per-page, so "the config" is not well defined at instance scope. Where reproducibility matters, configuration is captured manually during the engagement.
 
@@ -410,4 +440,49 @@ The reasoning is specific: trust is the bottleneck, not discovery. A tool that l
 
 Marketplace listing remains available later, for free, purely for discoverability once the plugin is stable. It is an optional addition, not the primary channel.
 
-**Repository contents:** source, build, prebuilt artifacts, a README covering what is collected and what is not, the export schema, the data-protection notes from Section 8, and this design document.
+Funnel touchpoints are limited to the two static links and the local notifications specified in Section 10.
+
+**Repository contents:** source, build, prebuilt artifacts, a README covering what is collected and what is not, the export schema, the data-protection notes from Section 8, the funnel links from Section 10, and this design document.
+
+---
+
+## 10. Funnel Integration
+
+*Specified, not yet implemented.*
+
+The plugin supports TensorOpt's evaluation service through exactly two static links and the local notifications in 3.6. All of them are documented here so an installing administrator can see precisely what exists and what does not. Everything in this section is governed by D9.
+
+### 10.1 Collection-start link
+
+- **Location:** the configuration screen, next to "Logging enabled". Shown only once `collectionStartDate` is set, meaning collection is demonstrably working. Hidden while the bypass warning from 3.1 is active.
+- **Label:** "Get an email reminder when your search log is ready to export (optional)."
+- **Target:** `{{SIGNUP_URL}}?started=YYYY-MM-DD&utm_source=liferay-plugin&utm_medium=config-screen`
+- **Parameters:** `started` is `collectionStartDate` at day granularity. Nothing else: no hostname, instance ID, company name, plugin version, event counts or user data.
+- **Behavior:** a plain anchor opening in a new tab. No prefetch, no preload, no embedded widget, no image or tracking pixel.
+
+Showing the link only after the first event is persisted is deliberate. It means the date carried to the signup page is the date collection actually began, so the reminder cannot fire against an install that never restarted and has nothing to export.
+
+Email opt-in (double opt-in, EU-hosted) and scheduling of the reminder happen entirely on TensorOpt's side and are out of scope for the plugin. The reminder is scheduled 30 to 45 days after the `started` date, not after the signup date.
+
+### 10.2 Local notifications
+
+Specified in 3.6. They link only to the plugin's own screens and contain no external link. The readiness notification is the path for administrators who never click 10.1.
+
+### 10.3 Export-complete link
+
+- **Location:** the export screen, shown after a successful export.
+- **Label:** "Want this dataset evaluated? Book a call to scope the analysis."
+- **Target:** `{{BOOKING_URL}}?utm_source=liferay-plugin&utm_medium=export-complete`
+- **Parameters:** UTM tags only. No dataset metadata: no row counts, coverage figures or date range.
+
+This link goes directly to booking rather than through the email opt-in. At this point the administrator already has data in hand, so a nurture sequence adds nothing.
+
+### 10.4 Constraints
+
+- Both links are hidden when "Show evaluation service links" is false.
+- Neither link appears inside the export archive. The dataset stays vendor-neutral regardless of who evaluates it.
+- Both URLs are defined as constants in a single class, so reviewers and forks can find and change them in one place.
+
+### 10.5 What TensorOpt can learn
+
+Only what a click reveals: that someone clicked, the collection-start date (10.1 only), and the UTM tags. Nothing is known about installations whose administrators never click.
