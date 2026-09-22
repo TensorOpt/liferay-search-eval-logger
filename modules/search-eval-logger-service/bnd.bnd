@@ -1,5 +1,5 @@
 Bundle-Name: TensorOpt Search Eval Logger Service
-Bundle-SymbolicName: com.tensoropt.search.eval.logger.service
+Bundle-SymbolicName: ai.tensoropt.sel.service
 Bundle-Version: 1.0.0
 Liferay-Require-SchemaVersion: 1.0.0
 Liferay-Service: true

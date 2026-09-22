@@ -3,7 +3,7 @@
 
 <resource-action-mapping>
 	<portlet-resource>
-		<portlet-name>com_tensoropt_search_eval_logger_web_internal_portlet_SearchEvalLoggerPortlet</portlet-name>
+		<portlet-name>ai_tensoropt_sel_web_internal_portlet_SearchEvalLoggerPortlet</portlet-name>
 		<permissions>
 			<supports>
 				<action-key>ACCESS_IN_CONTROL_PANEL</action-key>

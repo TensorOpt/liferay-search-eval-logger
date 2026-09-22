@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <model-hints>
-	<model name="com.tensoropt.search.eval.logger.model.SearchEvent">
+	<model name="ai.tensoropt.sel.model.SearchEvent">
 		<field name="mvccVersion" type="long" />
 		<field name="uuid" type="String" />
 		<field name="searchEventId" type="long" />
@@ -43,7 +43,7 @@
 			<hint name="max-length">20</hint>
 		</field>
 	</model>
-	<model name="com.tensoropt.search.eval.logger.model.SearchHit">
+	<model name="ai.tensoropt.sel.model.SearchHit">
 		<field name="mvccVersion" type="long" />
 		<field name="searchHitId" type="long" />
 		<field name="searchEventUuid" type="String">

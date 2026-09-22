@@ -1,5 +1,5 @@
 subprojects {
-	group = "com.tensoropt.search.eval.logger"
+	group = "ai.tensoropt.sel"
 
 	// Pinned to the level the target platform itself is built at. DXP 2025.Q1
 	// LTS ships Java 17 bytecode, so the build JDK must be 17 or newer, and
