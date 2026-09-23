@@ -75,6 +75,77 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		}
 	}
 
+	/**
+	 * Counts the events of one virtual instance recorded on or after a date.
+	 *
+	 * <p>
+	 * The readiness check of DESIGN.md 3.6 needs the number of events collected
+	 * since the collection start date, and the counters in
+	 * <code>SearchEvalLoggerStatistics</code> cannot answer it: they are
+	 * process-wide and reset on restart, so on any instance that has been
+	 * restarted since collection began they undercount, silently and by an
+	 * unknown amount.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC for the same reason as the delete above: the generated finder
+	 * would materialise entities to count them. This runs once a day per
+	 * virtual instance, on the same <code>(companyId, createDate)</code> index
+	 * the export and the purge use.
+	 * </p>
+	 *
+	 * <p>
+	 * Named with a <code>get</code> prefix on purpose. Service Builder decides
+	 * from the prefix whether a generated method is annotated
+	 * <code>&#64;Transactional(propagation = SUPPORTS, readOnly = true)</code>,
+	 * and <code>count</code> is not one of the prefixes it recognises, so the
+	 * obvious name gave this a read-write <code>Isolation.PORTAL</code>
+	 * transaction for a <code>select count(*)</code>.
+	 * </p>
+	 */
+	public long getCountByCompanyIdAndCreateDateOnOrAfter(
+		long companyId, Date startDate) {
+
+		DataSource dataSource = searchEventPersistence.getDataSource();
+
+		Connection currentConnection = CurrentConnectionUtil.getConnection(
+			dataSource);
+
+		try {
+			if (currentConnection != null) {
+				return _count(currentConnection, companyId, startDate);
+			}
+
+			try (Connection connection = dataSource.getConnection()) {
+				return _count(connection, companyId, startDate);
+			}
+		}
+		catch (Exception exception) {
+			throw new SystemException(exception);
+		}
+	}
+
+	private long _count(
+			Connection connection, long companyId, Date startDate)
+		throws Exception {
+
+		try (PreparedStatement preparedStatement = connection.prepareStatement(
+				_COUNT_SQL)) {
+
+			preparedStatement.setLong(1, companyId);
+			preparedStatement.setTimestamp(
+				2, new Timestamp(startDate.getTime()));
+
+			try (ResultSet resultSet = preparedStatement.executeQuery()) {
+				if (!resultSet.next()) {
+					return 0;
+				}
+
+				return resultSet.getLong(1);
+			}
+		}
+	}
+
 	private int _delete(
 			Connection connection, long companyId, Date cutoffDate)
 		throws Exception {
@@ -201,6 +272,10 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	}
 
 	private static final int _FETCH_SIZE = 1000;
+
+	private static final String _COUNT_SQL =
+		"select count(*) from SEL_SearchEvent where companyId = ? and " +
+			"createDate >= ?";
 
 	private static final String _DELETE_SQL =
 		"delete from SEL_SearchEvent where companyId = ? and createDate < ?";

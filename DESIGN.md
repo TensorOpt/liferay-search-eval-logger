@@ -1,7 +1,7 @@
 # Liferay Search Eval Logger: Design Doc
 
-**Status:** Implemented and partly validated against a running instance. Section 7 carries the empirical results; EC-5, EC-6, EC-9 and EC-13 remain unmeasured. The design below is unchanged except where an empirical check contradicted it, which is called out in place (see 3.1). Section 10 (funnel integration) is specified but not yet implemented.
-**Date:** 2026-09-17, results appended 2026-09-21, funnel integration specified 2026-09-22
+**Status:** Implemented and partly validated against a running instance. Section 7 carries the empirical results; EC-5, EC-6, EC-9, EC-13 and the runtime half of EC-14 remain unmeasured. The design below is unchanged except where an empirical check contradicted it, which is called out in place (see 3.1). Sections 3.6 and 10 (collection-start tracking, local notifications, funnel integration) are implemented and build, but nothing in them has been observed running.
+**Date:** 2026-09-17, results appended 2026-09-21, funnel integration specified and implemented 2026-09-22
 **Target:** Designed against Liferay DXP 7.4; currently built and run against DXP 2025.Q1.27 LTS
 **License:** Apache 2.0
 **Distribution:** Public GitHub repository
@@ -169,7 +169,7 @@ liferay-search-eval-logger/
 
 ### 3.6 Collection-start tracking and local notifications
 
-*Specified, not yet implemented.*
+*Implemented; not yet observed running. The state is persisted as company-scoped portlet preferences rather than in the `@Meta.OCD` configuration, which would have rendered it as editable fields on the System Settings screen, or in a Service Builder entity, which would have required a schema upgrade on instances where the module is already installed. The daily job reconciles the cycle with the configuration as well as evaluating the two conditions, so it is a backstop if the configuration listener that supplies `enabledByUserId` turns out not to fire (EC-14).*
 
 **Collection start, not enable date.** Because of the restart requirement in 3.1, switching "Logging enabled" on does not mean collection has started. An admin who installs and enables without restarting records nothing, silently. Any date anchored on the toggle would therefore be wrong exactly in the failure case that matters most. The plugin instead persists `collectionStartDate`: the UTC date of the first event persisted after logging is enabled. It also persists `enabledByUserId`, the administrator who switched logging on. Both stay local, are never exported, and are never transmitted. `enabledByUserId` identifies an administrator, not a search user, so it is outside D3's scope, but it is still excluded from the export. Disabling logging clears `collectionStartDate`; re-enabling starts a new cycle.
 
@@ -177,6 +177,24 @@ liferay-search-eval-logger/
 
 1. **Stall.** Interception is bypassed (the registry check in 3.1 reports a consumer still bound to a non-wrapper `Searcher`) and no event has been persisted in this cycle. The plugin sends one notification: logging is enabled but nothing is being collected, and the portal must be restarted. Sent once per cycle.
 2. **Readiness.** `collectionStartDate` is set, days since it meet the configured minimum, and admitted events since it meet the configured minimum (Section 5). The plugin sends one notification that the search log is ready for export, linking to the plugin's export screen. Sent once per cycle, recorded as `readinessNotifiedDate`.
+
+**What "admitted events since it" actually counts.** Rows still present in `SEL_SearchEvent` with a `createDate` on or after `collectionStartDate`, counted with a single `select count(*)` on the `(companyId, createDate)` index. That is not the same number as admitted events, and it is lower, for two reasons an operator has to know about.
+
+First, dispatch drops under backpressure (3.3), so an admitted event that never reached the database is not counted. The manifest reports drops separately; the readiness check does not consult them. Erring low means the notification fires late rather than early, which is the right direction for a message that says "this is worth exporting".
+
+Second, and more consequentially: **the retention purge (3.4) caps this count.** The count window starts at `collectionStartDate`, but the purge deletes everything older than `retentionDays`, so the window is effectively `min(days since collection started, retentionDays)`. If `readinessMinimumDays` exceeds `retentionDays` the count can never cover the whole period being asked about, and on a low-traffic instance the event threshold may never be reached at all, so the readiness notification never fires and nothing says why. The defaults (90 days retention, 30 days minimum) leave a wide margin. An operator who shortens retention below the readiness minimum has made readiness unreachable, and the settings help text says so.
+
+**Persisted state.** DESIGN originally named three values. The implementation stores five per virtual instance, because "sent once per cycle" needs a marker for each of the two notifications and reconciliation needs to know whether a cycle is open at all:
+
+| Value | Purpose |
+|---|---|
+| `open` | Whether a cycle is running. Distinguishes "never enabled" from "enabled but nothing collected yet", which the stall condition depends on. |
+| `enabledByUserId` | The administrator who switched logging on. Zero when it could not be determined, which sends notifications to the instance administrators instead. Filled in later if a save arrives carrying an identity the cycle does not yet have; never replaced once known. |
+| `collectionStartDate` | First event persisted in this cycle, UTC day. |
+| `readinessNotifiedDate` | Once-per-cycle marker for condition 2. Also what the admin screen reads to render the readiness banner, so the banner does not depend on a notification having been delivered. |
+| `stallNotifiedDate` | Once-per-cycle marker for condition 1. |
+
+All five are cleared when the cycle closes, so re-enabling starts genuinely fresh rather than inheriting an earlier cycle's "already told them".
 
 **Delivery.** Notifications go to `enabledByUserId` through Liferay's user notification framework (`UserNotificationEventLocalService` with a registered `UserNotificationHandler`), subject to EC-14. If that user no longer exists or is inactive, they go to the instance administrators. Notifications contain no external link.
 
@@ -296,8 +314,8 @@ Exposed through a Configuration Admin-backed admin screen (`@Meta.OCD`), scoped 
 | Query text cap | `2000` chars | See 4.5. |
 | Sampling rate | `1.0` | Escape hatch for very high-volume instances. |
 | Excluded asset types | empty | Skips noisy or sensitive content types. |
-| Readiness: minimum days | `30` | Days since `collectionStartDate` before the readiness notification can fire (3.6). Proposed default; tune once real install data exists. |
-| Readiness: minimum events | `500` | Admitted events since `collectionStartDate` required before the readiness notification can fire. Proposed default; tune once real install data exists. |
+| Readiness: minimum days | `30` | Days since `collectionStartDate` before the readiness notification can fire (3.6). Keep below the retention window, or the event count can never cover the period it is being asked about. Proposed default; tune once real install data exists. |
+| Readiness: minimum events | `500` | Events recorded since `collectionStartDate` and **not yet purged** required before the readiness notification can fire. Setting this above what the retention window can hold makes readiness unreachable; see 3.6. Proposed default; tune once real install data exists. |
 | Show evaluation service links | `true` | Hides both TensorOpt links (Section 10). Lets an admin remove them without forking. |
 
 The whitelist matters more than it looks. It is the difference between an export an admin approves after one read and an export that goes to legal. Full document bodies are never captured.
@@ -397,7 +415,7 @@ Where a check lists a starting hypothesis, that is a place to look first, not a 
 | **EC-11** | Verify which ThreadLocals (`ThemeDisplay`, `PermissionThreadLocal`, request) are populated on each search path that reaches `Searcher`. | Underpins suggestion classification and any context-dependent field. Determines how much is droppable versus recoverable. | **Answered for the widget path.** Authenticated and guest both populate everything: request, `ThemeDisplay`, `ServiceContext`, `CompanyThreadLocal`, `PrincipalThreadLocal` and `PermissionThreadLocal`. The defensive null-guarding in 3.2 is justified but is not exercised here. One finding with consequences: the path visible to the wrapper is `/c/portal/layout`, the friendly URL having already been resolved, which is what casts doubt on EC-2 (since resolved: EC-2 confirms the URI is intact on the headless path). A PJAX/XHR search classified as `WIDGET` like any other. No data yet for background or internal paths, because the probe runs after admission condition 1 and keyword-free traffic never reaches it. |
 | **EC-12** | Determine on which paths applied facet and filter selections are readable, and from where. Probe in order: `searchContext.getFacets()`, then `searchContext.getAttributes()` (UI components sometimes place raw state there), then the query tree. Expected to be the hardest item here, since facets may already be translated into query clauses before the `SearchRequest` is finalized. | Sets the real coverage of `applied_facets` and how often `facetCaptureStatus` is `UNAVAILABLE` (3.2). Skew toward particular UI types must be reported to the evaluator. **Acceptance:** widget-path capture working is sufficient for v1. Headless paths resolving to `UNAVAILABLE` is an accepted outcome, not a failure; reading facets out of the request payload stream is explicitly out of scope. | **Answered for the widget path, which is the stated v1 bar.** A date-facet search recorded `CAPTURED` with `{"modified":["[20250921083454 TO 20260921083454]"]}`; an unfaceted search correctly recorded `NONE_APPLIED`. Note for evaluators: the facet is stored as the resolved range, not the user's selection, so `past-year` never appears in the data. Only the date facet could be exercised (the type facet is not active on this search page), so multi-facet capture is untested, and the headless path is untested pending EC-5. |
 | **EC-13** | Is a Blueprint identifier (for example `searchContext.getAttribute("search.experiences.blueprint.id")`) readable on Blueprint-driven searches? **Test both a widget-applied Blueprint and a globally applied one** (Control Panel, System Settings, Search): the two may resolve differently, and testing only one risks a false pass. | Decides whether the invisible-filter problem in Section 8 gets a partition key or only a README caveat. LES installs only. | **Blocked.** Same dependency as EC-6: a Blueprint-driven search cannot be triggered without the EC-5 flag or widget configuration. Not measured. |
-| **EC-14** | Verify Liferay's user notification framework on the target platform (`UserNotificationEventLocalService`, a registered `UserNotificationHandler`) for a plugin-originated notification to a specific user. Confirm the enabling user's ID is available when logging is switched on from the configuration screen. | 3.6 depends on it. Fallback if unavailable: stall and readiness states shown as banners on the plugin's own admin screen only. | Open |
+| **EC-14** | Verify Liferay's user notification framework on the target platform (`UserNotificationEventLocalService`, a registered `UserNotificationHandler`) for a plugin-originated notification to a specific user. Confirm the enabling user's ID is available when logging is switched on from the configuration screen. | 3.6 depends on it. Fallback if unavailable: stall and readiness states shown as banners on the plugin's own admin screen only. | **Open at runtime; the API half is settled.** `UserNotificationEventLocalService`, `UserNotificationHandler`, `BaseUserNotificationHandler`, `UserNotificationFeedEntry`, `NotificationEvent` and `UserNotificationDeliveryConstants` are all public in `release.dxp.api-2025.q1.27`, and the sender and handler compile against them. `UserNotificationManagerUtil` resolves a stored event to a handler by matching the event's `type` against the handler's `getPortletId()`, which is why both sides read the portlet name from one constant in the api bundle. Not confirmed: that a notification sent this way actually appears in a recipient's feed, and that `PrincipalThreadLocal` carries the enabling administrator inside a `ConfigurationModelListener.onAfterSave` for a company-scoped configuration. The second is a reasoned expectation, not an observation: a model listener runs inside the save, on the administrator's own request thread, whereas a `@Modified` callback runs later on a Configuration Admin thread with no principal. Both unknowns fail safe. An unresolved user id is zero, and notifications then go to the instance administrators, which this section already specifies. A notification that is never delivered leaves the cycle record unchanged, and the admin screen renders the readiness state from that record rather than from delivery, so the fallback is the code that is always running rather than a branch waiting to be written. |
 
 ---
 
@@ -448,15 +466,17 @@ Funnel touchpoints are limited to the two static links and the local notificatio
 
 ## 10. Funnel Integration
 
-*Specified, not yet implemented.*
+*Implemented, with one deviation, called out in 10.1: the collection-start link is rendered on the plugin's own admin screen rather than on the configuration screen, because the configuration screen is Liferay's own generated System Settings form and this plugin has no code running inside it.*
 
 The plugin supports TensorOpt's evaluation service through exactly two static links and the local notifications in 3.6. All of them are documented here so an installing administrator can see precisely what exists and what does not. Everything in this section is governed by D9.
 
 ### 10.1 Collection-start link
 
 - **Location:** the configuration screen, next to "Logging enabled". Shown only once `collectionStartDate` is set, meaning collection is demonstrably working. Hidden while the bypass warning from 3.1 is active.
+  - **As built:** the plugin's own Control Panel screen, next to the note pointing at the settings, and next to the collection start date it now displays. The configuration screen is generated by Liferay from the `@Meta.OCD` interface and this plugin contributes no code to it; the only way to put a link there would be to replace the whole generated form with a hand-written `ConfigurationScreen`, reimplementing every field and its validation to gain one anchor. The visibility rules are unchanged.
 - **Label:** "Get an email reminder when your search log is ready to export (optional)."
-- **Target:** `{{SIGNUP_URL}}?started=YYYY-MM-DD&utm_source=liferay-plugin&utm_medium=config-screen`
+- **Target:** `{{SIGNUP_URL}}?started=YYYY-MM-DD&utm_source=liferay-plugin&utm_medium=admin-screen`
+  - `utm_medium` was specified as `config-screen`, paired with a location on the configuration screen. Since that location could not be built (see below), the tag follows the location rather than outliving it: keeping `config-screen` would have preserved an inaccuracy rather than a contract, and the first data the receiving end ever sees would have been mislabelled.
 - **Parameters:** `started` is `collectionStartDate` at day granularity. Nothing else: no hostname, instance ID, company name, plugin version, event counts or user data.
 - **Behavior:** a plain anchor opening in a new tab. No prefetch, no preload, no embedded widget, no image or tracking pixel.
 

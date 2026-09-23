@@ -132,4 +132,32 @@ public interface SearchEvalLoggerConfiguration {
 	)
 	public String[] excludedEntryClassNames();
 
+	/**
+	 * Days since the collection start date, which is the first event actually
+	 * persisted rather than the moment logging was switched on (3.6).
+	 */
+	@Meta.AD(
+		deflt = "30", description = "readiness-minimum-days-description",
+		min = "0", name = "readiness-minimum-days", required = false
+	)
+	public int readinessMinimumDays();
+
+	@Meta.AD(
+		deflt = "500", description = "readiness-minimum-events-description",
+		min = "0", name = "readiness-minimum-events", required = false
+	)
+	public int readinessMinimumEvents();
+
+	/**
+	 * Hides both links of DESIGN.md 10. They are static anchors that are
+	 * fetched only when a person clicks them (D9), so this governs what is
+	 * displayed and nothing else.
+	 */
+	@Meta.AD(
+		deflt = "true",
+		description = "show-evaluation-service-links-description",
+		name = "show-evaluation-service-links", required = false
+	)
+	public boolean showEvaluationServiceLinks();
+
 }

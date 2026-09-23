@@ -108,6 +108,16 @@ public class SearchEvalLoggerConfigurationRegistry {
 		}
 
 		@Override
+		public int readinessMinimumDays() {
+			return SearchEvalLoggerConstants.DEFAULT_READINESS_MINIMUM_DAYS;
+		}
+
+		@Override
+		public int readinessMinimumEvents() {
+			return SearchEvalLoggerConstants.DEFAULT_READINESS_MINIMUM_EVENTS;
+		}
+
+		@Override
 		public int retentionDays() {
 			return SearchEvalLoggerConstants.DEFAULT_RETENTION_DAYS;
 		}
@@ -115,6 +125,12 @@ public class SearchEvalLoggerConfigurationRegistry {
 		@Override
 		public double samplingRate() {
 			return SearchEvalLoggerConstants.DEFAULT_SAMPLING_RATE;
+		}
+
+		@Override
+		public boolean showEvaluationServiceLinks() {
+			return SearchEvalLoggerConstants.
+				DEFAULT_SHOW_EVALUATION_SERVICE_LINKS;
 		}
 
 	}

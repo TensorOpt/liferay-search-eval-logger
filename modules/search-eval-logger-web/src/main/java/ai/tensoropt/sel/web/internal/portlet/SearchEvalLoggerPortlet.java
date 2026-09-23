@@ -7,6 +7,8 @@ package ai.tensoropt.sel.web.internal.portlet;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTask;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil;
 import com.liferay.portal.kernel.exception.PortalException;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.portlet.PortletResponseUtil;
 import com.liferay.portal.kernel.portlet.bridges.mvc.MVCPortlet;
 import com.liferay.portal.kernel.repository.model.FileEntry;
@@ -16,13 +18,20 @@ import com.liferay.portal.kernel.util.ContentTypes;
 import com.liferay.portal.kernel.util.ParamUtil;
 import com.liferay.portal.kernel.util.WebKeys;
 
+import ai.tensoropt.sel.api.CollectionCycle;
+import ai.tensoropt.sel.api.CollectionCycleStatus;
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 import ai.tensoropt.sel.api.SearchInterceptionStatus;
+import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
+import ai.tensoropt.sel.web.internal.export.SearchEvalExportConfigurationProvider;
+import ai.tensoropt.sel.web.internal.funnel.EvaluationServiceLinks;
 import ai.tensoropt.sel.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
 
 import java.io.IOException;
 import java.io.InputStream;
+
+import java.time.LocalDate;
 
 import java.util.List;
 
@@ -84,16 +93,58 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 	 * bound the portal's own searcher. Collection then silently records
 	 * nothing, so the state is put in front of the administrator here rather
 	 * than left to be discovered as an empty export.
+	 *
+	 * <p>
+	 * The collection cycle of DESIGN.md 3.6 is put here for the same reason,
+	 * and for one more: this screen is the fallback delivery channel named in
+	 * EC-14. If Liferay's notification framework turns out not to work for a
+	 * plugin-originated notification, the two states it would have announced
+	 * are still visible, because they are read from the same record the daily
+	 * job writes rather than from whether a notification was delivered.
+	 * </p>
 	 */
 	@Override
 	public void doView(
 			RenderRequest renderRequest, RenderResponse renderResponse)
 		throws IOException, PortletException {
 
+		ThemeDisplay themeDisplay = (ThemeDisplay)renderRequest.getAttribute(
+			WebKeys.THEME_DISPLAY);
+
+		boolean intercepting = _searchInterceptionStatus.isIntercepting();
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatus.getCollectionCycle(
+				themeDisplay.getCompanyId());
+
+		boolean showEvaluationServiceLinks = _showEvaluationServiceLinks(
+			themeDisplay.getCompanyId());
+
+		renderRequest.setAttribute("intercepting", intercepting);
+		renderRequest.setAttribute("statistics", _searchEvalLoggerStatistics);
+
 		renderRequest.setAttribute(
-			"intercepting", _searchInterceptionStatus.isIntercepting());
+			"collectionStartDate",
+			_toString(collectionCycle.getCollectionStartDate()));
 		renderRequest.setAttribute(
-			"statistics", _searchEvalLoggerStatistics);
+			"readinessReachedDate",
+			_toString(collectionCycle.getReadinessNotifiedDate()));
+		renderRequest.setAttribute(
+			"showEvaluationServiceLinks", showEvaluationServiceLinks);
+
+		if (EvaluationServiceLinks.isCollectionStartLinkVisible(
+				showEvaluationServiceLinks, intercepting,
+				collectionCycle.getCollectionStartDate())) {
+
+			renderRequest.setAttribute(
+				"collectionStartURL",
+				EvaluationServiceLinks.getCollectionStartURL(
+					collectionCycle.getCollectionStartDate()));
+		}
+
+		renderRequest.setAttribute(
+			"exportCompleteURL",
+			EvaluationServiceLinks.getExportCompleteURL());
 
 		super.doView(renderRequest, renderResponse);
 	}
@@ -153,6 +204,49 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 				inputStream, ContentTypes.APPLICATION_ZIP);
 		}
 	}
+
+	/**
+	 * Hidden when the configuration cannot be read. The setting exists so an
+	 * administrator can remove the links without forking, so an unreadable
+	 * configuration must not put them back.
+	 */
+	private boolean _showEvaluationServiceLinks(long companyId) {
+		try {
+			SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
+				_searchEvalExportConfigurationProvider.getConfiguration(
+					companyId);
+
+			return searchEvalLoggerConfiguration.showEvaluationServiceLinks();
+		}
+		catch (Exception exception) {
+			if (_log.isDebugEnabled()) {
+				_log.debug(
+					"Unable to read the search eval logger configuration for " +
+						"company " + companyId,
+					exception);
+			}
+
+			return false;
+		}
+	}
+
+	private String _toString(LocalDate localDate) {
+		if (localDate == null) {
+			return null;
+		}
+
+		return localDate.toString();
+	}
+
+	private static final Log _log = LogFactoryUtil.getLog(
+		SearchEvalLoggerPortlet.class);
+
+	@Reference
+	private CollectionCycleStatus _collectionCycleStatus;
+
+	@Reference
+	private SearchEvalExportConfigurationProvider
+		_searchEvalExportConfigurationProvider;
 
 	@Reference
 	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;

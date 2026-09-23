@@ -272,6 +272,38 @@ public interface SearchEventLocalService
 	@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
 	public ActionableDynamicQuery getActionableDynamicQuery();
 
+	/**
+	 * Counts the events of one virtual instance recorded on or after a date.
+	 *
+	 * <p>
+	 * The readiness check of DESIGN.md 3.6 needs the number of events collected
+	 * since the collection start date, and the counters in
+	 * <code>SearchEvalLoggerStatistics</code> cannot answer it: they are
+	 * process-wide and reset on restart, so on any instance that has been
+	 * restarted since collection began they undercount, silently and by an
+	 * unknown amount.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC for the same reason as the delete above: the generated finder
+	 * would materialise entities to count them. This runs once a day per
+	 * virtual instance, on the same <code>(companyId, createDate)</code> index
+	 * the export and the purge use.
+	 * </p>
+	 *
+	 * <p>
+	 * Named with a <code>get</code> prefix on purpose. Service Builder decides
+	 * from the prefix whether a generated method is annotated
+	 * <code>&#64;Transactional(propagation = SUPPORTS, readOnly = true)</code>,
+	 * and <code>count</code> is not one of the prefixes it recognises, so the
+	 * obvious name gave this a read-write <code>Isolation.PORTAL</code>
+	 * transaction for a <code>select count(*)</code>.
+	 * </p>
+	 */
+	@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+	public long getCountByCompanyIdAndCreateDateOnOrAfter(
+		long companyId, Date startDate);
+
 	@Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
 	public IndexableActionableDynamicQuery getIndexableActionableDynamicQuery();
 

@@ -26,6 +26,7 @@ import ai.tensoropt.sel.internal.capture.CapturedSearchEvent;
 import ai.tensoropt.sel.internal.capture.CapturedSearchHit;
 import ai.tensoropt.sel.internal.cohort.CohortSaltRegistry;
 import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegistry;
+import ai.tensoropt.sel.internal.cycle.CollectionCycleStatusImpl;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
 import ai.tensoropt.sel.model.SearchEvent;
 import ai.tensoropt.sel.service.SearchEventLocalService;
@@ -86,8 +87,6 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 
 					return null;
 				});
-
-			_searchEvalLoggerStatisticsImpl.incrementPersistedEventCount();
 		}
 		catch (Throwable throwable) {
 			_searchEvalLoggerStatisticsImpl.incrementDroppedEventCount();
@@ -95,7 +94,25 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 			if (_log.isWarnEnabled()) {
 				_log.warn("Unable to persist a search event", throwable);
 			}
+
+			return;
 		}
+
+		_searchEvalLoggerStatisticsImpl.incrementPersistedEventCount();
+
+		// Outside the transaction, and outside the catch above. The collection
+		// start date of 3.6 records that an event was persisted, so it must
+		// not be written by a transaction that then rolls back; and a failure
+		// here is not a failed write, so it must not be able to count an event
+		// that did commit as dropped as well as persisted. The funnel in the
+		// export manifest has to add up.
+		//
+		// Cheap enough to sit on this path: once the date is known it is a
+		// hash lookup and a clock read per event.
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			capturedSearchEvent.getCompanyId(),
+			new Date(capturedSearchEvent.getCreateTime()));
 	}
 
 	private void _addSearchEvent(CapturedSearchEvent capturedSearchEvent) {
@@ -256,6 +273,9 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 
 	@Reference
 	private CohortSaltRegistry _cohortSaltRegistry;
+
+	@Reference
+	private CollectionCycleStatusImpl _collectionCycleStatusImpl;
 
 	@Reference
 	private CounterLocalService _counterLocalService;

@@ -45,6 +45,18 @@ import java.util.List;
 public final class SearchEvalLoggerConstants {
 
 	/**
+	 * Name of the admin portlet. It is also the <code>type</code> of the
+	 * notifications in DESIGN.md 3.6, because Liferay resolves a notification
+	 * to its handler by matching the event type against the handler's portlet
+	 * id. The sender is in the impl bundle and the handler in the web bundle,
+	 * so a typo would leave notifications stored and uninterpretable, showing
+	 * as "no interpreter found" in the log and nothing at all to the
+	 * administrator.
+	 */
+	public static final String ADMIN_PORTLET_NAME =
+		"ai_tensoropt_sel_web_internal_portlet_SearchEvalLoggerPortlet";
+
+	/**
 	 * Message Bus destination carrying search events from the
 	 * <code>Searcher</code> wrapper to the persisting listener. Registered as a
 	 * serial destination so consumption is single threaded, which rate limits
@@ -55,6 +67,17 @@ public final class SearchEvalLoggerConstants {
 	public static final String FIELD_SNIPPET = "snippet";
 
 	public static final String FIELD_TITLE = "title";
+
+	/**
+	 * Key under which a notification's payload carries which of the two
+	 * conditions in DESIGN.md 3.6 fired.
+	 */
+	public static final String NOTIFICATION_PAYLOAD_KEY_TYPE =
+		"notificationType";
+
+	public static final String NOTIFICATION_TYPE_READINESS = "READINESS";
+
+	public static final String NOTIFICATION_TYPE_STALL = "STALL";
 
 	/**
 	 * Keyword-free, facet-driven searches. Off by default: they carry no query
@@ -113,6 +136,20 @@ public final class SearchEvalLoggerConstants {
 	public static final boolean DEFAULT_REQUIRE_WEB_REQUEST_CONTEXT = false;
 
 	/**
+	 * Days between the first persisted event of a collection cycle and the
+	 * earliest the readiness notification may fire. A proposed default, to be
+	 * tuned once real install data exists. See DESIGN.md 3.6 and 5.
+	 */
+	public static final int DEFAULT_READINESS_MINIMUM_DAYS = 30;
+
+	/**
+	 * Events persisted since the collection start date before the readiness
+	 * notification may fire. A proposed default, to be tuned once real install
+	 * data exists. See DESIGN.md 3.6 and 5.
+	 */
+	public static final int DEFAULT_READINESS_MINIMUM_EVENTS = 500;
+
+	/**
 	 * Days of history kept. The purge deletes in bounded batches rather than one
 	 * large statement. See DESIGN.md 3.4.
 	 */
@@ -124,6 +161,14 @@ public final class SearchEvalLoggerConstants {
 	 * manifest so an evaluator knows the log is a sample.
 	 */
 	public static final double DEFAULT_SAMPLING_RATE = 1.0;
+
+	/**
+	 * Whether the two links of DESIGN.md 10 are rendered. On by default, and an
+	 * administrator who does not want them can remove them without forking. The
+	 * links are static anchors: hiding them changes what is displayed, not what
+	 * the plugin does, because it never contacts anything either way (D9).
+	 */
+	public static final boolean DEFAULT_SHOW_EVALUATION_SERVICE_LINKS = true;
 
 	private SearchEvalLoggerConstants() {
 		throw new AssertionError();

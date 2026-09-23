@@ -4,6 +4,8 @@
 
 package ai.tensoropt.sel.web.internal.constants;
 
+import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
+
 /**
  * Names that the portlet, its permissions and its background task have to agree
  * on.
@@ -25,9 +27,12 @@ public class SearchEvalLoggerPortletKeys {
 	public static final String MVC_COMMAND_NAME_EXPORT =
 		"/search_eval_logger/export";
 
+	/**
+	 * The impl bundle sends notifications typed with this same name, so it is
+	 * defined once in the api bundle and read from there rather than repeated.
+	 */
 	public static final String PORTLET_NAME =
-		"ai_tensoropt_sel_web_internal_portlet_" +
-			"SearchEvalLoggerPortlet";
+		SearchEvalLoggerConstants.ADMIN_PORTLET_NAME;
 
 	public static final String TASK_CONTEXT_END_TIME = "endTime";
 

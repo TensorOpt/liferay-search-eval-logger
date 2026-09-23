@@ -114,6 +114,40 @@ a daily purge.
 
 Collection is **off on install**. An administrator opts in explicitly.
 
+## The two links to the evaluation service
+
+The plugin is free and the collector is the instrument, not the product. What it
+does contain is two links to TensorOpt, the evaluation service this was built to
+feed, and they are documented here rather than left to be discovered in the
+source.
+
+**The plugin never makes an outbound network request.** Not from the server, not
+from your administrators' browsers. There are no install pings, no usage counts,
+no export notifications, no update checks. TensorOpt does not learn that your
+installation exists unless a person clicks one of these two links. Both are
+ordinary `<a href target="_blank">` anchors: there is no prefetch, no preload, no
+iframe, no image, no tracking pixel and no script that touches either address.
+Both are defined as constants in a single class,
+`EvaluationServiceLinks` in `search-eval-logger-web`, so you can read and change
+them in one place.
+
+| Link | Where | What it carries |
+|---|---|---|
+| "Get an email reminder when your search log is ready to export" | Search Eval Export screen, once collection has demonstrably started | The date collection started, at day granularity, plus UTM tags. Nothing else: no hostname, instance ID, company name, plugin version, event counts or user data |
+| "Want this dataset evaluated? Book a call" | Search Eval Export screen, after a successful export | UTM tags only. No row counts, coverage figures or date range |
+
+Both disappear when **Show evaluation service links** is switched off in
+Configuration, which is there so you can remove them without forking.
+
+Neither link appears anywhere inside an export archive. The `manifest.json`, the
+archive `README.md` and `events.jsonl` are vendor-neutral, so a dataset can be
+handed to any evaluator without carrying an advertisement for a particular one.
+
+The plugin also raises two **local** notifications — one when logging is enabled
+but nothing is being collected, one when the log is large enough to be worth
+exporting. Those go to a Liferay user through Liferay's own notification
+framework, stay on your instance, and contain no external link.
+
 ## What an export contains
 
 An export runs as a background task and produces a ZIP named
