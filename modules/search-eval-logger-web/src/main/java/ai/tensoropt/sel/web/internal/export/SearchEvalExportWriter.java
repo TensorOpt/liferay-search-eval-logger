@@ -11,8 +11,6 @@ import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.StringUtil;
-import com.liferay.portal.kernel.transaction.Propagation;
-import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.util.Validator;
 
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
@@ -406,10 +404,6 @@ public class SearchEvalExportWriter {
 			}
 		}
 	}
-
-	private static final TransactionConfig _TRANSACTION_CONFIG =
-		TransactionConfig.Factory.create(
-			Propagation.REQUIRED, new Class<?>[] {Exception.class});
 
 	private static final String _EVENTS_FILE_NAME = "events.jsonl";
 

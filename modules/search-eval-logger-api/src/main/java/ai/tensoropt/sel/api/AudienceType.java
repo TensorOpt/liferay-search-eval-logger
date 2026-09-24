@@ -23,21 +23,4 @@ public enum AudienceType {
 
 	AUTHENTICATED, GUEST;
 
-	/**
-	 * Resolves a persisted value, falling back instead of throwing so that a
-	 * value written by a newer version of this plugin cannot break an export or
-	 * a purge pass.
-	 */
-	public static AudienceType parse(
-		String value, AudienceType defaultAudienceType) {
-
-		for (AudienceType audienceType : values()) {
-			if (audienceType.name().equals(value)) {
-				return audienceType;
-			}
-		}
-
-		return defaultAudienceType;
-	}
-
 }

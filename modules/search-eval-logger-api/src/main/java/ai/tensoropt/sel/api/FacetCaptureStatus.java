@@ -41,21 +41,4 @@ public enum FacetCaptureStatus {
 	 */
 	UNAVAILABLE;
 
-	/**
-	 * Resolves a persisted value, falling back instead of throwing so that a
-	 * value written by a newer version of this plugin cannot break an export or
-	 * a purge pass.
-	 */
-	public static FacetCaptureStatus parse(
-		String value, FacetCaptureStatus defaultFacetCaptureStatus) {
-
-		for (FacetCaptureStatus facetCaptureStatus : values()) {
-			if (facetCaptureStatus.name().equals(value)) {
-				return facetCaptureStatus;
-			}
-		}
-
-		return defaultFacetCaptureStatus;
-	}
-
 }

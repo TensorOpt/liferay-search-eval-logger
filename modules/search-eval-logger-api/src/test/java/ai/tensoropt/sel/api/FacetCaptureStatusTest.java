@@ -5,7 +5,6 @@
 package ai.tensoropt.sel.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,36 +17,11 @@ import org.junit.jupiter.api.Test;
 public class FacetCaptureStatusTest {
 
 	@Test
-	public void parseReturnsTheMatchingConstant() {
-		for (FacetCaptureStatus status : FacetCaptureStatus.values()) {
-			assertSame(
-				status,
-				FacetCaptureStatus.parse(
-					status.name(), FacetCaptureStatus.UNAVAILABLE));
-		}
-	}
-
-	@Test
-	public void parseFallsBackRatherThanThrowing() {
-		assertSame(
-			FacetCaptureStatus.UNAVAILABLE,
-			FacetCaptureStatus.parse(null, FacetCaptureStatus.UNAVAILABLE));
-		assertSame(
-			FacetCaptureStatus.UNAVAILABLE,
-			FacetCaptureStatus.parse("nope", FacetCaptureStatus.UNAVAILABLE));
-	}
-
-	@Test
 	public void noneAppliedIsDistinctFromUnavailable() {
 		assertEquals(3, FacetCaptureStatus.values().length);
-		assertSame(
-			FacetCaptureStatus.NONE_APPLIED,
-			FacetCaptureStatus.parse(
-				"NONE_APPLIED", FacetCaptureStatus.UNAVAILABLE));
-		assertSame(
-			FacetCaptureStatus.CAPTURED,
-			FacetCaptureStatus.parse(
-				"CAPTURED", FacetCaptureStatus.UNAVAILABLE));
+		assertEquals("CAPTURED", FacetCaptureStatus.CAPTURED.name());
+		assertEquals("NONE_APPLIED", FacetCaptureStatus.NONE_APPLIED.name());
+		assertEquals("UNAVAILABLE", FacetCaptureStatus.UNAVAILABLE.name());
 	}
 
 }

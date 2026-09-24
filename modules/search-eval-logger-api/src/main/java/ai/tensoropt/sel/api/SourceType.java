@@ -29,19 +29,4 @@ public enum SourceType {
 
 	HEADLESS, OTHER, UNKNOWN, WIDGET;
 
-	/**
-	 * Resolves a persisted value, falling back instead of throwing so that a
-	 * value written by a newer version of this plugin cannot break an export or
-	 * a purge pass.
-	 */
-	public static SourceType parse(String value, SourceType defaultSourceType) {
-		for (SourceType sourceType : values()) {
-			if (sourceType.name().equals(value)) {
-				return sourceType;
-			}
-		}
-
-		return defaultSourceType;
-	}
-
 }

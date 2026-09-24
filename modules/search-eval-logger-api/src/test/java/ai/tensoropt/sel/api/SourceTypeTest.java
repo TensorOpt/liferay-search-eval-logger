@@ -5,7 +5,6 @@
 package ai.tensoropt.sel.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,30 +15,6 @@ import org.junit.jupiter.api.Test;
  * an exception.
  */
 public class SourceTypeTest {
-
-	@Test
-	public void parseReturnsTheMatchingConstant() {
-		for (SourceType sourceType : SourceType.values()) {
-			assertSame(
-				sourceType,
-				SourceType.parse(sourceType.name(), SourceType.UNKNOWN));
-		}
-	}
-
-	@Test
-	public void parseFallsBackRatherThanThrowing() {
-		assertSame(SourceType.OTHER, SourceType.parse(null, SourceType.OTHER));
-		assertSame(SourceType.OTHER, SourceType.parse("", SourceType.OTHER));
-		assertSame(
-			SourceType.OTHER, SourceType.parse("NOT_A_TYPE", SourceType.OTHER));
-	}
-
-	@Test
-	public void parseIsCaseSensitiveBecauseTheColumnStoresNames() {
-		assertSame(
-			SourceType.UNKNOWN,
-			SourceType.parse("widget", SourceType.UNKNOWN));
-	}
 
 	@Test
 	public void namesAreTheStoredForm() {
