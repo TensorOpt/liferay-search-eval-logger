@@ -6,4 +6,9 @@ dependencies {
 	// them on the classpath to run against.
 	testImplementation group: "com.liferay.portal", name: "release.dxp.api"
 	testImplementation project(":modules:search-eval-logger-api")
+
+	// ConfigurableUtil generates its snapshot class with ASM, which the portal
+	// provides at runtime but release.dxp.api does not carry. Same version as
+	// the target platform ships.
+	testRuntimeOnly group: "org.ow2.asm", name: "asm", version: "9.7"
 }

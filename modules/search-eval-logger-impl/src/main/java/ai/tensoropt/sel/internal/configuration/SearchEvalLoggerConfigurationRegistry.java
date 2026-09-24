@@ -4,12 +4,14 @@
 
 package ai.tensoropt.sel.internal.configuration;
 
+import com.liferay.portal.configuration.metatype.bnd.util.ConfigurableUtil;
 import com.liferay.portal.configuration.module.configuration.ConfigurationProvider;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 
-import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+
+import java.util.Collections;
 
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -20,7 +22,7 @@ import org.osgi.service.component.annotations.Reference;
  * <p>
  * Never throws and never returns null. A configuration that cannot be read is
  * not an error worth failing a search over, so lookup failures fall back to the
- * built-in defaults, which have collection disabled. The failure direction
+ * declared defaults, which have collection disabled. The failure direction
  * matters: an unreadable configuration must not turn collection on somewhere it
  * was never enabled.
  * </p>
@@ -41,12 +43,9 @@ public class SearchEvalLoggerConfigurationRegistry {
 					exception);
 			}
 
-			return _DISABLED_CONFIGURATION;
+			return _defaultConfiguration;
 		}
 	}
-
-	private static final SearchEvalLoggerConfiguration _DISABLED_CONFIGURATION =
-		new DefaultSearchEvalLoggerConfiguration();
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEvalLoggerConfigurationRegistry.class);
@@ -54,85 +53,13 @@ public class SearchEvalLoggerConfigurationRegistry {
 	@Reference
 	private ConfigurationProvider _configurationProvider;
 
-	private static class DefaultSearchEvalLoggerConfiguration
-		implements SearchEvalLoggerConfiguration {
-
-		@Override
-		public boolean admitFacetOnlySearches() {
-			return SearchEvalLoggerConstants.
-				DEFAULT_ADMIT_FACET_ONLY_SEARCHES;
-		}
-
-		@Override
-		public int captureDepth() {
-			return SearchEvalLoggerConstants.DEFAULT_CAPTURE_DEPTH;
-		}
-
-		@Override
-		public String[] capturedFieldNames() {
-			return SearchEvalLoggerConstants.DEFAULT_CAPTURED_FIELD_NAMES.toArray(
-				new String[0]);
-		}
-
-		@Override
-		public int cohortSaltRotationDays() {
-			return SearchEvalLoggerConstants.
-				DEFAULT_COHORT_SALT_ROTATION_DAYS;
-		}
-
-		@Override
-		public boolean enabled() {
-			return SearchEvalLoggerConstants.DEFAULT_ENABLED;
-		}
-
-		@Override
-		public String[] excludedEntryClassNames() {
-			return new String[0];
-		}
-
-		@Override
-		public boolean excludeSuggestionTraffic() {
-			return SearchEvalLoggerConstants.
-				DEFAULT_EXCLUDE_SUGGESTION_TRAFFIC;
-		}
-
-		@Override
-		public int queryTextCap() {
-			return SearchEvalLoggerConstants.DEFAULT_QUERY_TEXT_CAP;
-		}
-
-		@Override
-		public boolean requireWebRequestContext() {
-			return SearchEvalLoggerConstants.
-				DEFAULT_REQUIRE_WEB_REQUEST_CONTEXT;
-		}
-
-		@Override
-		public int readinessMinimumDays() {
-			return SearchEvalLoggerConstants.DEFAULT_READINESS_MINIMUM_DAYS;
-		}
-
-		@Override
-		public int readinessMinimumEvents() {
-			return SearchEvalLoggerConstants.DEFAULT_READINESS_MINIMUM_EVENTS;
-		}
-
-		@Override
-		public int retentionDays() {
-			return SearchEvalLoggerConstants.DEFAULT_RETENTION_DAYS;
-		}
-
-		@Override
-		public double samplingRate() {
-			return SearchEvalLoggerConstants.DEFAULT_SAMPLING_RATE;
-		}
-
-		@Override
-		public boolean showEvaluationServiceLinks() {
-			return SearchEvalLoggerConstants.
-				DEFAULT_SHOW_EVALUATION_SERVICE_LINKS;
-		}
-
-	}
+	/**
+	 * The <code>&#64;Meta.AD</code> defaults, built from the interface itself
+	 * so the fallback cannot drift from what System Settings shows. Collection
+	 * is off by default, which is the direction this fallback has to fail in.
+	 */
+	private final SearchEvalLoggerConfiguration _defaultConfiguration =
+		ConfigurableUtil.createConfigurable(
+			SearchEvalLoggerConfiguration.class, Collections.emptyMap());
 
 }

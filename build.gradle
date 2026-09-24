@@ -37,11 +37,14 @@ subprojects {
 			useJUnitPlatform()
 
 			// Petra's StringBundler reaches for MethodHandles.Lookup.IMPL_LOOKUP
-			// in a static initializer, so any test that touches a class using it
-			// dies on JDK 17 with InaccessibleObjectException before reaching an
-			// assertion. The portal's own launcher passes the same open; the
-			// tests need it for the same reason.
-			jvmArgs "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
+			// in a static initializer, and ConfigurableUtil defines its snapshot
+			// class through ClassLoader.defineClass, so any test that touches
+			// either dies on JDK 17 with InaccessibleObjectException before
+			// reaching an assertion. The portal's own launcher passes the same
+			// opens; the tests need them for the same reason.
+			jvmArgs(
+				"--add-opens=java.base/java.lang=ALL-UNNAMED",
+				"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED")
 
 			testLogging {
 				events "failed"

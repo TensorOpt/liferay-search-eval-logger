@@ -36,7 +36,6 @@ What is *not* done: every empirical check in DESIGN.md §7 is still open except 
 ### Decisions that look wrong until you know why
 
 - The single-transaction write of one event plus its hits lives in the impl module's Message Bus listener and opens its transaction through `TransactionInvokerUtil`, **not** through `@Transactional`. Only Service Builder services are proxied for that annotation, so on a plain component it would compile, read as correct, and silently do nothing.
-- `@Meta.AD`'s `deflt` is a `String` whatever the setting's type, so the eleven defaults in `SearchEvalLoggerConfiguration` duplicate the typed constants in `SearchEvalLoggerConstants` and are kept in sync by review. Change one, change the other.
 - Package versions come from `packageinfo` resource files, not `package-info.java` annotations, so the api module compiles without OSGi annotation jars.
 - The impl module truncates every string to its column width before persisting, using private constants that mirror `portlet-model-hints.xml`. Those two must move together; nothing enforces it.
 - `SearchEvalLoggerStatistics` counters are **process-wide and reset on restart**. They cannot be attributed to an export's time range, and the manifest says so explicitly rather than presenting them as a figure for the period.

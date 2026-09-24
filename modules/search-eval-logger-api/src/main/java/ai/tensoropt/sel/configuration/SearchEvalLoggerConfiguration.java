@@ -15,11 +15,9 @@ import org.osgi.annotation.versioning.ProviderType;
  * section 5.
  *
  * <p>
- * Every <code>deflt</code> below duplicates a constant in
- * <code>SearchEvalLoggerConstants</code>, because <code>&#64;Meta.AD</code>
- * takes its default as a <code>String</code> whatever the setting's type. The
- * two must be changed together; that class documents why the duplication is
- * accepted.
+ * The <code>deflt</code> values below are the only copy of the defaults. The
+ * collector's fallback when a configuration cannot be read is built from them
+ * with <code>ConfigurableUtil</code>, so there is nothing to keep in sync.
  * </p>
  */
 @ExtendedObjectClassDefinition(
