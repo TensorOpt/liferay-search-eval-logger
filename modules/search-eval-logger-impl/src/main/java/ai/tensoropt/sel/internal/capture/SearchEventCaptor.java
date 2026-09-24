@@ -6,12 +6,9 @@ package ai.tensoropt.sel.internal.capture;
 
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
-import com.liferay.portal.kernel.log.Log;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.search.Field;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.util.GetterUtil;
-import com.liferay.portal.kernel.util.StringBundler;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.search.document.Document;
@@ -27,7 +24,6 @@ import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 import java.time.Clock;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -160,18 +156,6 @@ public class SearchEventCaptor {
 		capturedSearchHit.setEntryClassPK(
 			GetterUtil.getLong(document.getString(Field.ENTRY_CLASS_PK)));
 
-		if (_log.isDebugEnabled()) {
-			_log.debug(
-				StringBundler.concat(
-					"Capturing hit docUid=",
-					document.getString(Field.UID), ", capturedFieldNames=",
-					Arrays.toString(capturedFieldNames),
-					", document field names=",
-					_fieldNames(document.getFields()),
-					", highlight field names=",
-					_highlightFieldNames(hit.getHighlightFieldsMap())));
-		}
-
 		JSONObject extraFieldsJSONObject = null;
 
 		for (String fieldName : capturedFieldNames) {
@@ -214,22 +198,6 @@ public class SearchEventCaptor {
 			(extraFieldsJSONObject.length() > 0)) {
 
 			capturedSearchHit.setExtraFields(extraFieldsJSONObject.toString());
-		}
-
-		if (_log.isDebugEnabled()) {
-			_log.debug(
-				StringBundler.concat(
-					"Captured hit docUid=", document.getString(Field.UID),
-					", title=",
-					String.valueOf(
-						Validator.isNotNull(capturedSearchHit.getTitle())),
-					", snippet=",
-					String.valueOf(
-						Validator.isNotNull(capturedSearchHit.getSnippet())),
-					", extraFields=",
-					String.valueOf(
-						Validator.isNotNull(
-							capturedSearchHit.getExtraFields()))));
 		}
 
 		return capturedSearchHit;
@@ -342,10 +310,6 @@ public class SearchEventCaptor {
 			hit.getHighlightFieldsMap();
 
 		if ((highlightFieldsMap == null) || highlightFieldsMap.isEmpty()) {
-			if (_log.isDebugEnabled()) {
-				_log.debug("getHighlightFieldsMap() returned null or empty");
-			}
-
 			return null;
 		}
 
@@ -359,23 +323,6 @@ public class SearchEventCaptor {
 			List<String> highlightFieldFragments =
 				highlightField.getFragments();
 
-			// The fragment count, not the fragments. A fragment is indexed
-			// content with the user's terms marked up inside it, so printing
-			// one puts both the document text and the query into the portal
-			// log, where nothing this plugin controls will ever purge them.
-			// The count is what the diagnostic was actually for: whether the
-			// highlighter returned anything at all.
-
-			if (_log.isDebugEnabled()) {
-				_log.debug(
-					StringBundler.concat(
-						"Highlight field name=", highlightField.getName(),
-						", fragmentCount=",
-						String.valueOf(
-							(highlightFieldFragments == null) ? 0 :
-								highlightFieldFragments.size())));
-			}
-
 			if (highlightFieldFragments != null) {
 				fragments.addAll(highlightFieldFragments);
 			}
@@ -386,26 +333,6 @@ public class SearchEventCaptor {
 		}
 
 		return StringUtil.merge(fragments, " ... ");
-	}
-
-	private String _fieldNames(
-		Map<String, com.liferay.portal.search.document.Field> fields) {
-
-		if (fields == null) {
-			return "null";
-		}
-
-		return fields.keySet().toString();
-	}
-
-	private String _highlightFieldNames(
-		Map<String, HighlightField> highlightFieldsMap) {
-
-		if (highlightFieldsMap == null) {
-			return "null";
-		}
-
-		return highlightFieldsMap.keySet().toString();
 	}
 
 	private int _getInt(Integer value) {
@@ -527,9 +454,6 @@ public class SearchEventCaptor {
 	private static final String _UNDERLINE = "_";
 
 	private static final int _TITLE_MAX_LENGTH = 1000;
-
-	private static final Log _log = LogFactoryUtil.getLog(
-		SearchEventCaptor.class);
 
 	/**
 	 * Visible for testing, so a captured event's timestamp is deterministic.

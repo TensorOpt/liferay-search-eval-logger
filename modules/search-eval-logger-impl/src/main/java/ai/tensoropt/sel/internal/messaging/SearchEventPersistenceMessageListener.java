@@ -16,7 +16,6 @@ import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.transaction.TransactionInvokerUtil;
 import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.uuid.PortalUUIDUtil;
 
 import ai.tensoropt.sel.api.AudienceType;
@@ -214,21 +213,6 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		searchHit.setExtraFields(capturedSearchHit.getExtraFields());
 
 		_searchHitLocalService.addSearchHit(searchHit);
-
-		if (_log.isDebugEnabled()) {
-			_log.debug(
-				StringBundler.concat(
-					"Persisted search hit searchEventUuid=", searchEventUuid,
-					", rank=", String.valueOf(searchHit.getRank()),
-					", docUid=", searchHit.getDocUid(), ", title=",
-					String.valueOf(Validator.isNotNull(searchHit.getTitle())),
-					", snippet=",
-					String.valueOf(
-						Validator.isNotNull(searchHit.getSnippet())),
-					", extraFields=",
-					String.valueOf(
-						Validator.isNotNull(searchHit.getExtraFields()))));
-		}
 	}
 
 	/**
