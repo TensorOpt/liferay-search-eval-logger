@@ -98,6 +98,12 @@ HIT_KEYS = {
     "extra_fields",
 }
 
+# The rendered bodies of the two notifications, from the web module's
+# Language.properties. The notifications list shows the body, not the title.
+STALL_NOTIFICATION_TEXT = "Restart the portal to begin collecting."
+
+READINESS_NOTIFICATION_TEXT = "Open Search Eval Export to produce the archive."
+
 # Keys that would satisfy the shape checks while carrying nothing. A file whose
 # every row has a null query is not a (query, result[]) log.
 REQUIRED_NON_NULL_EVENT_KEYS = ("event_id", "query", "source_type")
@@ -392,6 +398,10 @@ def stall_notification(context, case):
     assert_true(
         any("STALL" in payload for payload in payloads),
         "EC-14: no stall notification reached UserNotificationEvent",
+    )
+
+    assert_notification_listed(
+        context.portal.notifications_list(), STALL_NOTIFICATION_TEXT
     )
 
 
@@ -926,6 +936,10 @@ def funnel_readiness(context, case):
     assert_true(
         any("READINESS" in payload for payload in payloads),
         "EC-14: no readiness notification reached UserNotificationEvent",
+    )
+
+    assert_notification_listed(
+        context.portal.notifications_list(), READINESS_NOTIFICATION_TEXT
     )
 
     text = context.portal.admin_screen()
@@ -2079,6 +2093,20 @@ def _read_cycle(context):
     return context.portal.run_script(
         scripts.CYCLE_READ
         % {"company_id": context.company_id, "portlet_id": CYCLE_PORTLET_ID}
+    )
+
+
+def assert_notification_listed(list_text, expected):
+    """The notification is in the user's own notifications list.
+
+    Stored is not the same as shown. Liferay's list only shows delivered
+    website events, and until TO-110 both notifications were stored as
+    undelivered: present in UserNotificationEvent, and in front of nobody.
+    """
+    assert_true(
+        expected in list_text,
+        "The notification is stored but not in the administrator's "
+        "notifications list, which reads: %r" % list_text[:300],
     )
 
 

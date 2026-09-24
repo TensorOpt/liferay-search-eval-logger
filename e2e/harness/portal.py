@@ -22,6 +22,7 @@ one failure mode instead of several.
 """
 
 import base64
+import html as html_module
 import http.cookiejar
 import json
 import re
@@ -38,6 +39,8 @@ ADMIN_PORTLET_ID = "ai_tensoropt_sel_web_internal_portlet_SearchEvalLoggerPortle
 SERVER_ADMIN_PORTLET_ID = "com_liferay_server_admin_web_portlet_ServerAdminPortlet"
 
 LOGIN_PORTLET_ID = "com_liferay_login_web_portlet_LoginPortlet"
+
+NOTIFICATIONS_PORTLET_ID = "com_liferay_notifications_web_portlet_NotificationsPortlet"
 
 SCRIPT_OUTPUT_DIRECTORY = "/opt/liferay/data/e2e"
 
@@ -374,6 +377,27 @@ class Portal:
             )
 
         return text
+
+    def notifications_list(self):
+        """The signed-in user's notifications list, as plain text.
+
+        This is the list the product menu's notifications link opens. Reading
+        it, rather than the UserNotificationEvent table, is what shows whether
+        a notification actually reaches the person: the list only shows
+        delivered website events, and a stored notification that is not
+        delivered never appears (TO-110).
+        """
+        response = self.get(
+            "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=0"
+            "&p_p_state=maximized" % NOTIFICATIONS_PORTLET_ID
+        )
+
+        if response.status != 200:
+            raise HarnessError(
+                "The notifications list answered HTTP %d" % response.status
+            )
+
+        return notifications_list_text(response.text)
 
     def admission_counters(self):
         """Reads the six counters off the admin screen.
@@ -723,6 +747,20 @@ catch (Throwable __throwable) {
     __file.text = JsonOutput.toJson([ok: false, error: __writer.toString()])
 }
 """
+
+
+def notifications_list_text(html):
+    """The notifications portlet's body with markup and scripts removed."""
+    portlet = html.find(NOTIFICATIONS_PORTLET_ID)
+    start = html.find("portlet-body", portlet) if portlet >= 0 else -1
+
+    if start < 0:
+        raise HarnessError("The notifications portlet did not render")
+
+    body = re.sub(r"<script.*?</script>", " ", html[start:], flags=re.S)
+    text = html_module.unescape(re.sub(r"<[^>]+>", " ", body))
+
+    return re.sub(r"\s+", " ", text)
 
 
 def parse_result_count(html):

@@ -264,14 +264,14 @@ is then the one a real installation makes.
 | `plugin-absent-baseline` | The SEL tables do not exist before installation, so their later presence means something |
 | `install-onto-running-portal` | All four bundles start on a portal that is already serving, and Service Builder creates both tables and their indexes |
 | `ec3-bypass-detected` | DESIGN.md 3.1: installed onto a running portal, the wrapper is registered and never called, and the plugin says so in the log and on its screen rather than leaving an empty table to be discovered |
-| `stall-notification` | DESIGN.md 3.6 condition 1 fires, and the notification reaches `UserNotificationEvent`, which is the runtime half of EC-14 |
+| `stall-notification` | DESIGN.md 3.6 condition 1 fires, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
 | `restart-clears-bypass` | The restart is what makes Liferay's search consumers bind the wrapper |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
 | `scale-data` | The corpus is written, and every hit's duplicated `companyId` and `createDate` match its event's |
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
-| `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored and the banner rendered |
+| `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored, shown in the administrator's notifications list, and the banner rendered |
 | `export` | DESIGN.md 6.1: the action starts a background task that completes and offers a download |
 | `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested, asserted as an exact string |
 | `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back, and every id and count in the manifest a JSON number |
@@ -351,7 +351,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 77 discrimination checks in about a second, with no Docker
+`selftest.py` runs 81 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.
@@ -387,9 +387,10 @@ alongside the unit tests rather than only before a release.
 - **EC-5, EC-6, EC-13.** The headless Search API is behind feature flag
   `LPS-179669` and Blueprints need Liferay Enterprise Search. Both are open in
   DESIGN.md section 7 for the same reasons.
-- **The notification as an administrator sees it.** The test asserts that the
-  event is stored with the right type and payload. Whether Liferay's
-  notification feed renders it through the registered handler is not checked.
+- **Notification delivery beyond the website.** The two notification cases
+  read the administrator's notifications list, which is where the plugin
+  delivers. Email or any other delivery channel is not configured and not
+  checked.
 - **Cluster behaviour.** One node, one JVM. The collection cycle's expiring
   marker (DESIGN.md 3.6) exists for the multi node case, which this does not
   reach.

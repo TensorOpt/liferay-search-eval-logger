@@ -636,6 +636,56 @@ def check_funnel_counters():
         )
 
 
+NOTIFICATIONS_EMPTY = """
+<div id="p_p_id_com_liferay_notifications_web_portlet_NotificationsPortlet_">
+<div class="portlet-body"> Notifications List (0) Requests List (0) Filter
+You do not have any notifications. </div></div>
+"""
+
+NOTIFICATIONS_LISTED = """
+<div id="p_p_id_com_liferay_notifications_web_portlet_NotificationsPortlet_">
+<div class="portlet-body"> Notifications List (1) <script>var x = 1;</script>
+<p>Logging is switched on but nothing is being recorded, because
+Liferay&#39;s search components bound their searcher before this plugin was
+installed. <strong>Restart the portal to begin collecting.</strong></p>
+</div></div>
+"""
+
+
+def check_notification_listed():
+    """TO-110: stored is not shown; the list is what the administrator sees."""
+    from harness.portal import notifications_list_text
+
+    expect_accepted(
+        "a stall notification in the administrator's notifications list",
+        lambda: checks.assert_notification_listed(
+            notifications_list_text(NOTIFICATIONS_LISTED),
+            checks.STALL_NOTIFICATION_TEXT,
+        ),
+    )
+
+    expect_rejected(
+        "an empty notifications list (the pre-TO-110 undelivered event)",
+        lambda: checks.assert_notification_listed(
+            notifications_list_text(NOTIFICATIONS_EMPTY),
+            checks.STALL_NOTIFICATION_TEXT,
+        ),
+    )
+
+    expect_rejected(
+        "a list showing the other notification only",
+        lambda: checks.assert_notification_listed(
+            notifications_list_text(NOTIFICATIONS_LISTED),
+            checks.READINESS_NOTIFICATION_TEXT,
+        ),
+    )
+
+    expect_rejected(
+        "a page where the notifications portlet did not render at all",
+        lambda: notifications_list_text("<html><body>Error</body></html>"),
+    )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1108,6 +1158,7 @@ def main():
         check_archive_name()
         check_number_types()
         check_funnel_counters()
+        check_notification_listed()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

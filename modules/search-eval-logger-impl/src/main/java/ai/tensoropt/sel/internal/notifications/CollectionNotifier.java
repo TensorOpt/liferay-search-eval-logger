@@ -140,8 +140,13 @@ public class CollectionNotifier {
 				notificationEvent.setDeliveryType(
 					UserNotificationDeliveryConstants.TYPE_WEBSITE);
 
+				// Delivered, because Liferay's notifications list and its
+				// counter only show delivered website events. Stored as
+				// undelivered, a notification exists in the database and
+				// reaches nobody (TO-110).
+
 				_userNotificationEventLocalService.addUserNotificationEvent(
-					user.getUserId(), false, false, notificationEvent);
+					user.getUserId(), true, false, notificationEvent);
 			}
 		}
 		catch (Throwable throwable) {
