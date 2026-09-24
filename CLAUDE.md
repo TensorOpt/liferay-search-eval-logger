@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Engineering principles
+
+Every change, and every review, is held to these:
+
+1. **YAGNI.** If it does not need to exist, remove it: unused constants, speculative options, abstractions with one caller and no second in sight.
+2. **DRY.** If the codebase already does it, reuse that rather than writing a second copy. Two copies drift, and in this project drift is usually silent (see the column-width constants and the `@Meta.AD` defaults below, the two duplications kept on purpose).
+3. **SOLID.** One reason to change per class (SRP); extend by adding, not by editing what works (OCP); a subtype must honour its supertype's contract (LSP); narrow interfaces over wide ones (ISP); depend on OSGi service interfaces, not implementations (DIP).
+4. **No unnecessary dependencies.** If the JDK or the Liferay API already provides it, use that. A new third-party jar needs a reason that neither can meet.
+5. **Succinct, readable code.** If it fits on one line, it is one line. No ceremony that does not carry meaning.
+6. **Simple, minimal solutions that work.** Prefer the smallest change that solves the problem and is verified, over a general one that might.
+
 ## Project status
 
 **All four modules implemented and building together; nothing validated against a running instance.** The api, service, impl and web modules exist, and `./gradlew build` from the repo root builds all four in one pass. Collection (§3, §5) and export (§6) are implemented end to end.
