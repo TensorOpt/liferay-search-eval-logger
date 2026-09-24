@@ -54,13 +54,7 @@ public class SearchEvalExportResult {
 	}
 
 	public void incrementFieldCount(String fieldName) {
-		Long count = _fieldCounts.get(fieldName);
-
-		if (count == null) {
-			count = 0L;
-		}
-
-		_fieldCounts.put(fieldName, count + 1);
+		_fieldCounts.merge(fieldName, 1L, Long::sum);
 	}
 
 	public void incrementHitCount() {
@@ -75,9 +69,7 @@ public class SearchEvalExportResult {
 	 * that the installation's search UI does not return it.
 	 */
 	public void registerField(String fieldName) {
-		if (!_fieldCounts.containsKey(fieldName)) {
-			_fieldCounts.put(fieldName, 0L);
-		}
+		_fieldCounts.putIfAbsent(fieldName, 0L);
 	}
 
 	private long _eventCount;

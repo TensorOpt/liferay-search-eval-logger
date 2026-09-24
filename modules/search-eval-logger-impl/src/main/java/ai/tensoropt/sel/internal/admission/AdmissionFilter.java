@@ -118,11 +118,7 @@ public class AdmissionFilter {
 		FacetCapture facetCapture = _facetExtractor.extract(
 			searchContext, null);
 
-		if (facetCapture.getStatus() == FacetCaptureStatus.CAPTURED) {
-			return true;
-		}
-
-		return false;
+		return facetCapture.getStatus() == FacetCaptureStatus.CAPTURED;
 	}
 
 	/**

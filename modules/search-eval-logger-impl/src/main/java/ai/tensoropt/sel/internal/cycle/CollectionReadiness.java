@@ -75,15 +75,8 @@ public final class CollectionReadiness {
 	public static boolean isStalled(
 		CollectionCycle collectionCycle, boolean intercepting) {
 
-		if (!collectionCycle.isOpen()) {
-			return false;
-		}
-
-		if (collectionCycle.isCollectionStarted()) {
-			return false;
-		}
-
-		return !intercepting;
+		return collectionCycle.isOpen() &&
+			!collectionCycle.isCollectionStarted() && !intercepting;
 	}
 
 	private CollectionReadiness() {

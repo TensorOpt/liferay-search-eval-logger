@@ -87,8 +87,10 @@ public class LoggingSearcher implements Searcher {
 
 		Long threadCompanyId = CompanyThreadLocal.getCompanyId();
 
+		SearchEvalLoggerConfiguration configuration = null;
+
 		if ((threadCompanyId != null) && (threadCompanyId > 0)) {
-			SearchEvalLoggerConfiguration configuration =
+			configuration =
 				_searchEvalLoggerConfigurationRegistry.getConfiguration(
 					threadCompanyId);
 
@@ -103,12 +105,19 @@ public class LoggingSearcher implements Searcher {
 			return;
 		}
 
-		SearchEvalLoggerConfiguration configuration =
-			_searchEvalLoggerConfigurationRegistry.getConfiguration(
-				searchContext.getCompanyId());
+		// Read again only for a search that runs for another company than the
+		// thread's, which is the one case the early exit could not settle.
 
-		if (!configuration.enabled()) {
-			return;
+		if ((configuration == null) ||
+			(searchContext.getCompanyId() != threadCompanyId)) {
+
+			configuration =
+				_searchEvalLoggerConfigurationRegistry.getConfiguration(
+					searchContext.getCompanyId());
+
+			if (!configuration.enabled()) {
+				return;
+			}
 		}
 
 		// Everything from here on is traffic this plugin saw while switched

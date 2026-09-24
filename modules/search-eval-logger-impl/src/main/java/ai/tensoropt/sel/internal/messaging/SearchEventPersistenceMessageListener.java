@@ -132,8 +132,7 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		searchEvent.setEntryClassNames(capturedSearchEvent.getEntryClassNames());
 		searchEvent.setAppliedFacets(capturedSearchEvent.getAppliedFacets());
 		searchEvent.setFacetCaptureStatus(
-			capturedSearchEvent.getFacetCaptureStatus(
-			).name());
+			capturedSearchEvent.getFacetCaptureStatus().name());
 		searchEvent.setBlueprintId(capturedSearchEvent.getBlueprintId());
 
 		long userId = capturedSearchEvent.getUserId();
@@ -152,8 +151,7 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 
 		searchEvent.setLoggedHitCount(capturedSearchHits.size());
 
-		searchEvent.setSourceType(capturedSearchEvent.getSourceType(
-		).name());
+		searchEvent.setSourceType(capturedSearchEvent.getSourceType().name());
 
 		_searchEventLocalService.addSearchEvent(searchEvent);
 
@@ -190,11 +188,8 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		String searchEventUuid, long companyId, Date createDate,
 		CapturedSearchHit capturedSearchHit) {
 
-		SearchHit searchHit =
-			_searchHitLocalService.createSearchHit(
-				_counterLocalService.increment(
-					SearchHit.class.
-						getName()));
+		SearchHit searchHit = _searchHitLocalService.createSearchHit(
+			_counterLocalService.increment(SearchHit.class.getName()));
 
 		searchHit.setSearchEventUuid(searchEventUuid);
 

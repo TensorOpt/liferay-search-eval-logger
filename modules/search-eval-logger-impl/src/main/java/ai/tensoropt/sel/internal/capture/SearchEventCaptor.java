@@ -81,10 +81,11 @@ public class SearchEventCaptor {
 		capturedSearchEvent.setBlueprintId(
 			_truncate(_getBlueprintId(searchContext), _BLUEPRINT_ID_MAX_LENGTH));
 
-		int requestedFrom = _getInt(searchRequest.getFrom());
+		int requestedFrom = GetterUtil.getInteger(searchRequest.getFrom());
 
 		capturedSearchEvent.setRequestedFrom(requestedFrom);
-		capturedSearchEvent.setRequestedSize(_getInt(searchRequest.getSize()));
+		capturedSearchEvent.setRequestedSize(
+			GetterUtil.getInteger(searchRequest.getSize()));
 
 		_captureHits(
 			capturedSearchEvent, searchResponse, searchContext, configuration,
@@ -229,20 +230,10 @@ public class SearchEventCaptor {
 	}
 
 	private String _getBlueprintId(SearchContext searchContext) {
-		Object blueprintId = searchContext.getAttribute(
-			_BLUEPRINT_ID_ATTRIBUTE_NAME);
+		String blueprintId = GetterUtil.getString(
+			searchContext.getAttribute(_BLUEPRINT_ID_ATTRIBUTE_NAME));
 
-		if (blueprintId == null) {
-			return null;
-		}
-
-		String value = GetterUtil.getString(blueprintId);
-
-		if (Validator.isNull(value)) {
-			return null;
-		}
-
-		return value;
+		return Validator.isNull(blueprintId) ? null : blueprintId;
 	}
 
 	/**
@@ -335,14 +326,6 @@ public class SearchEventCaptor {
 		return StringUtil.merge(fragments, " ... ");
 	}
 
-	private int _getInt(Integer value) {
-		if (value == null) {
-			return 0;
-		}
-
-		return value.intValue();
-	}
-
 	private String _getLanguageId(SearchContext searchContext) {
 		String languageId = searchContext.getLanguageId();
 
@@ -360,7 +343,7 @@ public class SearchEventCaptor {
 	}
 
 	private String _getSnippetFieldValue(Document document) {
-		java.util.Map<String, com.liferay.portal.search.document.Field> fields =
+		Map<String, com.liferay.portal.search.document.Field> fields =
 			document.getFields();
 
 		if (fields == null) {

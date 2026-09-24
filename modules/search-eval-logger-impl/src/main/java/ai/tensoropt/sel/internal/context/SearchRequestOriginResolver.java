@@ -103,33 +103,28 @@ public class SearchRequestOriginResolver {
 	}
 
 	private SearchRequestOrigin _doResolve() {
-		try {
-			HttpServletRequest httpServletRequest = _getHttpServletRequest();
+		HttpServletRequest httpServletRequest = _getHttpServletRequest();
 
-			if (httpServletRequest == null) {
-				return SearchRequestOrigin.UNKNOWN;
-			}
-
-			String path = _getPath(httpServletRequest);
-
-			if (path == null) {
-				return new SearchRequestOrigin(SourceType.OTHER, false, true);
-			}
-
-			if (path.startsWith(_HEADLESS_PATH_PREFIX)) {
-				return new SearchRequestOrigin(
-					SourceType.HEADLESS, _isSuggestionPath(path), true);
-			}
-
-			if (_hasPortletContext(httpServletRequest)) {
-				return new SearchRequestOrigin(SourceType.WIDGET, false, true);
-			}
-
-			return new SearchRequestOrigin(SourceType.OTHER, false, true);
-		}
-		catch (Throwable throwable) {
+		if (httpServletRequest == null) {
 			return SearchRequestOrigin.UNKNOWN;
 		}
+
+		String path = _getPath(httpServletRequest);
+
+		if (path == null) {
+			return new SearchRequestOrigin(SourceType.OTHER, false, true);
+		}
+
+		if (path.startsWith(_HEADLESS_PATH_PREFIX)) {
+			return new SearchRequestOrigin(
+				SourceType.HEADLESS, _isSuggestionPath(path), true);
+		}
+
+		if (_hasPortletContext(httpServletRequest)) {
+			return new SearchRequestOrigin(SourceType.WIDGET, false, true);
+		}
+
+		return new SearchRequestOrigin(SourceType.OTHER, false, true);
 	}
 
 	private HttpServletRequest _getHttpServletRequest() {
