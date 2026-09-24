@@ -5,6 +5,7 @@
 package ai.tensoropt.sel.web.internal.portlet;
 
 import com.liferay.portal.background.task.util.comparator.BackgroundTaskCreateDateComparator;
+import com.liferay.portal.configuration.module.configuration.ConfigurationProvider;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTask;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil;
 import com.liferay.portal.kernel.exception.PortalException;
@@ -25,7 +26,6 @@ import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 import ai.tensoropt.sel.api.SearchInterceptionStatus;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
-import ai.tensoropt.sel.web.internal.export.SearchEvalExportConfigurationProvider;
 import ai.tensoropt.sel.web.internal.funnel.EvaluationServiceLinks;
 import ai.tensoropt.sel.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
 
@@ -289,8 +289,8 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 	private boolean _showEvaluationServiceLinks(long companyId) {
 		try {
 			SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
-				_searchEvalExportConfigurationProvider.getConfiguration(
-					companyId);
+				_configurationProvider.getCompanyConfiguration(
+					SearchEvalLoggerConfiguration.class, companyId);
 
 			return searchEvalLoggerConfiguration.showEvaluationServiceLinks();
 		}
@@ -323,8 +323,7 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 	private CollectionCycleStatus _collectionCycleStatus;
 
 	@Reference
-	private SearchEvalExportConfigurationProvider
-		_searchEvalExportConfigurationProvider;
+	private ConfigurationProvider _configurationProvider;
 
 	@Reference
 	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;

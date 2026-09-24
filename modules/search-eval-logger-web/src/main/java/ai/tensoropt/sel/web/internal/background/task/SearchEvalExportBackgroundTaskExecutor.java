@@ -4,6 +4,7 @@
 
 package ai.tensoropt.sel.web.internal.background.task;
 
+import com.liferay.portal.configuration.module.configuration.ConfigurationProvider;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTask;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskExecutor;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskResult;
@@ -18,7 +19,6 @@ import ai.tensoropt.sel.web.internal.export.ExportArchiveNames;
 import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportResult;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportWriter;
-import ai.tensoropt.sel.web.internal.export.SearchEvalExportConfigurationProvider;
 
 import java.io.File;
 
@@ -72,8 +72,14 @@ public class SearchEvalExportBackgroundTaskExecutor
 		Date startDate = ExportTaskContext.getStartDate(taskContextMap);
 		Date endDate = ExportTaskContext.getEndDate(taskContextMap);
 
+		// Read without a fallback, unlike the collector. The manifest states
+		// the configuration the export ran under, and one that quietly
+		// reported defaults it was not running would be worse than a failed
+		// export.
+
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
-			_searchEvalExportConfigurationProvider.getConfiguration(companyId);
+			_configurationProvider.getCompanyConfiguration(
+				SearchEvalLoggerConfiguration.class, companyId);
 
 		File file = FileUtil.createTempFile("zip");
 
@@ -124,8 +130,7 @@ public class SearchEvalExportBackgroundTaskExecutor
 		SearchEvalExportBackgroundTaskExecutor.class);
 
 	@Reference
-	private SearchEvalExportConfigurationProvider
-		_searchEvalExportConfigurationProvider;
+	private ConfigurationProvider _configurationProvider;
 
 	@Reference
 	private SearchEvalExportWriter _searchEvalExportWriter;
