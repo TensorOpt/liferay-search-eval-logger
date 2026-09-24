@@ -4,6 +4,7 @@
 
 package ai.tensoropt.sel.web.internal.export;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_SELF;
@@ -79,12 +80,12 @@ public class SearchEvalExportManifestBuilderTest {
 
 		_build();
 
-		verify(_jsonObject).put("observed_search_count", 18L);
-		verify(_jsonObject).put("keyword_search_count", 10L);
-		verify(_jsonObject).put("admitted_search_count", 9L);
-		verify(_jsonObject).put("dispatched_event_count", 9L);
-		verify(_jsonObject).put("dropped_event_count", 1L);
-		verify(_jsonObject).put("persisted_event_count", 8L);
+		verify(_jsonObject).put("observed_search_count", (Object)18L);
+		verify(_jsonObject).put("keyword_search_count", (Object)10L);
+		verify(_jsonObject).put("admitted_search_count", (Object)9L);
+		verify(_jsonObject).put("dispatched_event_count", (Object)9L);
+		verify(_jsonObject).put("dropped_event_count", (Object)1L);
+		verify(_jsonObject).put("persisted_event_count", (Object)8L);
 
 		// The counters describe the process, not the exported range, and an
 		// evaluator who reads them as a figure for the range would draw the
@@ -92,6 +93,35 @@ public class SearchEvalExportManifestBuilderTest {
 
 		verify(_jsonObject).put(
 			org.mockito.ArgumentMatchers.eq("scope"), anyString());
+	}
+
+	/**
+	 * DESIGN.md 6.2 types ids and counts as JSON numbers, and Liferay's
+	 * <code>put(String, long)</code> writes them as strings (D-2). Every long
+	 * has to reach the <code>Object</code> overload as a <code>Long</code>, so
+	 * the <code>long</code> overload is asserted never to be called at all:
+	 * that also catches a long field added later without boxing.
+	 */
+	@Test
+	public void longValuesAreWrittenAsNumbers() {
+		SearchEvalExportResult searchEvalExportResult =
+			new SearchEvalExportResult();
+
+		searchEvalExportResult.incrementEventCount();
+		searchEvalExportResult.incrementHitCount();
+		searchEvalExportResult.incrementHitCount();
+
+		when(_searchEvalLoggerStatistics.getObservedSearchCount()).thenReturn(
+			18L);
+
+		_build(new Date(0), new Date(1), searchEvalExportResult);
+
+		verify(_jsonObject).put("company_id", (Object)1L);
+		verify(_jsonObject).put("events", (Object)1L);
+		verify(_jsonObject).put("hits", (Object)2L);
+		verify(_jsonObject).put("observed_search_count", (Object)18L);
+
+		verify(_jsonObject, never()).put(anyString(), anyLong());
 	}
 
 	/**
@@ -184,6 +214,13 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	private void _build(Date startDate, Date endDate) {
+		_build(startDate, endDate, new SearchEvalExportResult());
+	}
+
+	private void _build(
+		Date startDate, Date endDate,
+		SearchEvalExportResult searchEvalExportResult) {
+
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
 			SearchEvalLoggerConfiguration.class);
 
@@ -196,7 +233,7 @@ public class SearchEvalExportManifestBuilderTest {
 		);
 
 		_searchEvalExportManifestBuilder.build(
-			1L, startDate, endDate, new SearchEvalExportResult(),
+			1L, startDate, endDate, searchEvalExportResult,
 			searchEvalLoggerConfiguration);
 	}
 

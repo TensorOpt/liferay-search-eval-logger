@@ -76,13 +76,7 @@ def expect_accepted(description, function):
 
 
 def event_line(index, **overrides):
-    """One events.jsonl record in the shape DESIGN.md 6.2 specifies.
-
-    Long valued fields are strings here because that is what the plugin
-    actually writes today (defect D-2). The fixture mirrors reality rather
-    than the specification, so the mutations below test what the checks would
-    meet in a real archive.
-    """
+    """One events.jsonl record in the shape DESIGN.md 6.2 specifies."""
     record = {
         "event_id": "e2e-%016d" % index,
         "created_at": "2026-09-%02dT10:00:%02dZ" % (1 + index // 60, index % 60),
@@ -98,7 +92,7 @@ def event_line(index, **overrides):
         "cohort_hash": "3585671aa51e6cd46efff007511fe851",
         "requested_size": 20,
         "requested_from": 0,
-        "total_hits": "249",
+        "total_hits": 249,
         "logged_hit_count": 2,
         "source_type": "WIDGET",
         "hits": [hit_object(index, rank) for rank in range(2)],
@@ -115,7 +109,7 @@ def hit_object(index, rank):
         "score": 10.0 - rank,
         "doc_uid": "com.liferay.journal.model.JournalArticle_PORTLET_%d" % index,
         "entry_class_name": "com.liferay.journal.model.JournalArticle",
-        "entry_class_pk": "%d" % (index * 100 + rank),
+        "entry_class_pk": index * 100 + rank,
         "title": "Generated title %d-%d" % (index, rank),
         "snippet": None,
         "extra_fields": {},
@@ -139,8 +133,8 @@ def archive(records, readme="# Search Evaluation Export\n\nCaveats.\n",
             json.dumps(
                 manifest
                 or {
-                    "company_id": "123",
-                    "counts": {"events": str(len(records)), "hits": str(hits)},
+                    "company_id": 123,
+                    "counts": {"events": len(records), "hits": hits},
                 }
             ),
         )
@@ -233,7 +227,7 @@ class FakeContext:
         self.archive_name = "search-eval-export-92102577642293-20260823-20260923.zip"
         self.export_range = ("2026-08-23", "2026-09-23")
         self.manifest = {
-            "counts": {"events": "50014", "hits": "500110"},
+            "counts": {"events": 50014, "hits": 500110},
             "plugin_version": "1.0.0",
         }
 
@@ -608,6 +602,86 @@ def check_archive_name():
     )
 
 
+def check_number_types():
+    """D-2: long valued fields must reach the archive as JSON numbers."""
+    good = [event_line(index) for index in range(2)]
+
+    expect_accepted(
+        "an events.jsonl line with its long fields unquoted",
+        lambda: checks.export_jsonl_number_types(
+            FakeContext(archive_path=write_archive(good, _tmp("types-good"))),
+            FakeCase(),
+        ),
+    )
+
+    for description, mutate in (
+        ("total_hits quoted", lambda record: record.update(total_hits="249")),
+        (
+            "entry_class_pk quoted",
+            lambda record: record["hits"][0].update(entry_class_pk="100"),
+        ),
+        (
+            "a scope group id quoted inside its array",
+            lambda record: record.update(scope_group_ids=["20118"]),
+        ),
+    ):
+        records = [event_line(index) for index in range(2)]
+
+        mutate(records[0])
+
+        path = write_archive(records, _tmp("types-%d" % len(CHECKED)))
+
+        expect_rejected(
+            "%s (the pre-TO-88 shape)" % description,
+            lambda path=path: checks.export_jsonl_number_types(
+                FakeContext(archive_path=path), FakeCase()
+            ),
+        )
+
+    manifest = {
+        "company_id": 123,
+        "counts": {"events": 2, "hits": 4},
+        "admission_counters": {
+            "observed_search_count": 18,
+            "persisted_event_count": 8,
+            "scope": "Counted since this plugin last started",
+        },
+    }
+
+    expect_accepted(
+        "a manifest with its ids and counts unquoted",
+        lambda: checks.assert_manifest_numbers(manifest),
+    )
+
+    for description, path_, value in (
+        ("company_id quoted", ("company_id",), "123"),
+        ("counts.events quoted", ("counts", "events"), "2"),
+        (
+            "an admission counter quoted",
+            ("admission_counters", "persisted_event_count"),
+            "8",
+        ),
+        ("counts.hits a boolean", ("counts", "hits"), True),
+    ):
+        mutated = json.loads(json.dumps(manifest))
+
+        target = mutated
+
+        for key in path_[:-1]:
+            target = target[key]
+
+        target[path_[-1]] = value
+
+        expect_rejected(
+            "a manifest with %s" % description,
+            lambda mutated=mutated: checks.assert_manifest_numbers(mutated),
+        )
+
+
+def _tmp(name):
+    return os.path.join(TMP, "%s.zip" % name)
+
+
 UNBOUNDED_README = """# Search Evaluation Export
 
 Range: unbounded to unbounded (UTC)  
@@ -629,11 +703,11 @@ def unbounded_archive(
         export_range = {"from": None, "to": None}
 
     manifest = {
-        "company_id": "123",
+        "company_id": 123,
         "export_range": export_range,
         "counts": {
-            "events": str(len(records) if counted is None else counted),
-            "hits": "0",
+            "events": len(records) if counted is None else counted,
+            "hits": 0,
         },
     }
 
@@ -968,6 +1042,7 @@ def main():
         check_zero_egress()
         check_funnel_links()
         check_archive_name()
+        check_number_types()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

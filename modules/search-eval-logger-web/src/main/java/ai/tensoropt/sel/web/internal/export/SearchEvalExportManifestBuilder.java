@@ -32,6 +32,13 @@ import org.osgi.service.component.annotations.Reference;
  * it: the coverage rates say whether a judging pass is feasible at all, and the
  * drop count says whether the log is a census or a lossy sample.
  * </p>
+ *
+ * <p>
+ * Every <code>long</code> is boxed before it is put, because Liferay's
+ * <code>JSONObject.put(String, long)</code> stores <code>String.valueOf</code>
+ * of the value and would write each id and count as a quoted string. See
+ * {@link SearchEvalExportWriter}.
+ * </p>
  */
 @Component(service = SearchEvalExportManifestBuilder.class)
 public class SearchEvalExportManifestBuilder {
@@ -43,16 +50,16 @@ public class SearchEvalExportManifestBuilder {
 
 		JSONObject jsonObject = _jsonFactory.createJSONObject();
 
-		jsonObject.put("company_id", companyId);
+		jsonObject.put("company_id", Long.valueOf(companyId));
 		jsonObject.put("exported_at", ExportTimestamps.format(_clock.instant()));
 		jsonObject.put("export_range", _getExportRange(startDate, endDate));
 		jsonObject.put(
 			"counts",
 			_jsonFactory.createJSONObject(
 			).put(
-				"events", searchEvalExportResult.getEventCount()
+				"events", Long.valueOf(searchEvalExportResult.getEventCount())
 			).put(
-				"hits", searchEvalExportResult.getHitCount()
+				"hits", Long.valueOf(searchEvalExportResult.getHitCount())
 			));
 		jsonObject.put("plugin_version", _getPluginVersion());
 		jsonObject.put("liferay_version", ReleaseInfo.getReleaseInfo());
@@ -93,22 +100,28 @@ public class SearchEvalExportManifestBuilder {
 		return _jsonFactory.createJSONObject(
 		).put(
 			"observed_search_count",
-			_searchEvalLoggerStatistics.getObservedSearchCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getObservedSearchCount())
 		).put(
 			"keyword_search_count",
-			_searchEvalLoggerStatistics.getKeywordSearchCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getKeywordSearchCount())
 		).put(
 			"admitted_search_count",
-			_searchEvalLoggerStatistics.getAdmittedSearchCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getAdmittedSearchCount())
 		).put(
 			"dispatched_event_count",
-			_searchEvalLoggerStatistics.getDispatchedEventCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getDispatchedEventCount())
 		).put(
 			"dropped_event_count",
-			_searchEvalLoggerStatistics.getDroppedEventCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getDroppedEventCount())
 		).put(
 			"persisted_event_count",
-			_searchEvalLoggerStatistics.getPersistedEventCount()
+			Long.valueOf(
+				_searchEvalLoggerStatistics.getPersistedEventCount())
 		).put(
 			"scope",
 			"Counted since this plugin last started, not for the exported " +

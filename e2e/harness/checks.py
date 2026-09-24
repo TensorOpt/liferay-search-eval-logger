@@ -58,9 +58,6 @@ EMPTY_PURGE_BUDGET_MS = 5000
 # No ticket numbers yet; each identifier is the one used in the TO-84 report
 # and in e2e/README.md.
 EXPECTED_FAILURES = {
-    "export-jsonl-number-types": (
-        "D-2, long values export as JSON strings, DESIGN.md 6.2"
-    ),
     "export-archive-name": (
         "D-4, the exclusive end date leaks into the archive name, DESIGN.md 6.2"
     ),
@@ -1044,20 +1041,7 @@ def validate_archive(context, case):
             "manifest counts: %d events, %d hits" % (manifest_events, manifest_hits)
         )
 
-        # Read through int() rather than compared directly, because the
-        # manifest types its long valued fields as JSON strings. DESIGN.md 6.2
-        # does not state manifest types, so that is recorded here rather than
-        # asserted; the same thing inside events.jsonl does contradict the
-        # documented example, and export_jsonl_number_types asserts it.
-
-        case.note(
-            "manifest long fields arrive as %s (company_id %r, counts.events %r)"
-            % (
-                type(manifest["counts"]["events"]).__name__,
-                manifest["company_id"],
-                manifest["counts"]["events"],
-            )
-        )
+        assert_manifest_numbers(manifest)
 
         expectations = pluginconfig.manifest_expectations(context.configuration)
 
@@ -1445,14 +1429,15 @@ def export_jsonl_number_types(context, case):
     """DESIGN.md 6.2 types total_hits and entry_class_pk as JSON numbers.
 
     Its worked example is explicit: "total_hits": 147 and
-    "entry_class_pk": 38291, neither quoted. Every int and double column does
-    come out as a number; every long column comes out as a string, so a
-    consumer reading the file against the documented schema gets a string
-    where the example shows an integer.
+    "entry_class_pk": 38291, neither quoted, and "scope_group_ids": [20121]
+    is an array of numbers.
 
-    This case fails today. It is a defect in the exporter rather than in the
-    test, and it is asserted separately so it does not take the rest of the
-    archive validation with it.
+    This was D-2, fixed by TO-88. Liferay's JSONObject.put(String, long) and
+    JSONArray.put(long) store String.valueOf of the value, so every long column
+    came out quoted while the int and double columns beside it did not. The
+    exporter now boxes each long so it reaches the Object overload instead.
+    The case stays separate from the archive validation so a regression here
+    does not take the rest of it down.
     """
     with zipfile.ZipFile(context.archive_path) as archive:
         with archive.open("events.jsonl") as entry:
@@ -1481,11 +1466,46 @@ def export_jsonl_number_types(context, case):
         % record.get("total_hits"),
     )
 
+    scope_group_ids = record.get("scope_group_ids") or []
+
+    assert_true(
+        all(isinstance(value, int) for value in scope_group_ids),
+        "scope_group_ids is %r, and DESIGN.md 6.2 shows an array of numbers"
+        % scope_group_ids,
+    )
+
     if record.get("hits"):
         assert_true(
             isinstance(record["hits"][0].get("entry_class_pk"), int),
             "entry_class_pk is %r, and DESIGN.md 6.2 shows it unquoted"
             % record["hits"][0].get("entry_class_pk"),
+        )
+
+
+def assert_manifest_numbers(manifest):
+    """Every long valued manifest field is a JSON number.
+
+    DESIGN.md 6.2 does not spell out manifest types, but the manifest came out
+    with D-2's split: company_id and every count quoted while capture_depth and
+    sampling_rate beside them were not. TO-88 fixed both files together, so
+    both are held to it. bool is excluded explicitly because it is an int
+    subclass in Python.
+    """
+    values = {
+        "company_id": manifest["company_id"],
+        "counts.events": manifest["counts"]["events"],
+        "counts.hits": manifest["counts"]["hits"],
+    }
+
+    for key, value in manifest.get("admission_counters", {}).items():
+        if key != "scope":
+            values["admission_counters." + key] = value
+
+    for key, value in values.items():
+        assert_true(
+            isinstance(value, int) and not isinstance(value, bool),
+            "manifest %s is %r, a %s rather than a JSON number"
+            % (key, value, type(value).__name__),
         )
 
 

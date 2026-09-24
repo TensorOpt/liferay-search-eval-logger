@@ -67,6 +67,16 @@ import org.osgi.service.component.annotations.Reference;
  * manifest reports figures, counts and per-field coverage, that are only known
  * once the data has streamed.
  * </p>
+ *
+ * <p>
+ * Every <code>long</code> is boxed before it is written. Liferay's
+ * <code>JSONObject.put(String, long)</code> and <code>JSONArray.put(long)</code>
+ * both store <code>String.valueOf</code> of the value, so an unboxed long comes
+ * out quoted, against the numbers DESIGN.md 6.2 shows. The
+ * <code>Object</code> overloads pass a <code>Long</code> through untouched. The
+ * boxing looks redundant and is not; {@link SearchEvalExportManifestBuilder}
+ * does the same.
+ * </p>
  */
 @Component(service = SearchEvalExportWriter.class)
 public class SearchEvalExportWriter {
@@ -176,7 +186,7 @@ public class SearchEvalExportWriter {
 			}
 
 			if (numeric) {
-				jsonArray.put(GetterUtil.getLong(part));
+				jsonArray.put(Long.valueOf(GetterUtil.getLong(part)));
 			}
 			else {
 				jsonArray.put(part);
@@ -328,7 +338,8 @@ public class SearchEvalExportWriter {
 		_put(jsonObject, "cohort_hash", resultSet.getString("cohortHash"));
 		jsonObject.put("requested_size", resultSet.getInt("requestedSize"));
 		jsonObject.put("requested_from", resultSet.getInt("requestedFrom"));
-		jsonObject.put("total_hits", resultSet.getLong("totalHits"));
+		jsonObject.put(
+			"total_hits", Long.valueOf(resultSet.getLong("totalHits")));
 		jsonObject.put(
 			"logged_hit_count", resultSet.getInt("loggedHitCount"));
 		_put(jsonObject, "source_type", resultSet.getString("sourceType"));
@@ -348,7 +359,8 @@ public class SearchEvalExportWriter {
 		_put(
 			jsonObject, "entry_class_name",
 			resultSet.getString("entryClassName"));
-		jsonObject.put("entry_class_pk", resultSet.getLong("entryClassPK"));
+		jsonObject.put(
+			"entry_class_pk", Long.valueOf(resultSet.getLong("entryClassPK")));
 		_put(jsonObject, "title", resultSet.getString("title"));
 		_put(jsonObject, "snippet", resultSet.getString("snippet"));
 

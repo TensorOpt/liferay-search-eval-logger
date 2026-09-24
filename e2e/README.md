@@ -274,13 +274,13 @@ is then the one a real installation makes.
 | `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored and the banner rendered |
 | `export` | DESIGN.md 6.1: the action starts a background task that completes and offers a download |
 | `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested. **This case fails against the plugin as it stands; see below.** |
-| `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back |
+| `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back, and every id and count in the manifest a JSON number |
 | `export-range-is-honoured` | DESIGN.md 6.1: a narrow window exports exactly the rows that window holds, counted independently in the database |
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
 | `funnel-links` | DESIGN.md 10.1 and 10.3 |
 | `funnel-zero-egress` | D9, as far as a rendered page can be inspected |
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
-| `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits` and `entry_class_pk` as JSON numbers. **This case fails against the plugin as it stands; see below.** |
+| `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 
 ## Reading the EXPORT permission case
@@ -323,8 +323,8 @@ flag and the terms of use flag, so the user actually arrives.
 
 ## Known defects are a mechanism, not a paragraph
 
-Two cases fail because of defects in the plugin rather than in the harness.
-They are named in `checks.EXPECTED_FAILURES`, and `Results` treats a named case
+One case fails because of a defect in the plugin rather than in the harness.
+It is named in `checks.EXPECTED_FAILURES`, and `Results` treats a named case
 that fails as an expected failure: it is reported as skipped in the JUnit XML
 with the whole traceback kept in `system-out`, it does not count toward the
 exit code, and **the suite exits 0 on this exact set**. A gate can be switched
@@ -332,13 +332,14 @@ on today.
 
 The same case *passing* is recorded as a failure, so an entry cannot go stale:
 either the defect was fixed and the entry should be retired, or the case
-stopped testing what it claims to. That is how `export-unbounded-range` left
-this list: TO-87 fixed D-1, the case passed, the run failed on the unexpected
-pass, and the entry was retired in the same change.
+stopped testing what it claims to. That is how `export-unbounded-range` and
+`export-jsonl-number-types` left this list: TO-87 fixed D-1 and TO-88 fixed
+D-2, each case passed, the run failed on the unexpected pass, and each entry
+was retired in the same change as its fix.
 
 This is a mechanism rather than a rule a person applies, because "expect
-exactly two failures" is not a rule about the thing it sounds like. Kill the
-database halfway through a run and those two become skips, since their
+exactly one failure" is not a rule about the thing it sounds like. Kill the
+database halfway through a run and that one becomes a skip, since its
 prerequisites never passed, and the run then shows zero failures and reads as
 healthier than the baseline while being entirely broken. `selftest.py`
 exercises that exact scenario.
@@ -363,35 +364,9 @@ The assertion is an exact string match on purpose. The pattern it replaced,
 two runs of eight digits, accepted any pair of dates and is how this stayed
 invisible.
 
-### `export-jsonl-number-types`
-
-Every `long` valued field is written to the archive as a JSON string. DESIGN.md
-6.2's worked example shows them unquoted:
-
-```json
-"total_hits": 147,
-"entry_class_pk": 38291
-```
-
-and what comes out is `"total_hits": "249"` and `"entry_class_pk": "464901"`.
-`int` and `double` columns are unaffected: `requested_size`, `requested_from`,
-`logged_hit_count`, `rank` and `score` are all numbers, so the same object
-mixes the two conventions. `manifest.json` has the same split, with
-`company_id` and every count under `counts` and `admission_counters` quoted
-while `capture_depth` and `sampling_rate` are not. The manifest half is
-recorded as a note rather than asserted, because 6.2 does not state manifest
-types.
-
-The cause is not the plugin choosing a wrong overload. Liferay's own
-`JSONObjectImpl.put(String, long)` calls `String.valueOf` on the value and
-stores the result as an object, so every `long` written through
-`com.liferay.portal.kernel.json.JSONObject` comes out quoted. `put(String,
-Object)` passes its argument through untouched, so boxing the value at each
-call site is what turns these back into numbers.
-
 ## Testing the tests
 
-`selftest.py` runs 61 discrimination checks in about a second, with no Docker
+`selftest.py` runs 70 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.
