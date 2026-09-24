@@ -148,6 +148,32 @@ com.liferay.portal.kernel.scheduler.StorageType.values().each { storageType ->
 result = JsonOutput.toJson(jobs)
 """
 
+# A background task of some other kind, with an attachment, in the same
+# company and site as the exports (TO-91, TO-109). The executor class name
+# names nothing, so the task is never run; the attachment is all that matters.
+FOREIGN_TASK = """
+long companyId = %(company_id)dL
+long groupId = %(group_id)dL
+def user = com.liferay.portal.kernel.service.UserLocalServiceUtil.getUserByEmailAddress(
+    companyId, "%(email)s")
+def serviceContext = new com.liferay.portal.kernel.service.ServiceContext()
+serviceContext.setCompanyId(companyId)
+serviceContext.setScopeGroupId(groupId)
+serviceContext.setUserId(user.getUserId())
+def manager = com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil
+def task = manager.addBackgroundTask(
+    user.getUserId(), groupId, "e2e-foreign-task",
+    "com.example.e2e.NotASearchEvalExport", new HashMap(), serviceContext)
+def file = File.createTempFile("foreign", ".lar")
+file.text = "%(content)s"
+manager.addBackgroundTaskAttachment(
+    user.getUserId(), task.getBackgroundTaskId(), "foreign.lar", file)
+result = JsonOutput.toJson([
+    id: task.getBackgroundTaskId(),
+    attachments: manager.getBackgroundTask(
+        task.getBackgroundTaskId()).getAttachmentsFileEntriesCount()])
+"""
+
 CYCLE_READ = """
 long companyId = %(company_id)dL
 

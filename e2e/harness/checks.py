@@ -98,6 +98,10 @@ HIT_KEYS = {
     "extra_fields",
 }
 
+# What the foreign task's attachment contains, so a download that served it can
+# be recognised whatever else the response carries.
+FOREIGN_ATTACHMENT_CONTENT = "E2E-FOREIGN-ATTACHMENT-CONTENT"
+
 # The rendered bodies of the two notifications, from the web module's
 # Language.properties. The notifications list shows the body, not the title.
 STALL_NOTIFICATION_TEXT = "Restart the portal to begin collecting."
@@ -189,6 +193,7 @@ class Context:
         self.group_id = None
         self.archive_path = None
         self.archive_name = None
+        self.download_url = None
         self.export_range = None
         self.manifest = None
         self.collection_start_date = None
@@ -1057,6 +1062,7 @@ def run_export(context, case):
 
     context.archive_path = destination
     context.archive_name = file_name
+    context.download_url = row["download_url"]
     context.export_range = (start_date, end_date)
 
 
@@ -1929,6 +1935,80 @@ def _unescape_html(value):
         .replace("&#034;", '"')
         .replace("&lt;", "<")
         .replace("&gt;", ">")
+    )
+
+
+def export_foreign_download(context, case):
+    """TO-91, TO-109: the export's download URL serves exports and nothing else.
+
+    The URL carries the background task id as a parameter, so a user holding
+    EXPORT can put any task's id in it. Before TO-91 it served that task's
+    attachment whatever the task was, such as a site export. The control is
+    the export's own URL, which has to keep working.
+    """
+    control = context.portal.get(context.download_url, timeout=3600)
+
+    case.note(
+        "control: HTTP %d, %d bytes" % (control.status, len(control.body))
+    )
+
+    assert_true(
+        control.status == 200 and control.body[:2] == b"PK",
+        "The export's own download URL no longer serves its archive",
+    )
+
+    task = json.loads(
+        context.portal.run_script(
+            scripts.FOREIGN_TASK
+            % {
+                "company_id": context.company_id,
+                "group_id": context.group_id,
+                "email": context.portal.user,
+                "content": FOREIGN_ATTACHMENT_CONTENT,
+            }
+        )
+    )
+
+    assert_equal(
+        task["attachments"], 1, "The foreign task did not get its attachment"
+    )
+
+    response = context.portal.get(
+        foreign_task_url(context.download_url, task["id"]), timeout=300
+    )
+
+    case.note(
+        "foreign task %d: HTTP %d, %d bytes"
+        % (task["id"], response.status, len(response.body))
+    )
+
+    assert_attachment_not_served(response.body)
+
+
+def foreign_task_url(download_url, task_id):
+    """The export's download URL, pointed at another background task."""
+    url, count = re.subn(
+        r"(backgroundTaskId=)\d+", r"\g<1>%d" % task_id, download_url
+    )
+
+    if count != 1:
+        raise HarnessError(
+            "No single backgroundTaskId parameter in %s" % download_url
+        )
+
+    return url
+
+
+def assert_attachment_not_served(body):
+    assert_true(
+        FOREIGN_ATTACHMENT_CONTENT.encode("utf-8") not in body,
+        "The export's download URL served another background task's "
+        "attachment",
+    )
+    assert_true(
+        body[:2] != b"PK",
+        "The export's download URL served a ZIP for a task that is not an "
+        "export",
     )
 
 

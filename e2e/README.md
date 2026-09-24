@@ -280,6 +280,7 @@ is then the one a real installation makes.
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
 | `funnel-links` | DESIGN.md 10.1 and 10.3 |
 | `funnel-zero-egress` | D9, as far as a rendered page can be inspected |
+| `export-foreign-download` | TO-91: the export's download URL, given another background task's id, does not serve that task's attachment, while its own id still serves the archive |
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
@@ -352,7 +353,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 86 discrimination checks in about a second, with no Docker
+`selftest.py` runs 91 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.

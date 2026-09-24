@@ -734,6 +734,43 @@ def check_daily_schedule():
     )
 
 
+def check_foreign_download():
+    """TO-109: the export download URL must not serve another task's file."""
+    url = (
+        "http://localhost:18080/group/control_panel/manage?p_p_id=x"
+        "&p_p_lifecycle=2&_x_backgroundTaskId=33418&p_p_cacheability=c"
+    )
+
+    expect_accepted(
+        "the export URL pointed at another task by id",
+        lambda: _assert(
+            "_x_backgroundTaskId=33642&" in checks.foreign_task_url(url, 33642)
+        ),
+    )
+
+    expect_rejected(
+        "a download URL with no task id to replace",
+        lambda: checks.foreign_task_url("http://localhost/x?p_p_id=x", 1),
+    )
+
+    expect_accepted(
+        "an empty refusal",
+        lambda: checks.assert_attachment_not_served(b""),
+    )
+
+    expect_rejected(
+        "the foreign attachment served (the pre-TO-91 handler)",
+        lambda: checks.assert_attachment_not_served(
+            checks.FOREIGN_ATTACHMENT_CONTENT.encode("utf-8")
+        ),
+    )
+
+    expect_rejected(
+        "some archive served for a task that is not an export",
+        lambda: checks.assert_attachment_not_served(b"PK\x03\x04rest"),
+    )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1208,6 +1245,7 @@ def main():
         check_funnel_counters()
         check_notification_listed()
         check_daily_schedule()
+        check_foreign_download()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

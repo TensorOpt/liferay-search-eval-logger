@@ -370,6 +370,11 @@ def main(argv):
             requires=["funnel-links"],
         )
         results.run(
+            "export-foreign-download",
+            lambda case: checks.export_foreign_download(context, case),
+            requires=["export"],
+        )
+        results.run(
             "export-permission-refused",
             lambda case: checks.export_permission_refused(context, case),
             requires=["export"],
