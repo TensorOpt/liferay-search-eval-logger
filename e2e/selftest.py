@@ -771,6 +771,39 @@ def check_foreign_download():
     )
 
 
+def check_queue_overflow():
+    """TO-108: an overflow drops what the queue cannot hold, counted once."""
+    good = {"admitted": 2600, "dispatched": 2002, "dropped": 598,
+            "persisted": 2002}
+
+    expect_accepted(
+        "598 of 2,600 dropped past a 2,000 event queue, each counted once",
+        lambda: checks.assert_queue_overflow(good, 2600),
+    )
+
+    for description, overrides in (
+        (
+            "rejected events counted as dispatched too (the pre-TO-92 dispatcher)",
+            {"dispatched": 2600},
+        ),
+        (
+            "a queue that never filled, so nothing was exercised",
+            {"dispatched": 2600, "dropped": 0, "persisted": 2600},
+        ),
+        (
+            "admitted events lost between the counters",
+            {"dropped": 500},
+        ),
+        ("overflow searches not admitted", {"admitted": 2000}),
+    ):
+        delta = dict(good, **overrides)
+
+        expect_rejected(
+            description,
+            lambda delta=delta: checks.assert_queue_overflow(delta, 2600),
+        )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1246,6 +1279,7 @@ def main():
         check_notification_listed()
         check_daily_schedule()
         check_foreign_download()
+        check_queue_overflow()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

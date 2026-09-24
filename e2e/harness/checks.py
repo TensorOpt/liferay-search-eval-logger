@@ -11,8 +11,11 @@ import io
 import json
 import os
 import re
+import statistics
+import threading
 import time
 import urllib.parse
+import urllib.request
 import zipfile
 
 from datetime import datetime, timedelta, timezone
@@ -97,6 +100,17 @@ HIT_KEYS = {
     "snippet",
     "extra_fields",
 }
+
+# SearchEvalLogDestinationConfigurator's _MAXIMUM_QUEUE_SIZE: how many events
+# the destination holds before its rejection handler drops them.
+QUEUE_SIZE = 2000
+
+# Searches the queue-overflow case sends while the consumer is blocked, and
+# from how many clients. Enough past QUEUE_SIZE that a drop count of zero
+# cannot be an accident of timing.
+OVERFLOW_SEARCHES = 2600
+
+OVERFLOW_CLIENTS = 16
 
 # What the foreign task's attachment contains, so a download that served it can
 # be recognised whatever else the response carries.
@@ -1936,6 +1950,153 @@ def _unescape_html(value):
         .replace("&lt;", "<")
         .replace("&gt;", ">")
     )
+
+
+def queue_overflow(context, case):
+    """TO-92, TO-108: a full queue drops events, counts each once, and never
+    slows or fails a search.
+
+    An ACCESS EXCLUSIVE lock on SEL_SearchEvent parks the persistence
+    listener on its first insert, so the serial destination fills and every
+    event past QUEUE_SIZE goes to its rejection handler. That handler runs on
+    the searching thread, inside sendMessage, which then returns normally:
+    exactly the path TO-92 found counting an event as dispatched and dropped
+    both. The same load with the queue draining normally is timed first, so
+    the latency under a full queue has something to be compared with.
+    """
+    normal = _concurrent_searches(context, OVERFLOW_SEARCHES, OVERFLOW_CLIENTS)
+
+    _wait_for_settled_funnel(context)
+
+    before = context.portal.admission_counters()
+
+    with context.stack.lock_table("SEL_SearchEvent"):
+        full = _concurrent_searches(
+            context, OVERFLOW_SEARCHES, OVERFLOW_CLIENTS
+        )
+
+        blocked = context.portal.admission_counters()
+
+    after = _wait_for_settled_funnel(context)
+
+    delta = {key: after[key] - before[key] for key in after}
+
+    case.note(
+        "queue draining: median %.0f ms, p95 %.0f ms"
+        % (normal["median"], normal["p95"])
+    )
+    case.note(
+        "queue full:     median %.0f ms, p95 %.0f ms, %d failures"
+        % (full["median"], full["p95"], len(full["failures"]))
+    )
+    case.note(
+        "while blocked: persisted +%d, dropped +%d; settled delta %s"
+        % (
+            blocked["persisted"] - before["persisted"],
+            blocked["dropped"] - before["dropped"],
+            delta,
+        )
+    )
+
+    assert_equal(
+        full["failures"], [], "Searches failed while the queue was full"
+    )
+
+    assert_queue_overflow(delta, OVERFLOW_SEARCHES)
+    assert_funnel_adds_up(after)
+
+
+def assert_queue_overflow(delta, searches):
+    """The counters of one overflow, as TO-92 defines them.
+
+    Every search is admitted. At most the queue's capacity plus the one event
+    each worker holds is dispatched, the rest are dropped, and since no write
+    failed, dispatched equals persisted: a rejected event counted as
+    dispatched too makes dispatched exceed persisted.
+    """
+    assert_true(
+        delta["admitted"] >= searches,
+        "Only %d of %d overflow searches were admitted"
+        % (delta["admitted"], searches),
+    )
+    assert_true(
+        delta["dropped"] >= delta["admitted"] - QUEUE_SIZE - 5,
+        "The queue did not overflow: %d admitted, %d dropped"
+        % (delta["admitted"], delta["dropped"]),
+    )
+    assert_equal(
+        delta["admitted"],
+        delta["persisted"] + delta["dropped"],
+        "Admitted events are neither persisted nor dropped, or counted as both",
+    )
+    assert_equal(
+        delta["dispatched"],
+        delta["persisted"],
+        "Dispatched and persisted differ with no failed write, so rejected "
+        "events were counted as dispatched",
+    )
+
+
+def _concurrent_searches(context, searches, clients):
+    """Guest searches from several clients at once; latencies and failures."""
+    url = "%s/web/guest/search?%s" % (
+        context.stack.base_url,
+        urllib.parse.urlencode({"q": MARKER_TERM}),
+    )
+
+    remaining = iter(range(searches))
+    latencies = []
+    failures = []
+    lock = threading.Lock()
+
+    def client():
+        while True:
+            with lock:
+                if next(remaining, None) is None:
+                    return
+
+            started = time.perf_counter()
+
+            try:
+                with urllib.request.urlopen(url, timeout=300) as response:
+                    response.read()
+                    status = response.status
+            except Exception as exception:  # noqa: BLE001 - reported below
+                status = str(exception)
+
+            with lock:
+                latencies.append((time.perf_counter() - started) * 1000)
+
+                if status != 200:
+                    failures.append(status)
+
+    threads = [threading.Thread(target=client) for _ in range(clients)]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    latencies.sort()
+
+    return {
+        "median": statistics.median(latencies),
+        "p95": latencies[int(len(latencies) * 0.95) - 1],
+        "failures": failures,
+    }
+
+
+def _wait_for_settled_funnel(context):
+    def settled():
+        counters = context.portal.admission_counters()
+
+        if counters["admitted"] == counters["persisted"] + counters["dropped"]:
+            return counters
+
+        return None
+
+    return wait_for("the funnel to settle", settled, timeout=900, interval=5.0)
 
 
 def export_foreign_download(context, case):

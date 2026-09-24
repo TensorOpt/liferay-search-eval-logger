@@ -10,6 +10,7 @@ import json
 import math
 import os
 import shutil
+import subprocess
 import time
 
 from .util import HarnessError, log, run, wait_for
@@ -334,6 +335,15 @@ class Stack:
             interval=3.0,
         )
 
+    def lock_table(self, table):
+        """Holds an ACCESS EXCLUSIVE lock on a table until the lock is closed.
+
+        The lock is taken in its own psql session, which then sleeps inside
+        the transaction; closing terminates that session, which releases it.
+        Use as a context manager so a failing case cannot leave it held.
+        """
+        return _TableLock(self, table)
+
     def background_task_count(self, executor_class_name):
         """How many background tasks exist for one executor, from the database.
 
@@ -370,3 +380,54 @@ class Stack:
                 entries.append(parsed)
 
         return entries
+
+
+class _TableLock:
+
+    _TAG = "e2e-table-lock"
+
+    def __init__(self, stack, table):
+        self._stack = stack
+        self._table = table
+        self._process = None
+
+    def __enter__(self):
+        self._process = subprocess.Popen(
+            [
+                "docker", "exec", "-i", self._stack.postgres_container, "psql",
+                "-U", "lportal", "-d", "lportal",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+
+        self._process.stdin.write(
+            "begin; lock table %s in access exclusive mode; "
+            "select '%s', pg_sleep(3600);\n" % (self._table, self._TAG)
+        )
+        self._process.stdin.flush()
+
+        def held():
+            return self._stack.psql_long(
+                "select count(*) from pg_locks l join pg_class c on "
+                "c.oid = l.relation where c.relname = '%s' and "
+                "l.mode = 'AccessExclusiveLock' and l.granted"
+                % self._table.lower()
+            ) > 0
+
+        wait_for("the lock on %s" % self._table, held, timeout=60, interval=1.0)
+
+        return self
+
+    def __exit__(self, *exc_info):
+        self._stack.psql(
+            "select pg_terminate_backend(pid) from pg_stat_activity "
+            "where query like '%%%s%%' and pid <> pg_backend_pid()" % self._TAG
+        )
+
+        self._process.stdin.close()
+        self._process.wait(timeout=60)
+
+        return False

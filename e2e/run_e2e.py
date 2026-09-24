@@ -384,6 +384,11 @@ def main(argv):
             lambda case: checks.export_unbounded_range(context, case),
             requires=["export"],
         )
+        results.run(
+            "queue-overflow",
+            lambda case: checks.queue_overflow(context, case),
+            requires=["capture"],
+        )
     finally:
         junit_path = os.path.join(options.results_directory, "junit.xml")
         report_path = os.path.join(options.results_directory, "report.txt")
