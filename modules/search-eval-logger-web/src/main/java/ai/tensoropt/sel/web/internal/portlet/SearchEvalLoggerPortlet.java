@@ -183,7 +183,13 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 		BackgroundTask backgroundTask =
 			BackgroundTaskManagerUtil.getBackgroundTask(backgroundTaskId);
 
-		if (backgroundTask.getCompanyId() != themeDisplay.getCompanyId()) {
+		// The id comes from the request, so it can name any background task.
+		// EXPORT grants this plugin's archives, not every attachment in the
+		// company, such as a site export another administrator ran.
+
+		if ((backgroundTask.getCompanyId() != themeDisplay.getCompanyId()) ||
+			!SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME.
+				equals(backgroundTask.getTaskExecutorClassName())) {
 			throw new PrincipalException.MustHavePermission(
 				themeDisplay.getUserId(),
 				SearchEvalLoggerPortletKeys.ACTION_EXPORT);
