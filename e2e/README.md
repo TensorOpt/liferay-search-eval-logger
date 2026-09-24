@@ -266,6 +266,7 @@ is then the one a real installation makes.
 | `ec3-bypass-detected` | DESIGN.md 3.1: installed onto a running portal, the wrapper is registered and never called, and the plugin says so in the log and on its screen rather than leaving an empty table to be discovered |
 | `stall-notification` | DESIGN.md 3.6 condition 1 fires, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
 | `restart-clears-bypass` | The restart is what makes Liferay's search consumers bind the wrapper |
+| `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
@@ -351,7 +352,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 81 discrimination checks in about a second, with no Docker
+`selftest.py` runs 86 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.
@@ -397,9 +398,9 @@ alongside the unit tests rather than only before a release.
 - **Anything `selftest.py` does not have a mutation for.** It covers the
   assertions that were found to be vacuous and the ones added since. It is a
   floor, not a proof of completeness.
-- **The scheduler's own trigger.** The jobs are invoked directly, so what is
-  proved is that the purge and the cycle check do the right thing, not that
-  Liferay fires them once a day.
+- **The scheduler firing a job.** `daily-jobs-scheduled` proves each job's
+  trigger is set to its time of day, and the purge and cycle cases invoke the
+  jobs directly, but no run waits until 03:00 to watch Liferay fire one.
 
 ## Not colliding with a developer's own instance
 

@@ -405,6 +405,66 @@ def stall_notification(context, case):
     )
 
 
+# When each daily job fires, in the portal's time zone, which is UTC in the
+# test stack. A time of day rather than an interval (TO-110).
+DAILY_JOB_TIMES = {
+    "ai.tensoropt.sel.internal.scheduler.RetentionPurgeSchedulerJobConfiguration":
+        "03:00:00",
+    "ai.tensoropt.sel.internal.scheduler.CollectionCycleSchedulerJobConfiguration":
+        "03:30:00",
+}
+
+
+def daily_jobs_scheduled(context, case):
+    """TO-110: the daily jobs fire at a time of day, whenever the portal started.
+
+    Runs after restart-clears-bypass, so the jobs have just been registered
+    again. A one-day interval trigger would now next fire 24 hours after that
+    restart, at whatever time of day it happened; a restart at least daily
+    would then keep either job from ever running.
+    """
+    jobs = json.loads(context.portal.run_script(scripts.SCHEDULED_JOBS))
+
+    for job in jobs:
+        case.note("%s next %s, then %s" % (job["job"], job["next"], job["following"]))
+
+    assert_daily_schedule(jobs, datetime.now(timezone.utc))
+
+
+def assert_daily_schedule(jobs, now):
+    """Each job next fires within a day, at its time of day, then daily."""
+    by_name = {job["job"]: job for job in jobs}
+
+    for name, time_of_day in DAILY_JOB_TIMES.items():
+        assert_true(name in by_name, "%s is not scheduled" % name)
+
+        job = by_name[name]
+        next_fire = _parse_instant(job["next"])
+        following = _parse_instant(job["following"])
+
+        assert_true(
+            now < next_fire <= now + timedelta(days=1),
+            "%s next fires at %s, not within a day of %s" % (name, next_fire, now),
+        )
+        assert_equal(
+            next_fire.strftime("%H:%M:%S"),
+            time_of_day,
+            "%s fires at the wrong time of day, which is what an interval "
+            "counted from the last restart looks like" % name,
+        )
+        assert_equal(
+            following - next_fire,
+            timedelta(days=1),
+            "%s does not fire daily" % name,
+        )
+
+
+def _parse_instant(value):
+    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
+
+
 def restart_clears_bypass(context, case):
     """DESIGN.md 3.1: the restart is what makes the consumers bind the wrapper."""
     stopwatch = Stopwatch()

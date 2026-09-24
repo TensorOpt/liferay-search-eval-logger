@@ -7,7 +7,6 @@ package ai.tensoropt.sel.internal.scheduler;
 import com.liferay.petra.function.UnsafeConsumer;
 import com.liferay.petra.function.UnsafeRunnable;
 import com.liferay.portal.kernel.scheduler.SchedulerJobConfiguration;
-import com.liferay.portal.kernel.scheduler.TimeUnit;
 import com.liferay.portal.kernel.scheduler.TriggerConfiguration;
 import com.liferay.portal.kernel.service.CompanyLocalService;
 
@@ -46,8 +45,15 @@ public class CollectionCycleSchedulerJobConfiguration
 
 	@Override
 	public TriggerConfiguration getTriggerConfiguration() {
-		return TriggerConfiguration.createTriggerConfiguration(1, TimeUnit.DAY);
+		return TriggerConfiguration.createTriggerConfiguration(CRON_EXPRESSION);
 	}
+
+	/**
+	 * 03:30 every day, in the portal's time zone: a time of day for the same
+	 * reason as the retention purge's (TO-110), and half an hour after it so
+	 * the two do not start together.
+	 */
+	static final String CRON_EXPRESSION = "0 30 3 * * ?";
 
 	@Reference
 	private CollectionCycleMonitor _collectionCycleMonitor;

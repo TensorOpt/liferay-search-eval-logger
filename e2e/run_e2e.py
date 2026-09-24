@@ -295,6 +295,11 @@ def main(argv):
             requires=["install-onto-running-portal"],
         )
         results.run(
+            "daily-jobs-scheduled",
+            lambda case: checks.daily_jobs_scheduled(context, case),
+            requires=["restart-clears-bypass"],
+        )
+        results.run(
             "content-and-searches",
             lambda case: checks.content_and_searches(context, case),
             requires=["restart-clears-bypass"],

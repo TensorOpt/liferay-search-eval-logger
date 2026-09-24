@@ -125,6 +125,29 @@ result = lines.join("\\n")
 
 # The collection cycle record of DESIGN.md 3.6, read from where the plugin
 # keeps it: company scoped portlet preferences under its own portlet id.
+# The plugin's two scheduled jobs, with their next two fire times in UTC.
+#
+# Read off each job's own trigger, so what is reported is what the scheduler
+# will actually do rather than what the configuration class asks for.
+SCHEDULED_JOBS = """
+def format = { date ->
+    date == null ? null :
+        java.time.format.DateTimeFormatter.ISO_INSTANT.format(date.toInstant())
+}
+def jobs = []
+com.liferay.portal.kernel.scheduler.StorageType.values().each { storageType ->
+    com.liferay.portal.kernel.scheduler.SchedulerEngineHelperUtil.getScheduledJobs(
+            storageType).each { response ->
+        if (!response.getJobName().startsWith("ai.tensoropt.sel.")) return
+        def trigger = response.getTrigger()
+        def next = trigger.getFireDateAfter(new Date())
+        jobs << [job: response.getJobName(), next: format(next),
+                 following: format(next == null ? null : trigger.getFireDateAfter(next))]
+    }
+}
+result = JsonOutput.toJson(jobs)
+"""
+
 CYCLE_READ = """
 long companyId = %(company_id)dL
 

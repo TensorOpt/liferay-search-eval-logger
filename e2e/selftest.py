@@ -686,6 +686,54 @@ def check_notification_listed():
     )
 
 
+def check_daily_schedule():
+    """TO-110: the daily jobs fire at a time of day, not a day after startup."""
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 9, 24, 10, 40, 11, tzinfo=timezone.utc)
+
+    purge = "ai.tensoropt.sel.internal.scheduler.RetentionPurgeSchedulerJobConfiguration"
+    cycle = "ai.tensoropt.sel.internal.scheduler.CollectionCycleSchedulerJobConfiguration"
+
+    def jobs(purge_next="2026-09-25T03:00:00Z",
+             purge_following="2026-09-26T03:00:00Z", include_cycle=True):
+        listed = [{"job": purge, "next": purge_next, "following": purge_following}]
+
+        if include_cycle:
+            listed.append({"job": cycle, "next": "2026-09-25T03:30:00Z",
+                           "following": "2026-09-26T03:30:00Z"})
+
+        return listed
+
+    expect_accepted(
+        "both jobs at their time of day, then daily",
+        lambda: checks.assert_daily_schedule(jobs(), now),
+    )
+
+    expect_rejected(
+        "a purge next due one day after the restart (the pre-TO-110 trigger)",
+        lambda: checks.assert_daily_schedule(
+            jobs("2026-09-25T10:40:11Z", "2026-09-26T10:40:11Z"), now),
+    )
+
+    expect_rejected(
+        "the collection cycle check not scheduled at all",
+        lambda: checks.assert_daily_schedule(jobs(include_cycle=False), now),
+    )
+
+    expect_rejected(
+        "a purge that fires every other day",
+        lambda: checks.assert_daily_schedule(
+            jobs(purge_following="2026-09-27T03:00:00Z"), now),
+    )
+
+    expect_rejected(
+        "a purge not due for more than a day",
+        lambda: checks.assert_daily_schedule(
+            jobs("2026-09-26T03:00:00Z", "2026-09-27T03:00:00Z"), now),
+    )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1159,6 +1207,7 @@ def main():
         check_number_types()
         check_funnel_counters()
         check_notification_listed()
+        check_daily_schedule()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

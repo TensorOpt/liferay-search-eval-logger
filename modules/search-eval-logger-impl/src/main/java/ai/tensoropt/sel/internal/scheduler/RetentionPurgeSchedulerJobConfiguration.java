@@ -7,7 +7,6 @@ package ai.tensoropt.sel.internal.scheduler;
 import com.liferay.petra.function.UnsafeConsumer;
 import com.liferay.petra.function.UnsafeRunnable;
 import com.liferay.portal.kernel.scheduler.SchedulerJobConfiguration;
-import com.liferay.portal.kernel.scheduler.TimeUnit;
 import com.liferay.portal.kernel.scheduler.TriggerConfiguration;
 import com.liferay.portal.kernel.service.CompanyLocalService;
 
@@ -53,8 +52,22 @@ public class RetentionPurgeSchedulerJobConfiguration
 
 	@Override
 	public TriggerConfiguration getTriggerConfiguration() {
-		return TriggerConfiguration.createTriggerConfiguration(1, TimeUnit.DAY);
+		return TriggerConfiguration.createTriggerConfiguration(CRON_EXPRESSION);
 	}
+
+	/**
+	 * 03:00 every day, in the portal's time zone.
+	 *
+	 * <p>
+	 * A time of day rather than a one-day interval. An interval trigger's
+	 * first fire is one interval after the job registers, which is every
+	 * portal start and every redeploy of this bundle, and the restart DESIGN.md
+	 * 3.1 requires after each one. On an instance restarted at least daily the
+	 * purge would never run, and the retention window would silently stop
+	 * being a guarantee (TO-110).
+	 * </p>
+	 */
+	static final String CRON_EXPRESSION = "0 0 3 * * ?";
 
 	@Reference
 	private CompanyLocalService _companyLocalService;
