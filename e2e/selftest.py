@@ -25,6 +25,7 @@ import io
 import json
 import os
 import sys
+import time
 import traceback
 import zipfile
 
@@ -886,7 +887,7 @@ def check_bundle_wait_is_anchored():
         expect_rejected(
             "a bundle START line from earlier in the run satisfying the wait",
             lambda: subject.wait_for_bundle_started(
-                "ai.tensoropt.sel.impl", timeout=2
+                "ai.tensoropt.sel.impl", time.monotonic(), timeout=2
             ),
         )
 
@@ -909,7 +910,37 @@ def check_bundle_wait_is_anchored():
         expect_accepted(
             "a bundle START line inside the window satisfies the wait",
             lambda: subject.wait_for_bundle_started(
-                "ai.tensoropt.sel.impl", timeout=5
+                "ai.tensoropt.sel.impl", time.monotonic(), timeout=5
+            ),
+        )
+
+        # TO-93. Four bundles start within milliseconds and are waited for in
+        # turn, so by the time a later wait begins its line is already some
+        # seconds old. Here it is twenty: visible to a window reaching back to
+        # the deploy, invisible to one that opens when the wait does.
+
+        def log_since(args, **kwargs):
+            window = int(args[args.index("--since") + 1].rstrip("s"))
+
+            if window >= 20:
+                return 0, "STARTED ai.tensoropt.sel.service_1.0.0 [2926]\n", ""
+
+            return 0, "", ""
+
+        stack_module.run = log_since
+
+        expect_accepted(
+            "a bundle that started while an earlier wait was polling is seen",
+            lambda: subject.wait_for_bundle_started(
+                "ai.tensoropt.sel.service", time.monotonic() - 30, timeout=5
+            ),
+        )
+
+        expect_rejected(
+            "a window opened by each wait rather than at the deploy "
+            "(the pre-TO-93 behaviour)",
+            lambda: subject.wait_for_bundle_started(
+                "ai.tensoropt.sel.service", time.monotonic(), timeout=2
             ),
         )
     finally:

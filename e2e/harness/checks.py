@@ -11,6 +11,7 @@ import io
 import json
 import os
 import re
+import time
 import urllib.parse
 import zipfile
 
@@ -258,6 +259,11 @@ def install_onto_running_portal(context, case):
 
     os.makedirs(deploy_directory, exist_ok=True)
 
+    # One anchor for every bundle, taken before the first jar lands. See
+    # Stack.wait_for_bundle_started.
+
+    deployed_at = time.monotonic()
+
     for jar in context.options.jars:
         target = os.path.join(deploy_directory, os.path.basename(jar))
 
@@ -271,7 +277,7 @@ def install_onto_running_portal(context, case):
 
     for symbolic_name in BUNDLE_SYMBOLIC_NAMES:
         context.stack.wait_for_bundle_started(
-            symbolic_name, timeout=context.options.deploy_timeout
+            symbolic_name, deployed_at, timeout=context.options.deploy_timeout
         )
 
     def tables_created():

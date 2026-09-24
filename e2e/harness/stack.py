@@ -295,7 +295,7 @@ class Stack:
 
         wait_for("PostgreSQL to accept connections", ready, timeout=timeout)
 
-    def wait_for_bundle_started(self, symbolic_name, timeout=600):
+    def wait_for_bundle_started(self, symbolic_name, since, timeout=600):
         """Waits for Liferay to report a bundle as started, now rather than ever.
 
         The portal log is the signal because it is the one place that reports
@@ -312,11 +312,16 @@ class Stack:
 
         The window is expressed as a duration rather than a timestamp, so it
         does not depend on the host and the daemon agreeing about the clock.
+
+        It opens at <since>, a time.monotonic() value the caller takes before
+        deploying, not when this call begins. Several bundles are waited for
+        one after another, and they start within milliseconds of each other:
+        a window opened by each wait misses every bundle that started while
+        an earlier wait was still polling, and then times out (TO-93).
         """
-        started_at = time.monotonic()
 
         def started():
-            window = int(math.ceil(time.monotonic() - started_at)) + 1
+            window = int(math.ceil(time.monotonic() - since)) + 1
 
             log_text = self.liferay_log(since="%ds" % window)
 
