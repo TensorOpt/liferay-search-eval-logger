@@ -2099,6 +2099,134 @@ def _wait_for_settled_funnel(context):
     return wait_for("the funnel to settle", settled, timeout=900, interval=5.0)
 
 
+def uninstall_and_reinstall(context, case):
+    """TO-111: removing the plugin leaves search and the data intact, and
+    installing it again picks both up.
+
+    Uninstalling takes the wrapper out from under Liferay's search consumers,
+    which bound it with static reluctant references (EC-3), so the first thing
+    checked is that search still answers with no restart. Reinstalling must
+    reuse the existing tables and the collection cycle rather than start over,
+    and after the restart DESIGN.md 3.1 requires, collection has to resume.
+
+    Last in the run: it removes and restarts the plugin under every other case.
+    """
+    events_before = context.stack.psql_long("select count(*) from SEL_SearchEvent")
+    cycle_before = _read_cycle(context)
+
+    case.note(
+        "before: %d events, collection start %s"
+        % (events_before, cycle_before.get("collectionStartDate"))
+    )
+
+    uninstalled_at = time.monotonic()
+
+    context.stack.liferay_exec(
+        "sh", "-c", "rm -f /opt/liferay/osgi/modules/ai.tensoropt.sel.*.jar"
+    )
+
+    def stopped():
+        log_text = context.stack.liferay_log(
+            since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
+        )
+
+        return all(
+            ("STOPPED %s_" % name) in log_text for name in BUNDLE_SYMBOLIC_NAMES
+        )
+
+    wait_for("the four bundles to stop", stopped, timeout=300, interval=3.0)
+
+    count, _ = context.portal.search_result_count(MARKER_TERM)
+
+    case.note("search after uninstall: %s results" % count)
+
+    assert_true(
+        count is not None and count > 0,
+        "Search stopped answering when the plugin was uninstalled",
+    )
+
+    assert_log_clean(
+        context.stack.liferay_log(
+            since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
+        ),
+        "uninstalling",
+    )
+
+    assert_equal(
+        context.stack.psql_long("select count(*) from SEL_SearchEvent"),
+        events_before,
+        "Uninstalling changed the collected data",
+    )
+
+    reinstalled_at = time.monotonic()
+
+    deploy_directory = os.path.join(context.options.directory, ".work", "deploy")
+
+    for jar in context.options.jars:
+        with open(jar, "rb") as source, open(
+            os.path.join(deploy_directory, os.path.basename(jar)), "wb"
+        ) as target:
+            target.write(source.read())
+
+    for symbolic_name in BUNDLE_SYMBOLIC_NAMES:
+        context.stack.wait_for_bundle_started(
+            symbolic_name, reinstalled_at, timeout=context.options.deploy_timeout
+        )
+
+    assert_log_clean(
+        context.stack.liferay_log(
+            since="%ds" % (int(time.monotonic() - reinstalled_at) + 2)
+        ),
+        "reinstalling",
+    )
+
+    context.stack.restart_liferay()
+
+    context.portal.wait_until_serving(timeout=context.options.boot_timeout)
+
+    assert_equal(
+        context.portal.run_script(scripts.INTERCEPTION_STATUS),
+        "true",
+        "Interception is not active after reinstalling and restarting",
+    )
+
+    for _ in range(5):
+        context.portal.search_result_count(MARKER_TERM)
+
+    def resumed():
+        events = context.stack.psql_long("select count(*) from SEL_SearchEvent")
+
+        return events if events >= events_before + 5 else None
+
+    events_after = wait_for(
+        "collection to resume", resumed, timeout=300, interval=3.0
+    )
+
+    cycle_after = _read_cycle(context)
+
+    case.note(
+        "after: %d events, collection start %s"
+        % (events_after, cycle_after.get("collectionStartDate"))
+    )
+
+    assert_equal(
+        cycle_after.get("collectionStartDate"),
+        cycle_before.get("collectionStartDate"),
+        "Reinstalling reset the collection start date",
+    )
+
+
+def assert_log_clean(log_text, while_doing):
+    """No ERROR line in a stretch of the portal log."""
+    errors = [line for line in log_text.splitlines() if " ERROR " in line]
+
+    assert_equal(
+        errors,
+        [],
+        "The portal logged errors while %s" % while_doing,
+    )
+
+
 def export_foreign_download(context, case):
     """TO-91, TO-109: the export's download URL serves exports and nothing else.
 

@@ -389,6 +389,14 @@ def main(argv):
             lambda case: checks.queue_overflow(context, case),
             requires=["capture"],
         )
+
+        # Last: it uninstalls the plugin and restarts the portal.
+
+        results.run(
+            "uninstall-and-reinstall",
+            lambda case: checks.uninstall_and_reinstall(context, case),
+            requires=["export", "capture"],
+        )
     finally:
         junit_path = os.path.join(options.results_directory, "junit.xml")
         report_path = os.path.join(options.results_directory, "report.txt")

@@ -285,6 +285,7 @@ is then the one a real installation makes.
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
+| `uninstall-and-reinstall` | TO-111, last in the run: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled and restarted, interception is active, collection resumes and the collection start date is unchanged |
 
 ## Reading the EXPORT permission case
 
@@ -354,7 +355,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 96 discrimination checks in about a second, with no Docker
+`selftest.py` runs 98 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.

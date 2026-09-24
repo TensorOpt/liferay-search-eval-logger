@@ -804,6 +804,29 @@ def check_queue_overflow():
         )
 
 
+def check_log_clean():
+    """TO-111: an ERROR in the portal log fails the uninstall case."""
+    clean = (
+        "2026-09-24 10:49:51.729 INFO  [fileinstall-directory-watcher]"
+        "[BundleStartStopLogger:68] STOPPED ai.tensoropt.sel.web_1.0.0 [2927]\n"
+        "2026-09-24 10:49:52.001 WARN  [main][Foo:1] Something was slow\n"
+    )
+
+    expect_accepted(
+        "bundles stopping with nothing worse than a warning",
+        lambda: checks.assert_log_clean(clean, "uninstalling"),
+    )
+
+    expect_rejected(
+        "an ERROR line among them",
+        lambda: checks.assert_log_clean(
+            clean + "2026-09-24 10:49:53.100 ERROR [http-nio-8080-exec-2]"
+            "[SearchDisplayContext:1] java.lang.NullPointerException\n",
+            "uninstalling",
+        ),
+    )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1280,6 +1303,7 @@ def main():
         check_daily_schedule()
         check_foreign_download()
         check_queue_overflow()
+        check_log_clean()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()
