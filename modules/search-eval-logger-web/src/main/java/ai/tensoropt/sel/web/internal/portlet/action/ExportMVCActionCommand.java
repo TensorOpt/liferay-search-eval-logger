@@ -18,6 +18,7 @@ import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.util.WebKeys;
 
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
+import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
 
 import java.io.Serializable;
@@ -95,12 +96,7 @@ public class ExportMVCActionCommand extends BaseMVCActionCommand {
 
 		Map<String, Serializable> taskContextMap = new HashMap<>();
 
-		taskContextMap.put(
-			SearchEvalLoggerPortletKeys.TASK_CONTEXT_START_TIME,
-			(startDate == null) ? 0L : startDate.getTime());
-		taskContextMap.put(
-			SearchEvalLoggerPortletKeys.TASK_CONTEXT_END_TIME,
-			(endDate == null) ? 0L : endDate.getTime());
+		ExportTaskContext.putRange(taskContextMap, startDate, endDate);
 
 		ServiceContext serviceContext = ServiceContextFactory.getInstance(
 			actionRequest);

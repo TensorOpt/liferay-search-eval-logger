@@ -45,14 +45,7 @@ public class SearchEvalExportManifestBuilder {
 
 		jsonObject.put("company_id", companyId);
 		jsonObject.put("exported_at", ExportTimestamps.format(_clock.instant()));
-		jsonObject.put(
-			"export_range",
-			_jsonFactory.createJSONObject(
-			).put(
-				"from", ExportTimestamps.format(startDate)
-			).put(
-				"to", ExportTimestamps.format(endDate)
-			));
+		jsonObject.put("export_range", _getExportRange(startDate, endDate));
 		jsonObject.put(
 			"counts",
 			_jsonFactory.createJSONObject(
@@ -162,6 +155,38 @@ public class SearchEvalExportManifestBuilder {
 		);
 	}
 
+	/**
+	 * Reports the range with both keys always present, null where a bound was
+	 * left open.
+	 *
+	 * <p>
+	 * Liferay's JSONObject delegates to a library that removes a key whose
+	 * value is null, so putting an unbounded end directly would leave
+	 * <code>export_range</code> as <code>{}</code>, and a consumer could not
+	 * tell an export that covered everything from a manifest that forgot to
+	 * say. {@link ExportJSONTemplate} is the same device the JSONL writer uses
+	 * for the event schema, for the same reason.
+	 * </p>
+	 */
+	private JSONObject _getExportRange(Date startDate, Date endDate) {
+		JSONObject jsonObject = ExportJSONTemplate.create(
+			_jsonFactory, _EXPORT_RANGE_TEMPLATE);
+
+		String from = ExportTimestamps.format(startDate);
+
+		if (from != null) {
+			jsonObject.put("from", from);
+		}
+
+		String to = ExportTimestamps.format(endDate);
+
+		if (to != null) {
+			jsonObject.put("to", to);
+		}
+
+		return jsonObject;
+	}
+
 	private JSONObject _getFieldCoverageRates(
 		SearchEvalExportResult searchEvalExportResult) {
 
@@ -226,6 +251,9 @@ public class SearchEvalExportManifestBuilder {
 
 		_searchEvalLoggerStatistics = searchEvalLoggerStatistics;
 	}
+
+	private static final String _EXPORT_RANGE_TEMPLATE =
+		"{\"from\":null,\"to\":null}";
 
 	private Clock _clock = Clock.systemUTC();
 

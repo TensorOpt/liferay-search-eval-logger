@@ -120,16 +120,7 @@ public class SearchEvalExportWriter {
 	}
 
 	private JSONObject _createFromTemplate(String template) {
-		try {
-			return _jsonFactory.createJSONObject(template);
-		}
-		catch (Exception exception) {
-			if (_log.isWarnEnabled()) {
-				_log.warn("Unable to parse a JSON template", exception);
-			}
-
-			return _jsonFactory.createJSONObject();
-		}
+		return ExportJSONTemplate.create(_jsonFactory, template);
 	}
 
 	/**

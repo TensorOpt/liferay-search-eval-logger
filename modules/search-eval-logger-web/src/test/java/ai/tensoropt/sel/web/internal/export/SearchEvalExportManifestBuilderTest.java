@@ -5,11 +5,14 @@
 package ai.tensoropt.sel.web.internal.export;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.liferay.portal.kernel.json.JSONException;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
 
@@ -24,6 +27,7 @@ import java.util.Date;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 /**
  * The manifest is the only place an evaluator can see how narrow a slice of
@@ -35,14 +39,15 @@ import org.junit.jupiter.api.Test;
 public class SearchEvalExportManifestBuilderTest {
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		_jsonObject = mock(JSONObject.class, RETURNS_SELF);
 
-		JSONFactory jsonFactory = mock(JSONFactory.class);
+		_jsonFactory = mock(JSONFactory.class);
 
-		when(jsonFactory.createJSONObject()).thenReturn(_jsonObject);
+		when(_jsonFactory.createJSONObject()).thenReturn(_jsonObject);
+		when(_jsonFactory.createJSONObject(anyString())).thenReturn(_jsonObject);
 		when(
-			jsonFactory.createJSONArray()
+			_jsonFactory.createJSONArray()
 		).thenReturn(
 			mock(com.liferay.portal.kernel.json.JSONArray.class, RETURNS_SELF)
 		);
@@ -53,7 +58,7 @@ public class SearchEvalExportManifestBuilderTest {
 
 		_searchEvalExportManifestBuilder.setClock(
 			Clock.fixed(Instant.parse("2026-09-21T10:00:00Z"), ZoneOffset.UTC));
-		_searchEvalExportManifestBuilder.setJSONFactory(jsonFactory);
+		_searchEvalExportManifestBuilder.setJSONFactory(_jsonFactory);
 		_searchEvalExportManifestBuilder.setSearchEvalLoggerStatistics(
 			_searchEvalLoggerStatistics);
 	}
@@ -89,7 +94,96 @@ public class SearchEvalExportManifestBuilderTest {
 			org.mockito.ArgumentMatchers.eq("scope"), anyString());
 	}
 
+	/**
+	 * A bound the administrator left empty is a range that reaches that far,
+	 * and the manifest is the only place the archive says how far it reaches.
+	 *
+	 * <p>
+	 * Liferay's JSONObject drops a key whose value is null, so writing the
+	 * absent bound straight through would leave <code>export_range</code> as an
+	 * empty object and a consumer could not tell an unbounded export from a
+	 * manifest that never recorded a range. The keys come from a template that
+	 * carries both of them explicitly null.
+	 * </p>
+	 */
+	@Test
+	public void unboundedRangeKeepsBothKeysInTheManifest() throws Exception {
+		_build(null, null);
+
+		verify(
+			_jsonFactory
+		).createJSONObject(
+			ArgumentMatchers.<String>argThat(
+				template ->
+					template.contains("\"from\":null") &&
+					template.contains("\"to\":null"))
+		);
+
+		verify(_jsonObject, never()).put(eq("from"), anyString());
+		verify(_jsonObject, never()).put(eq("to"), anyString());
+	}
+
+	@Test
+	public void boundedRangeReportsBothEnds() {
+		_build(
+			Date.from(Instant.parse("2026-08-24T00:00:00Z")),
+			Date.from(Instant.parse("2026-09-24T00:00:00Z")));
+
+		verify(_jsonObject).put("from", "2026-08-24T00:00:00Z");
+		verify(_jsonObject).put("to", "2026-09-24T00:00:00Z");
+	}
+
+	/**
+	 * One bound left empty is the combination an administrator reaches by
+	 * accident, and it must not take the other one with it.
+	 */
+	@Test
+	public void halfBoundedRangeReportsTheEndItHas() {
+		_build(null, Date.from(Instant.parse("2026-09-24T00:00:00Z")));
+
+		verify(_jsonObject, never()).put(eq("from"), anyString());
+		verify(_jsonObject).put("to", "2026-09-24T00:00:00Z");
+	}
+
+	/**
+	 * Everything from a date onward: the other half bounded combination, and
+	 * the likelier of the two.
+	 */
+	@Test
+	public void halfBoundedRangeReportsTheStartItHas() {
+		_build(Date.from(Instant.parse("2026-08-24T00:00:00Z")), null);
+
+		verify(_jsonObject).put("from", "2026-08-24T00:00:00Z");
+		verify(_jsonObject, never()).put(eq("to"), anyString());
+	}
+
+	/**
+	 * The template is a compile-time constant, so this branch is unreachable
+	 * short of someone editing it into invalid JSON. It is pinned anyway
+	 * because it is the one path that still produces the shape D-1's fix
+	 * removed, and an untested fallback is how that shape would come back
+	 * unnoticed.
+	 */
+	@Test
+	public void anUnparseableTemplateDegradesWithoutThrowing()
+		throws Exception {
+
+		when(
+			_jsonFactory.createJSONObject(anyString())
+		).thenThrow(
+			new JSONException("not JSON")
+		);
+
+		_build(Date.from(Instant.parse("2026-08-24T00:00:00Z")), null);
+
+		verify(_jsonObject).put("from", "2026-08-24T00:00:00Z");
+	}
+
 	private void _build() {
+		_build(new Date(0), new Date(1));
+	}
+
+	private void _build(Date startDate, Date endDate) {
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
 			SearchEvalLoggerConfiguration.class);
 
@@ -102,11 +196,12 @@ public class SearchEvalExportManifestBuilderTest {
 		);
 
 		_searchEvalExportManifestBuilder.build(
-			1L, new Date(0), new Date(1), new SearchEvalExportResult(),
+			1L, startDate, endDate, new SearchEvalExportResult(),
 			searchEvalLoggerConfiguration);
 	}
 
 	private SearchEvalExportManifestBuilder _searchEvalExportManifestBuilder;
+	private JSONFactory _jsonFactory;
 	private JSONObject _jsonObject;
 	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;
 

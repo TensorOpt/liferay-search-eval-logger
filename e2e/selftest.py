@@ -608,6 +608,150 @@ def check_archive_name():
     )
 
 
+UNBOUNDED_README = """# Search Evaluation Export
+
+Range: unbounded to unbounded (UTC)  
+Events: 2  
+Hits: 0
+
+**Blueprints can impose filters that are invisible here.** `blueprint_id` may
+be null on those rows.
+"""
+
+
+def unbounded_archive(
+    export_range=None, readme=UNBOUNDED_README, events=2, counted=None
+):
+    """An archive as an export with both bounds left empty should produce it."""
+    records = [event_line(index) for index in range(events)]
+
+    if export_range is None:
+        export_range = {"from": None, "to": None}
+
+    manifest = {
+        "company_id": "123",
+        "export_range": export_range,
+        "counts": {
+            "events": str(len(records) if counted is None else counted),
+            "hits": "0",
+        },
+    }
+
+    for record in records:
+        record["hits"] = []
+
+    return write_archive_with(records, readme, manifest)
+
+
+def write_archive_with(records, readme, manifest):
+    path = os.path.join(TMP, "unbounded-%d.zip" % len(CHECKED))
+
+    with open(path, "wb") as file_:
+        file_.write(archive(records, readme=readme, manifest=manifest).getvalue())
+
+    return path
+
+
+def check_unbounded_archive():
+    """B-1: the unbounded export case has to assert on what it produced.
+
+    Asserting only that the background task succeeded accepts three separate
+    regressions: a manifest that lost a range key because Liferay's JSONObject
+    drops nulls, a README printing the word null where a date belongs, and an
+    exporter whose predicate went missing in the other direction and returned
+    nothing at all.
+    """
+    expect_accepted(
+        "an unbounded archive with both range keys, a named range and its rows",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(), unbounded_archive(), None, None, 2
+        ),
+    )
+
+    expect_rejected(
+        "a manifest whose export_range lost the null keys (the pre-TO-87 shape)",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(), unbounded_archive(export_range={}), None, None, 2
+        ),
+    )
+
+    expect_rejected(
+        "a manifest that kept only the bound it had",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(),
+            unbounded_archive(export_range={"to": "2026-09-25T00:00:00Z"}),
+            None,
+            "2026-09-25T00:00:00Z",
+            2,
+        ),
+    )
+
+    expect_rejected(
+        "a manifest reporting a bound the export was not asked for",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(),
+            unbounded_archive(
+                export_range={"from": "2026-08-24T00:00:00Z", "to": None}
+            ),
+            None,
+            None,
+            2,
+        ),
+    )
+
+    expect_rejected(
+        "a README printing null where the unbounded end belongs",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(),
+            unbounded_archive(
+                readme=UNBOUNDED_README.replace(
+                    "Range: unbounded to unbounded (UTC)",
+                    "Range: null to null (UTC, end exclusive)",
+                )
+            ),
+            None,
+            None,
+            2,
+        ),
+    )
+
+    expect_rejected(
+        "a README still claiming an exclusive end it does not have",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(),
+            unbounded_archive(
+                readme=UNBOUNDED_README.replace(
+                    "(UTC)", "(UTC, end exclusive)"
+                )
+            ),
+            None,
+            None,
+            2,
+        ),
+    )
+
+    expect_rejected(
+        "an export that returned no rows at all (a predicate lost the other way)",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(), unbounded_archive(events=0), None, None, 2
+        ),
+    )
+
+    expect_rejected(
+        "an export holding fewer rows than the range does",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(), unbounded_archive(events=1), None, None, 2
+        ),
+    )
+
+    expect_rejected(
+        "a manifest count that disagrees with events.jsonl",
+        lambda: checks._assert_unbounded_archive(
+            FakeCase(), unbounded_archive(events=2, counted=5), None, None, 2
+        ),
+    )
+
+
 def check_bundle_wait_is_anchored():
     """S7: the bundle wait must look at new log lines, not at all of history."""
     from harness import stack as stack_module
@@ -824,6 +968,7 @@ def main():
         check_zero_egress()
         check_funnel_links()
         check_archive_name()
+        check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()
         check_collection_start_date()

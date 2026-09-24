@@ -12,10 +12,9 @@ import com.liferay.portal.kernel.backgroundtask.display.BackgroundTaskDisplay;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.FileUtil;
-import com.liferay.portal.kernel.util.GetterUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
-import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
+import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportResult;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportWriter;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportConfigurationProvider;
@@ -74,12 +73,8 @@ public class SearchEvalExportBackgroundTaskExecutor
 
 		long companyId = backgroundTask.getCompanyId();
 
-		Date startDate = _getDate(
-			taskContextMap.get(
-				SearchEvalLoggerPortletKeys.TASK_CONTEXT_START_TIME));
-		Date endDate = _getDate(
-			taskContextMap.get(
-				SearchEvalLoggerPortletKeys.TASK_CONTEXT_END_TIME));
+		Date startDate = ExportTaskContext.getStartDate(taskContextMap);
+		Date endDate = ExportTaskContext.getEndDate(taskContextMap);
 
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
 			_searchEvalExportConfigurationProvider.getConfiguration(companyId);
@@ -126,16 +121,6 @@ public class SearchEvalExportBackgroundTaskExecutor
 	@Override
 	public boolean isSerial() {
 		return true;
-	}
-
-	private Date _getDate(Serializable value) {
-		long time = GetterUtil.getLong(value);
-
-		if (time <= 0) {
-			return null;
-		}
-
-		return new Date(time);
 	}
 
 	private String _getFileName(

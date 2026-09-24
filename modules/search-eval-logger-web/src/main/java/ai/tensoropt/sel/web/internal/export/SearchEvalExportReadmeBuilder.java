@@ -34,10 +34,22 @@ public class SearchEvalExportReadmeBuilder {
 
 		sb.append("# Search Evaluation Export\n\n");
 		sb.append("Range: ");
-		sb.append(ExportTimestamps.format(startDate));
+		sb.append(_format(startDate));
 		sb.append(" to ");
-		sb.append(ExportTimestamps.format(endDate));
-		sb.append(" (UTC, end exclusive)  \nEvents: ");
+		sb.append(_format(endDate));
+
+		// "end exclusive" describes the end bound, so it is said only where
+		// there is one. Hung off an unbounded end it reads as though something
+		// were being excluded.
+
+		if (endDate == null) {
+			sb.append(" (UTC)");
+		}
+		else {
+			sb.append(" (UTC, end exclusive)");
+		}
+
+		sb.append("  \nEvents: ");
 		sb.append(searchEvalExportResult.getEventCount());
 		sb.append("  \nHits: ");
 		sb.append(searchEvalExportResult.getHitCount());
@@ -62,6 +74,22 @@ public class SearchEvalExportReadmeBuilder {
 		sb.append(_HANDLING);
 
 		return sb.toString();
+	}
+
+	/**
+	 * An absent bound is unbounded, which the export screen offers and which
+	 * {@link ExportTimestamps#format} reports as null. Appending that null
+	 * would put the word "null" in front of an evaluator as though it were the
+	 * date, so it is named here instead.
+	 */
+	private String _format(Date date) {
+		String formattedDate = ExportTimestamps.format(date);
+
+		if (formattedDate == null) {
+			return _UNBOUNDED;
+		}
+
+		return formattedDate;
 	}
 
 	private String _getCoverageSection(
@@ -209,6 +237,8 @@ public class SearchEvalExportReadmeBuilder {
 								"fully comparable population, or group by " +
 									"`cohort_hash` and compute within " +
 										"group.\n\n";
+
+	private static final String _UNBOUNDED = "unbounded";
 
 	private static final String _WHAT_THESE_ROWS_ARE =
 		"## What these rows are\n\nEach line of `events.jsonl` is one user " +

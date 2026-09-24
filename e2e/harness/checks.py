@@ -58,9 +58,6 @@ EMPTY_PURGE_BUDGET_MS = 5000
 # No ticket numbers yet; each identifier is the one used in the TO-84 report
 # and in e2e/README.md.
 EXPECTED_FAILURES = {
-    "export-unbounded-range": (
-        "D-1, an export with any blank date bound fails, DESIGN.md 6.1"
-    ),
     "export-jsonl-number-types": (
         "D-2, long values export as JSON strings, DESIGN.md 6.2"
     ),
@@ -1218,30 +1215,84 @@ def export_unbounded_range(context, case):
     that end of the range unbounded"), and it is what an administrator running
     their first export will do.
 
-    This case fails today. SearchEventLocalServiceImpl._toTimestamp
-    substitutes new Timestamp(Long.MIN_VALUE) and new Timestamp(Long.MAX_VALUE)
-    for a missing bound, and PostgreSQL rejects both with "timestamp out of
-    range", so the background task ends as Failed and the archive is never
-    written. All three combinations are run, because which of them fail is the
-    defect's blast radius and that is worth measuring rather than reasoning
-    about.
+    This was D-1, fixed by TO-87. SearchEventLocalServiceImpl._toTimestamp
+    used to substitute new Timestamp(Long.MIN_VALUE) and
+    new Timestamp(Long.MAX_VALUE) for a missing bound, and PostgreSQL rejects
+    both with "timestamp out of range", so the background task ended as Failed
+    and the archive was never written. An absent bound now leaves its predicate
+    out of the statement instead.
+
+    All three combinations are still run, because a fix that only covered the
+    combination someone happened to try is the same defect with a smaller blast
+    radius, and that is worth measuring rather than reasoning about. Each one
+    downloads its archive and is asserted against the rows the range actually
+    holds: a case that stopped at "the task succeeded" would accept an export
+    whose predicate went missing in the other direction and returned nothing.
     """
     today = datetime.now(timezone.utc).date()
 
-    bounded_start = (
-        today - timedelta(days=context.retention_days + 1)
-    ).isoformat()
-    bounded_end = today.isoformat()
+    # The half bounded combinations use a bound inside the data rather than
+    # one outside it. A bound before the first surviving row selects the whole
+    # table, which is also what an exporter that dropped the predicate
+    # altogether would return, so the case would not be able to tell them
+    # apart. The midpoint makes each half bounded export a strict subset, and
+    # the assertion below refuses to run if it is not.
+
+    midpoint = today - timedelta(days=max(1, context.retention_days // 2))
+
+    # The screen makes the end bound exclusive by taking the start of the
+    # following day, so that, and not the day the administrator typed, is what
+    # the archive has to report and what the row count has to be taken against.
+
+    exclusive_midpoint = (midpoint + timedelta(days=1)).isoformat()
 
     combinations = (
-        ("both bounds empty", None, None),
-        ("start empty", None, bounded_end),
-        ("end empty", bounded_start, None),
+        ("both bounds empty", None, None, None, None),
+        (
+            "start empty",
+            None,
+            midpoint.isoformat(),
+            None,
+            "%sT00:00:00Z" % exclusive_midpoint,
+        ),
+        (
+            "end empty",
+            midpoint.isoformat(),
+            None,
+            "%sT00:00:00Z" % midpoint.isoformat(),
+            None,
+        ),
+    )
+
+    total = context.stack.psql_long(
+        "select count(*) from SEL_SearchEvent where companyId = %d"
+        % context.company_id
     )
 
     failures = []
 
-    for description, start_date, end_date in combinations:
+    for index, combination in enumerate(combinations):
+        description, start_date, end_date, from_, to = combination
+
+        # Counted independently of the export, in the terms the fix has to
+        # produce. Asserting only that the task succeeded would accept an
+        # exporter that answered every unbounded request with no rows at all,
+        # which is the failure a dropped predicate would most plausibly cause.
+
+        expected = context.stack.psql_long(
+            "select count(*) from SEL_SearchEvent where companyId = %d%s%s"
+            % (
+                context.company_id,
+                ""
+                if start_date is None
+                else " and createDate >= timestamp '%s 00:00:00'" % start_date,
+                ""
+                if end_date is None
+                else " and createDate < timestamp '%s 00:00:00'"
+                % exclusive_midpoint,
+            )
+        )
+
         before = context.portal.start_export(
             start_date=start_date, end_date=end_date
         )
@@ -1250,17 +1301,144 @@ def export_unbounded_range(context, case):
             timeout=context.options.export_timeout, after=before
         )
 
-        case.note("%s: %s" % (description, row["status"]))
+        case.note(
+            "%s: %s, %d of %d events in range"
+            % (description, row["status"], expected, total)
+        )
 
         if row["status"].lower() != "successful":
-            failures.append(description)
+            failures.append("%s: the task ended %s" % (description, row["status"]))
+
+            continue
+
+        destination = os.path.join(
+            context.options.results_directory,
+            "export-unbounded-%d.zip" % index,
+        )
+
+        size, file_name = context.portal.download(
+            row["download_url"], destination
+        )
+
+        case.note("        downloaded %s, %d bytes" % (file_name, size))
+
+        try:
+            if start_date is None and end_date is None:
+                assert_true(
+                    expected == total > 0,
+                    "An unbounded export has to be the whole table, and the "
+                    "table is empty or the count disagrees with it",
+                )
+            else:
+                assert_true(
+                    0 < expected < total,
+                    "The half bounded window is either empty or the whole "
+                    "table, so this combination cannot distinguish an export "
+                    "that honours its one bound from one that ignores it",
+                )
+
+            _assert_unbounded_archive(case, destination, from_, to, expected)
+        except AssertionError as error:
+            failures.append("%s: %s" % (description, error))
 
     assert_true(
         not failures,
-        "An export failed for %s. A missing bound is substituted with "
-        "Long.MIN_VALUE or Long.MAX_VALUE as a timestamp, which PostgreSQL "
-        "rejects with \"timestamp out of range\"" % ", ".join(failures),
+        "An export was wrong for %s. A bound left empty must leave its "
+        "predicate out of the statement, and the archive must say so; "
+        "substituting an extreme timestamp is what PostgreSQL rejected with "
+        '"timestamp out of range" as D-1' % "; ".join(failures),
     )
+
+
+def _assert_unbounded_archive(case, path, from_, to, expected_events):
+    """Asserts what an export with a blank bound actually produced.
+
+    Three things, because a blank bound can go wrong in three places and only
+    the first of them stops the task:
+
+    - `manifest.json` carries `export_range` with **both** keys, null where the
+      bound was blank. Liferay's JSONObject removes a key whose value is null,
+      so the shape to catch is a range object that quietly lost a key and a
+      consumer that cannot tell "unbounded" from "not recorded".
+    - `README.md` names the unbounded end rather than printing the word null
+      where a date belongs. It is the first line an evaluator reads.
+    - The rows are the rows the range holds, counted against the database
+      rather than against the export. An exporter whose predicate went missing
+      in the other direction returns nothing, and every assertion that only
+      looks at the task's status accepts that.
+    """
+    expected_line = "Range: %s to %s%s" % (
+        from_ or "unbounded",
+        to or "unbounded",
+        " (UTC, end exclusive)" if to else " (UTC)",
+    )
+
+    with zipfile.ZipFile(path) as archive:
+        manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+
+        export_range = manifest.get("export_range")
+
+        case.note("        manifest export_range: %r" % (export_range,))
+
+        assert_true(
+            isinstance(export_range, dict),
+            "manifest.json has no export_range object",
+        )
+
+        for key in ("from", "to"):
+            assert_true(
+                key in export_range,
+                "export_range has no %r key; an unbounded end has to be "
+                "reported as null, not left out" % key,
+            )
+
+        assert_equal(
+            export_range["from"], from_, "export_range.from is wrong"
+        )
+        assert_equal(export_range["to"], to, "export_range.to is wrong")
+
+        readme = archive.read("README.md").decode("utf-8")
+
+        range_lines = [
+            line.strip()
+            for line in readme.splitlines()
+            if line.startswith("Range: ")
+        ]
+
+        assert_equal(
+            len(range_lines), 1, "README.md does not carry one range line"
+        )
+
+        case.note("        README range line: %s" % range_lines[0])
+
+        assert_true(
+            "null" not in range_lines[0],
+            "README.md shows a null where a date belongs: %s" % range_lines[0],
+        )
+        assert_equal(
+            range_lines[0], expected_line, "README.md misreports the range"
+        )
+
+        counted = int(manifest["counts"]["events"])
+
+        lines = 0
+
+        with archive.open("events.jsonl") as entry:
+            for raw_line in io.TextIOWrapper(entry, encoding="utf-8"):
+                if raw_line.strip():
+                    lines += 1
+
+        case.note(
+            "        manifest reports %d events, file holds %d lines, the "
+            "range holds %d" % (counted, lines, expected_events)
+        )
+
+        assert_equal(
+            counted, expected_events, "The export did not cover the range"
+        )
+        assert_equal(
+            lines, expected_events, "events.jsonl does not hold the range"
+        )
 
 
 def export_jsonl_number_types(context, case):

@@ -273,13 +273,15 @@ is then the one a real installation makes.
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
 | `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored and the banner rendered |
 | `export` | DESIGN.md 6.1: the action starts a background task that completes and offers a download |
+| `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested. **This case fails against the plugin as it stands; see below.** |
 | `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back |
+| `export-range-is-honoured` | DESIGN.md 6.1: a narrow window exports exactly the rows that window holds, counted independently in the database |
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
 | `funnel-links` | DESIGN.md 10.1 and 10.3 |
 | `funnel-zero-egress` | D9, as far as a rendered page can be inspected |
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits` and `entry_class_pk` as JSON numbers. **This case fails against the plugin as it stands; see below.** |
-| `export-unbounded-range` | DESIGN.md 6.1: an export with both dates left empty. **This case fails against the plugin as it stands; see below.** |
+| `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 
 ## Reading the EXPORT permission case
 
@@ -321,7 +323,7 @@ flag and the terms of use flag, so the user actually arrives.
 
 ## Known defects are a mechanism, not a paragraph
 
-Three cases fail because of defects in the plugin rather than in the harness.
+Two cases fail because of defects in the plugin rather than in the harness.
 They are named in `checks.EXPECTED_FAILURES`, and `Results` treats a named case
 that fails as an expected failure: it is reported as skipped in the JUnit XML
 with the whole traceback kept in `system-out`, it does not count toward the
@@ -330,11 +332,13 @@ on today.
 
 The same case *passing* is recorded as a failure, so an entry cannot go stale:
 either the defect was fixed and the entry should be retired, or the case
-stopped testing what it claims to.
+stopped testing what it claims to. That is how `export-unbounded-range` left
+this list: TO-87 fixed D-1, the case passed, the run failed on the unexpected
+pass, and the entry was retired in the same change.
 
 This is a mechanism rather than a rule a person applies, because "expect
-exactly three failures" is not a rule about the thing it sounds like. Kill the
-database halfway through a run and those three become skips, since their
+exactly two failures" is not a rule about the thing it sounds like. Kill the
+database halfway through a run and those two become skips, since their
 prerequisites never passed, and the run then shows zero failures and reads as
 healthier than the baseline while being entirely broken. `selftest.py`
 exercises that exact scenario.
@@ -358,32 +362,6 @@ instance.
 The assertion is an exact string match on purpose. The pattern it replaced,
 two runs of eight digits, accepted any pair of dates and is how this stayed
 invisible.
-
-### `export-unbounded-range`
-
-Leaving both dates empty is what the export screen offers ("Leave a field empty
-to leave that end of the range unbounded") and what an administrator running
-their first export will do. `SearchEventLocalServiceImpl._toTimestamp`
-substitutes `new Timestamp(Long.MIN_VALUE)` and `new Timestamp(Long.MAX_VALUE)`
-for a missing bound, and PostgreSQL rejects both:
-
-```
-org.postgresql.util.PSQLException: ERROR: timestamp out of range:
-"292269055-12-02 16:47:04.192+00 BC"
-```
-
-The background task ends as Failed and no archive is written. The only account
-of why is a stack trace in the portal log; the screen shows a failed task and
-nothing else.
-
-The case runs all three combinations, and **all three fail**: both bounds
-empty, the start empty, and the end empty. Only a fully bounded export works.
-Every export run against this plugin so far carried two explicit dates, which
-is why it had not been seen.
-
-The other export cases use an explicit range wide enough to cover everything
-the purge left, so this one defect does not take the rest of the export path
-down with it.
 
 ### `export-jsonl-number-types`
 
@@ -413,7 +391,7 @@ call site is what turns these back into numbers.
 
 ## Testing the tests
 
-`selftest.py` runs 42 discrimination checks in about a second, with no Docker
+`selftest.py` runs 61 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.

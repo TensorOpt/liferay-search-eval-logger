@@ -194,6 +194,13 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	 * An event with no hits still yields one row, with the hit columns null,
 	 * so an empty result set is not silently dropped from the export.
 	 * </p>
+	 *
+	 * <p>
+	 * Either bound may be null, which the export screen offers in as many
+	 * words, and which means that end of the range is unbounded. The clause is
+	 * then left out of the statement rather than filled with an extreme
+	 * timestamp; see {@link ExportRowQuery}.
+	 * </p>
 	 */
 	public <E extends Throwable> void forEachExportRow(
 			long companyId, Date startDate, Date endDate,
@@ -229,6 +236,9 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 			Date endDate, UnsafeConsumer<ResultSet, E> rowConsumer)
 		throws E, SQLException {
 
+		ExportRowQuery exportRowQuery = new ExportRowQuery(
+			companyId, startDate, endDate);
+
 		boolean autoCommit = connection.getAutoCommit();
 
 		// A server side cursor only materialises on demand. Without this
@@ -241,14 +251,11 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		}
 
 		try (PreparedStatement preparedStatement = connection.prepareStatement(
-				_SELECT_SQL)) {
+				exportRowQuery.getSQL())) {
 
 			preparedStatement.setFetchSize(_FETCH_SIZE);
-			preparedStatement.setLong(1, companyId);
-			preparedStatement.setTimestamp(
-				2, _toTimestamp(startDate, Long.MIN_VALUE));
-			preparedStatement.setTimestamp(
-				3, _toTimestamp(endDate, Long.MAX_VALUE));
+
+			exportRowQuery.setParameters(preparedStatement);
 
 			try (ResultSet resultSet = preparedStatement.executeQuery()) {
 				while (resultSet.next()) {
@@ -263,14 +270,6 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		}
 	}
 
-	private Timestamp _toTimestamp(Date date, long unbounded) {
-		if (date == null) {
-			return new Timestamp(unbounded);
-		}
-
-		return new Timestamp(date.getTime());
-	}
-
 	private static final int _FETCH_SIZE = 1000;
 
 	private static final String _COUNT_SQL =
@@ -279,24 +278,5 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 
 	private static final String _DELETE_SQL =
 		"delete from SEL_SearchEvent where companyId = ? and createDate < ?";
-
-	private static final String _SELECT_SQL =
-		"select e.uuid_, e.createDate, e.queryText, e.queryTruncated, " +
-			"e.locale, e.scopeGroupIds, e.entryClassNames, e.appliedFacets, " +
-				"e.facetCaptureStatus, e.blueprintId, e.audienceType, " +
-					"e.cohortHash, e.requestedSize, e.requestedFrom, " +
-						"e.totalHits, e.loggedHitCount, e.sourceType, " +
-							"h.rank_, h.score, h.docUid, h.entryClassName, " +
-								"h.entryClassPK, h.title, h.snippet, " +
-									"h.extraFields from SEL_SearchEvent e " +
-										"left join SEL_SearchHit h on " +
-											"h.searchEventUuid = e.uuid_ " +
-												"where e.companyId = ? and " +
-													"e.createDate >= ? and " +
-														"e.createDate < ? " +
-															"order by " +
-																"e.createDate, " +
-																	"e.uuid_, " +
-																		"h.rank_";
 
 }
