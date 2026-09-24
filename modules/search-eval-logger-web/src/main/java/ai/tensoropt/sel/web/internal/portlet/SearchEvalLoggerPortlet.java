@@ -4,6 +4,7 @@
 
 package ai.tensoropt.sel.web.internal.portlet;
 
+import com.liferay.portal.background.task.util.comparator.BackgroundTaskCreateDateComparator;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTask;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil;
 import com.liferay.portal.kernel.exception.PortalException;
@@ -32,7 +33,9 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.portlet.Portlet;
@@ -146,6 +149,30 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 			"exportCompleteURL",
 			EvaluationServiceLinks.getExportCompleteURL());
 
+		renderRequest.setAttribute(
+			"hasExportPermission", _hasExportPermission(themeDisplay));
+
+		List<ExportRow> exportRows = _getExportRows(themeDisplay);
+
+		renderRequest.setAttribute("exportRows", exportRows);
+
+		// DESIGN.md 10.3 places the booking link on the export screen "after a
+		// successful export". The rule as built: at least one of the exports
+		// listed succeeded. Not "the most recent run succeeded", which would
+		// make the link flicker away the moment somebody started another
+		// export. The list is the most recent runs only, so an instance that
+		// fails that many in a row loses the link until its next success, and
+		// has a more pressing problem than a missing link.
+
+		renderRequest.setAttribute(
+			"showExportCompleteLink",
+			EvaluationServiceLinks.isExportCompleteLinkVisible(
+				showEvaluationServiceLinks,
+				exportRows.stream(
+				).anyMatch(
+					ExportRow::isSuccessful
+				)));
+
 		super.doView(renderRequest, renderResponse);
 	}
 
@@ -159,6 +186,49 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 		}
 		catch (PortalException portalException) {
 			throw new PortletException(portalException);
+		}
+	}
+
+	/**
+	 * In the viewing user's time zone. The server's default zone, which the
+	 * list used before, labels every run in a zone the reader cannot see.
+	 */
+	private List<ExportRow> _getExportRows(ThemeDisplay themeDisplay) {
+		DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(
+			"yyyy-MM-dd HH:mm"
+		).withZone(
+			themeDisplay.getTimeZone(
+			).toZoneId()
+		);
+
+		List<ExportRow> exportRows = new ArrayList<>();
+
+		for (BackgroundTask backgroundTask :
+				BackgroundTaskManagerUtil.getBackgroundTasks(
+					themeDisplay.getScopeGroupId(),
+					SearchEvalLoggerPortletKeys.
+						BACKGROUND_TASK_EXECUTOR_CLASS_NAME,
+					0, _RECENT_EXPORTS_COUNT,
+					BackgroundTaskCreateDateComparator.getInstance(false))) {
+
+			exportRows.add(new ExportRow(backgroundTask, dateTimeFormatter));
+		}
+
+		return exportRows;
+	}
+
+	private boolean _hasExportPermission(ThemeDisplay themeDisplay) {
+		try {
+			return SearchEvalLoggerPortletPermission.contains(
+				themeDisplay, SearchEvalLoggerPortletKeys.ACTION_EXPORT);
+		}
+		catch (PortalException portalException) {
+			if (_log.isDebugEnabled()) {
+				_log.debug(
+					"Unable to check the export permission", portalException);
+			}
+
+			return false;
 		}
 	}
 
@@ -243,6 +313,8 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 		return localDate.toString();
 	}
+
+	private static final int _RECENT_EXPORTS_COUNT = 20;
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEvalLoggerPortlet.class);

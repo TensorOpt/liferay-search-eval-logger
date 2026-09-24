@@ -4,95 +4,6 @@ SPDX-License-Identifier: Apache-2.0
 
 <%@ include file="/init.jsp" %>
 
-<%
-boolean hasExportPermission = false;
-
-try {
-	hasExportPermission = SearchEvalLoggerPortletPermission.contains(
-		themeDisplay, SearchEvalLoggerPortletKeys.ACTION_EXPORT);
-}
-catch (Exception exception) {
-	hasExportPermission = false;
-}
-
-List<BackgroundTask> backgroundTasks =
-	BackgroundTaskManagerUtil.getBackgroundTasks(
-		themeDisplay.getScopeGroupId(),
-		SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME, 0, 20,
-		BackgroundTaskCreateDateComparator.getInstance(false));
-
-SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-
-Map<Long, String> backgroundTaskCreateDates = new HashMap<>();
-Map<Long, String> backgroundTaskCompletionDates = new HashMap<>();
-Map<Long, String> backgroundTaskDurations = new HashMap<>();
-Map<Long, Boolean> backgroundTaskDownloadable = new HashMap<>();
-
-boolean exportSucceeded = false;
-
-for (BackgroundTask backgroundTask : backgroundTasks) {
-	long backgroundTaskId = backgroundTask.getBackgroundTaskId();
-
-	Date taskCreateDate = backgroundTask.getCreateDate();
-	Date taskCompletionDate = backgroundTask.getCompletionDate();
-
-	backgroundTaskCreateDates.put(
-		backgroundTaskId, simpleDateFormat.format(taskCreateDate));
-
-	if (taskCompletionDate != null) {
-		backgroundTaskCompletionDates.put(
-			backgroundTaskId, simpleDateFormat.format(taskCompletionDate));
-
-		long seconds =
-			(taskCompletionDate.getTime() - taskCreateDate.getTime()) / 1000;
-
-		backgroundTaskDurations.put(
-			backgroundTaskId,
-			String.format("%d:%02d:%02d", seconds / 3600,
-				(seconds % 3600) / 60, seconds % 60));
-	}
-
-	// isCompleted() is true for a failed task as well as a successful one,
-	// so a failed export was offering a download for an archive that was
-	// never written. Only a successful run has an attachment.
-
-	boolean successful =
-		backgroundTask.getStatus() ==
-			BackgroundTaskConstants.STATUS_SUCCESSFUL;
-
-	backgroundTaskDownloadable.put(backgroundTaskId, successful);
-
-	exportSucceeded = exportSucceeded || successful;
-}
-
-// DESIGN.md 10.3 places the booking link on the export screen "after a
-// successful export". The rule as built is exactly: at least one of the
-// exports listed below this succeeded.
-//
-// That is the list already loaded above, so it costs no extra query, and it
-// keeps the link next to the evidence for it. It is deliberately not "the
-// most recent run succeeded", which would make the link flicker away the
-// moment somebody started another export. Note what the bounded window
-// means: the list is the 20 most recent runs, so an instance that exports
-// successfully and then fails 20 times in a row stops showing the link until
-// the next success. That is acceptable - there is no unbounded "has this
-// instance ever succeeded" query available at this scope, and an instance
-// failing 20 exports running has a more pressing problem than a missing
-// link.
-
-boolean showExportCompleteLink = EvaluationServiceLinks.isExportCompleteLinkVisible(
-	GetterUtil.getBoolean(request.getAttribute("showEvaluationServiceLinks")),
-	exportSucceeded);
-
-request.setAttribute("backgroundTasks", backgroundTasks);
-request.setAttribute("backgroundTaskCompletionDates", backgroundTaskCompletionDates);
-request.setAttribute("backgroundTaskCreateDates", backgroundTaskCreateDates);
-request.setAttribute("backgroundTaskDownloadable", backgroundTaskDownloadable);
-request.setAttribute("backgroundTaskDurations", backgroundTaskDurations);
-request.setAttribute("hasExportPermission", hasExportPermission);
-request.setAttribute("showExportCompleteLink", showExportCompleteLink);
-%>
-
 <c:if test="${not intercepting}">
 	<div class="alert alert-danger">
 		<strong><liferay-ui:message key="restart-required" /></strong>
@@ -237,7 +148,7 @@ job writes, not the notification.
 	<h3><liferay-ui:message key="recent-exports" /></h3>
 
 	<c:choose>
-		<c:when test="${empty backgroundTasks}">
+		<c:when test="${empty exportRows}">
 			<div class="alert alert-info">
 				<liferay-ui:message key="no-exports-yet" />
 			</div>
@@ -254,35 +165,19 @@ job writes, not the notification.
 					</tr>
 				</thead>
 				<tbody>
-					<c:forEach items="${backgroundTasks}" var="backgroundTask">
+					<c:forEach items="${exportRows}" var="exportRow">
 						<tr>
+							<td>${exportRow.createDate}</td>
+							<td>${empty exportRow.completionDate ? '&mdash;' : exportRow.completionDate}</td>
+							<td>${empty exportRow.duration ? '&mdash;' : exportRow.duration}</td>
 							<td>
-								${backgroundTaskCreateDates[backgroundTask.backgroundTaskId]}
+								<liferay-ui:message key="${exportRow.statusLabel}" />
 							</td>
 							<td>
 								<c:choose>
-									<c:when test="${not empty backgroundTaskCompletionDates[backgroundTask.backgroundTaskId]}">
-										${backgroundTaskCompletionDates[backgroundTask.backgroundTaskId]}
-									</c:when>
-									<c:otherwise>&mdash;</c:otherwise>
-								</c:choose>
-							</td>
-							<td>
-								<c:choose>
-									<c:when test="${not empty backgroundTaskDurations[backgroundTask.backgroundTaskId]}">
-										${backgroundTaskDurations[backgroundTask.backgroundTaskId]}
-									</c:when>
-									<c:otherwise>&mdash;</c:otherwise>
-								</c:choose>
-							</td>
-							<td>
-								<liferay-ui:message key="${backgroundTask.statusLabel}" />
-							</td>
-							<td>
-								<c:choose>
-									<c:when test="${backgroundTaskDownloadable[backgroundTask.backgroundTaskId] and hasExportPermission}">
+									<c:when test="${exportRow.successful and hasExportPermission}">
 										<portlet:resourceURL var="downloadURL">
-											<portlet:param name="backgroundTaskId" value="${backgroundTask.backgroundTaskId}" />
+											<portlet:param name="backgroundTaskId" value="${exportRow.backgroundTaskId}" />
 										</portlet:resourceURL>
 
 										<a href="${downloadURL}"><liferay-ui:message key="download" /></a>
