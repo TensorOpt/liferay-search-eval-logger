@@ -602,6 +602,39 @@ def check_archive_name():
     )
 
 
+def check_funnel_counters():
+    """TO-92: every admitted event is persisted or dropped, and once only."""
+    good = {
+        "observed": 18,
+        "keywords": 10,
+        "admitted": 9,
+        "dispatched": 8,
+        "dropped": 1,
+        "persisted": 8,
+    }
+
+    expect_accepted(
+        "a funnel where the one dropped event was rejected by the queue",
+        lambda: checks.assert_funnel_adds_up(good),
+    )
+
+    for description, overrides in (
+        ("more dispatched than admitted", {"dispatched": 10}),
+        (
+            "an admitted event whose capture failed and was counted nowhere",
+            {"dropped": 0},
+        ),
+        ("more admitted than carried keywords", {"admitted": 11}),
+        ("more persisted than dispatched", {"persisted": 9, "dropped": 0}),
+    ):
+        counters = dict(good, **overrides)
+
+        expect_rejected(
+            description,
+            lambda counters=counters: checks.assert_funnel_adds_up(counters),
+        )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1043,6 +1076,7 @@ def main():
         check_funnel_links()
         check_archive_name()
         check_number_types()
+        check_funnel_counters()
         check_unbounded_archive()
         check_bundle_wait_is_anchored()
         check_export_form_anchor()

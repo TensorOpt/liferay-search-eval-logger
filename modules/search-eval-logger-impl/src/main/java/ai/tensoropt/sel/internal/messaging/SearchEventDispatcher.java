@@ -82,17 +82,33 @@ public class SearchEventDispatcher {
 
 			message.setPayload(capturedSearchEvent);
 
-			_messageBus.sendMessage(
-				SearchEvalLoggerConstants.DESTINATION_NAME, message);
+			// Counted before the send. A full queue rejects the event inside
+			// sendMessage and the call still returns normally, so the
+			// rejection handler has to find it already counted to move it to
+			// dropped. See SearchEvalLoggerStatisticsImpl#recordDispatchRejected.
 
 			_searchEvalLoggerStatisticsImpl.incrementDispatchedEventCount();
+
+			try {
+				_messageBus.sendMessage(
+					SearchEvalLoggerConstants.DESTINATION_NAME, message);
+			}
+			catch (Throwable throwable) {
+				_searchEvalLoggerStatisticsImpl.recordDispatchRejected();
+
+				_logDispatchFailure(throwable);
+			}
 		}
 		catch (Throwable throwable) {
 			_searchEvalLoggerStatisticsImpl.incrementDroppedEventCount();
 
-			if (_log.isDebugEnabled()) {
-				_log.debug("Unable to dispatch a search event", throwable);
-			}
+			_logDispatchFailure(throwable);
+		}
+	}
+
+	private void _logDispatchFailure(Throwable throwable) {
+		if (_log.isDebugEnabled()) {
+			_log.debug("Unable to dispatch a search event", throwable);
 		}
 	}
 

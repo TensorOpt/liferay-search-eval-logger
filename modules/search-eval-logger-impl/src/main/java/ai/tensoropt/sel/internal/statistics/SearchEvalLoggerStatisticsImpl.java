@@ -81,6 +81,18 @@ public class SearchEvalLoggerStatisticsImpl
 		_persistedEventCount.incrementAndGet();
 	}
 
+	/**
+	 * Moves an event already counted as dispatched to dropped. The dispatcher
+	 * counts an event as dispatched before handing it over, because a full
+	 * queue rejects it synchronously inside that same call and the send still
+	 * returns normally. Counting after the send would count a rejected event
+	 * as both.
+	 */
+	public void recordDispatchRejected() {
+		_dispatchedEventCount.decrementAndGet();
+		_droppedEventCount.incrementAndGet();
+	}
+
 	private final AtomicLong _admittedSearchCount = new AtomicLong();
 	private final AtomicLong _dispatchedEventCount = new AtomicLong();
 	private final AtomicLong _keywordSearchCount = new AtomicLong();

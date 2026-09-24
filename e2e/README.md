@@ -267,7 +267,7 @@ is then the one a real installation makes.
 | `stall-notification` | DESIGN.md 3.6 condition 1 fires, and the notification reaches `UserNotificationEvent`, which is the runtime half of EC-14 |
 | `restart-clears-bypass` | The restart is what makes Liferay's search consumers bind the wrapper |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
-| `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic, nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
+| `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
 | `scale-data` | The corpus is written, and every hit's duplicated `companyId` and `createDate` match its event's |
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
@@ -351,7 +351,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 70 discrimination checks in about a second, with no Docker
+`selftest.py` runs 75 discrimination checks in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.

@@ -118,9 +118,22 @@ public class LoggingSearcher implements Searcher {
 			return;
 		}
 
-		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
-			searchRequest, searchResponse, searchContext, configuration,
-			searchRequestOrigin);
+		// Admitted is already counted, so an event lost from here on is a
+		// dropped one. Without this the funnel would lose it silently:
+		// admitted, but neither dispatched nor dropped.
+
+		CapturedSearchEvent capturedSearchEvent;
+
+		try {
+			capturedSearchEvent = _searchEventCaptor.capture(
+				searchRequest, searchResponse, searchContext, configuration,
+				searchRequestOrigin);
+		}
+		catch (RuntimeException runtimeException) {
+			_searchEvalLoggerStatisticsImpl.incrementDroppedEventCount();
+
+			throw runtimeException;
+		}
 
 		_searchEventDispatcher.dispatch(capturedSearchEvent);
 	}

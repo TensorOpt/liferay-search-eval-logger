@@ -55,7 +55,7 @@ public class SearchEvalLogDestinationConfigurator {
 
 		destinationConfiguration.setRejectedExecutionHandler(
 			(runnable, threadPoolExecutor) -> {
-				_searchEvalLoggerStatisticsImpl.incrementDroppedEventCount();
+				_searchEvalLoggerStatisticsImpl.recordDispatchRejected();
 
 				if (_log.isDebugEnabled()) {
 					_log.debug(

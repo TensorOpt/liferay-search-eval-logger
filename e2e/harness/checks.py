@@ -555,16 +555,22 @@ def capture(context, case):
     increments nothing at all while collection is disabled.
     """
 
+    # Settled as well as persisted: admitted = persisted + dropped only holds
+    # once nothing is in flight, and the searches that other cases issue can
+    # still be on the queue when the marker searches have landed.
+
     def persisted():
         counters = context.portal.admission_counters()
 
-        if counters["persisted"] >= context.options.search_count:
+        if (counters["persisted"] >= context.options.search_count) and (
+            counters["admitted"] == counters["persisted"] + counters["dropped"]
+        ):
             return counters
 
         return None
 
     counters = wait_for(
-        "the admitted searches to be persisted",
+        "the admitted searches to be persisted and the funnel to settle",
         persisted,
         timeout=180,
         interval=3.0,
@@ -572,10 +578,7 @@ def capture(context, case):
 
     case.note("admission counters: %s" % counters)
 
-    assert_true(
-        counters["observed"] >= counters["keywords"] >= counters["admitted"],
-        "The admission funnel is not monotonic",
-    )
+    assert_funnel_adds_up(counters)
     assert_equal(counters["dropped"], 0, "Events were dropped under no load")
 
     rows = context.stack.psql(
@@ -618,6 +621,30 @@ def capture(context, case):
     )
 
     assert_equal(orphans, 0, "Captured hits with no event")
+
+
+def assert_funnel_adds_up(counters):
+    """The admin screen's six counters, as TO-92 defines them.
+
+    Each stage is a subset of the one before, and every admitted event ends
+    up persisted or dropped: one admitted and then counted nowhere breaks the
+    last equation. A queue rejection counted as dispatched as well as dropped
+    does not, since it leaves that sum intact; SearchEventDispatcherTest
+    covers it, and a run under no load never fills the queue anyway.
+    """
+    assert_true(
+        counters["observed"] >= counters["keywords"] >= counters["admitted"],
+        "The admission funnel is not monotonic",
+    )
+    assert_true(
+        counters["admitted"] >= counters["dispatched"] >= counters["persisted"],
+        "More events dispatched than admitted, or persisted than dispatched",
+    )
+    assert_equal(
+        counters["admitted"],
+        counters["persisted"] + counters["dropped"],
+        "Admitted events are neither persisted nor dropped, or counted as both",
+    )
 
 
 def collection_start_recorded(context, case):

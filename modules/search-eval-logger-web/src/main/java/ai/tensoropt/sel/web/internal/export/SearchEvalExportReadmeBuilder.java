@@ -183,9 +183,11 @@ public class SearchEvalExportReadmeBuilder {
 			"last started, across every company, not for this range, so " +
 				"they bound the loss rather than measuring it and will " +
 					"usually be far smaller than the row counts above. " +
-						"Under load the collector drops events rather than " +
-							"slowing search down; `dropped_event_count` is " +
-								"that loss.\n\n";
+						"`dropped_event_count` is every admitted event that " +
+							"was not written, whether the queue was full " +
+								"under load or capture or the write failed, " +
+									"so once nothing is in flight admitted " +
+										"equals persisted plus dropped.\n\n";
 
 	private static final String _FACET_CAPTURE =
 		"**Facet capture is not uniform.** `facet_capture_status` says which " +

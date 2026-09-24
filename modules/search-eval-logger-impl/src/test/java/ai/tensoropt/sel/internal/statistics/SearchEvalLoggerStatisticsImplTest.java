@@ -46,6 +46,20 @@ public class SearchEvalLoggerStatisticsImplTest {
 	}
 
 	/**
+	 * A rejected event is counted as dispatched before the send and then
+	 * moved, so it ends up counted once, as dropped (TO-92).
+	 */
+	@Test
+	public void aRejectedDispatchMovesFromDispatchedToDropped() {
+		_statistics.incrementDispatchedEventCount();
+		_statistics.incrementDispatchedEventCount();
+		_statistics.recordDispatchRejected();
+
+		assertEquals(1, _statistics.getDispatchedEventCount());
+		assertEquals(1, _statistics.getDroppedEventCount());
+	}
+
+	/**
 	 * These are incremented from search threads and from the message bus
 	 * consumer at the same time, so a lost update would understate exactly
 	 * the drop count an evaluator uses to judge whether the log is a census.

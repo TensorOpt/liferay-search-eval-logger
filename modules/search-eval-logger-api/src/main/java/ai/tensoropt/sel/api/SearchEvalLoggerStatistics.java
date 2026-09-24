@@ -18,16 +18,22 @@ package ai.tensoropt.sel.api;
 public interface SearchEvalLoggerStatistics {
 
 	/**
-	 * Events handed to the Message Bus. Admitted searches that were never
-	 * dispatched, because capture itself failed, are counted as dropped rather
-	 * than dispatched.
+	 * Events the Message Bus accepted. An event its queue rejected is counted
+	 * as dropped instead, never as both.
 	 */
 	public long getDispatchedEventCount();
 
 	/**
-	 * Events lost rather than persisted: rejected by the destination's
-	 * backpressure handler, or failed on the way to it. Dropping log rows is
-	 * always preferable to degrading production search (DESIGN.md 3.3).
+	 * Admitted events lost rather than persisted, whatever the cause: capture
+	 * failed, no listener was attached yet, the destination's backpressure
+	 * handler rejected it, or the listener failed to write it. Dropping log
+	 * rows is always preferable to degrading production search (DESIGN.md
+	 * 3.3).
+	 *
+	 * <p>
+	 * Every admitted event ends up persisted or dropped, so once nothing is in
+	 * flight <code>admitted = persisted + dropped</code>.
+	 * </p>
 	 */
 	public long getDroppedEventCount();
 
