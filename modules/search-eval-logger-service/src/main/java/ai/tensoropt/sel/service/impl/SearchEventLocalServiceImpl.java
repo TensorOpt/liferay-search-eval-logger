@@ -7,7 +7,6 @@ package ai.tensoropt.sel.service.impl;
 
 import com.liferay.portal.aop.AopService;
 import com.liferay.petra.function.UnsafeConsumer;
-import com.liferay.portal.kernel.dao.jdbc.CurrentConnectionUtil;
 import com.liferay.portal.kernel.exception.SystemException;
 
 import ai.tensoropt.sel.service.base.SearchEventLocalServiceBaseImpl;
@@ -19,8 +18,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import java.util.Date;
-
-import javax.sql.DataSource;
 
 import org.osgi.service.component.annotations.Component;
 
@@ -46,33 +43,13 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	 * entities are <code>cache-enabled="false"</code> and nothing listens for
 	 * their removal, so no cache is left holding rows that no longer exist.
 	 * </p>
-	 *
-	 * <p>
-	 * The connection is the one bound to the current transaction where there
-	 * is one, matching what the generated <code>runSQL</code> does, so the
-	 * delete commits or rolls back with its caller.
-	 * </p>
 	 */
 	public int deleteByCompanyIdAndCreateDateBefore(
 		long companyId, Date cutoffDate) {
 
-		DataSource dataSource = searchEventPersistence.getDataSource();
-
-		Connection currentConnection = CurrentConnectionUtil.getConnection(
-			dataSource);
-
-		try {
-			if (currentConnection != null) {
-				return _delete(currentConnection, companyId, cutoffDate);
-			}
-
-			try (Connection connection = dataSource.getConnection()) {
-				return _delete(connection, companyId, cutoffDate);
-			}
-		}
-		catch (Exception exception) {
-			throw new SystemException(exception);
-		}
+		return ServiceConnections.deleteByCompanyIdAndCreateDateBefore(
+			searchEventPersistence.getDataSource(), "SEL_SearchEvent",
+			companyId, cutoffDate);
 	}
 
 	/**
@@ -106,59 +83,23 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	public long getCountByCompanyIdAndCreateDateOnOrAfter(
 		long companyId, Date startDate) {
 
-		DataSource dataSource = searchEventPersistence.getDataSource();
+		return ServiceConnections.withConnection(
+			searchEventPersistence.getDataSource(),
+			connection -> {
+				try (PreparedStatement preparedStatement =
+						connection.prepareStatement(_COUNT_SQL)) {
 
-		Connection currentConnection = CurrentConnectionUtil.getConnection(
-			dataSource);
+					preparedStatement.setLong(1, companyId);
+					preparedStatement.setTimestamp(
+						2, new Timestamp(startDate.getTime()));
 
-		try {
-			if (currentConnection != null) {
-				return _count(currentConnection, companyId, startDate);
-			}
+					try (ResultSet resultSet =
+							preparedStatement.executeQuery()) {
 
-			try (Connection connection = dataSource.getConnection()) {
-				return _count(connection, companyId, startDate);
-			}
-		}
-		catch (Exception exception) {
-			throw new SystemException(exception);
-		}
-	}
-
-	private long _count(
-			Connection connection, long companyId, Date startDate)
-		throws Exception {
-
-		try (PreparedStatement preparedStatement = connection.prepareStatement(
-				_COUNT_SQL)) {
-
-			preparedStatement.setLong(1, companyId);
-			preparedStatement.setTimestamp(
-				2, new Timestamp(startDate.getTime()));
-
-			try (ResultSet resultSet = preparedStatement.executeQuery()) {
-				if (!resultSet.next()) {
-					return 0;
+						return resultSet.next() ? resultSet.getLong(1) : 0L;
+					}
 				}
-
-				return resultSet.getLong(1);
-			}
-		}
-	}
-
-	private int _delete(
-			Connection connection, long companyId, Date cutoffDate)
-		throws Exception {
-
-		try (PreparedStatement preparedStatement = connection.prepareStatement(
-				_DELETE_SQL)) {
-
-			preparedStatement.setLong(1, companyId);
-			preparedStatement.setTimestamp(
-				2, new Timestamp(cutoffDate.getTime()));
-
-			return preparedStatement.executeUpdate();
-		}
+			});
 	}
 
 	/**
@@ -207,28 +148,13 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 			UnsafeConsumer<ResultSet, E> rowConsumer)
 		throws E, SystemException {
 
-		DataSource dataSource = searchEventPersistence.getDataSource();
+		ServiceConnections.withConnection(
+			searchEventPersistence.getDataSource(),
+			connection -> {
+				_stream(connection, companyId, startDate, endDate, rowConsumer);
 
-		Connection currentConnection = CurrentConnectionUtil.getConnection(
-			dataSource);
-
-		try {
-			if (currentConnection != null) {
-				_stream(
-					currentConnection, companyId, startDate, endDate,
-					rowConsumer);
-
-				return;
-			}
-
-			try (Connection connection = dataSource.getConnection()) {
-				_stream(
-					connection, companyId, startDate, endDate, rowConsumer);
-			}
-		}
-		catch (SQLException sqlException) {
-			throw new SystemException(sqlException);
-		}
+				return null;
+			});
 	}
 
 	private <E extends Throwable> void _stream(
@@ -275,8 +201,5 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	private static final String _COUNT_SQL =
 		"select count(*) from SEL_SearchEvent where companyId = ? and " +
 			"createDate >= ?";
-
-	private static final String _DELETE_SQL =
-		"delete from SEL_SearchEvent where companyId = ? and createDate < ?";
 
 }

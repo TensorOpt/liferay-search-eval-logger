@@ -6,18 +6,10 @@
 package ai.tensoropt.sel.service.impl;
 
 import com.liferay.portal.aop.AopService;
-import com.liferay.portal.kernel.dao.jdbc.CurrentConnectionUtil;
-import com.liferay.portal.kernel.exception.SystemException;
 
 import ai.tensoropt.sel.service.base.SearchHitLocalServiceBaseImpl;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.Timestamp;
-
 import java.util.Date;
-
-import javax.sql.DataSource;
 
 import org.osgi.service.component.annotations.Component;
 
@@ -43,51 +35,13 @@ public class SearchHitLocalServiceImpl extends SearchHitLocalServiceBaseImpl {
 	 * entities are <code>cache-enabled="false"</code> and nothing listens for
 	 * their removal, so no cache is left holding rows that no longer exist.
 	 * </p>
-	 *
-	 * <p>
-	 * The connection is the one bound to the current transaction where there
-	 * is one, matching what the generated <code>runSQL</code> does, so the
-	 * delete commits or rolls back with its caller.
-	 * </p>
 	 */
 	public int deleteByCompanyIdAndCreateDateBefore(
 		long companyId, Date cutoffDate) {
 
-		DataSource dataSource = searchHitPersistence.getDataSource();
-
-		Connection currentConnection = CurrentConnectionUtil.getConnection(
-			dataSource);
-
-		try {
-			if (currentConnection != null) {
-				return _delete(currentConnection, companyId, cutoffDate);
-			}
-
-			try (Connection connection = dataSource.getConnection()) {
-				return _delete(connection, companyId, cutoffDate);
-			}
-		}
-		catch (Exception exception) {
-			throw new SystemException(exception);
-		}
+		return ServiceConnections.deleteByCompanyIdAndCreateDateBefore(
+			searchHitPersistence.getDataSource(), "SEL_SearchHit", companyId,
+			cutoffDate);
 	}
-
-	private int _delete(
-			Connection connection, long companyId, Date cutoffDate)
-		throws Exception {
-
-		try (PreparedStatement preparedStatement = connection.prepareStatement(
-				_DELETE_SQL)) {
-
-			preparedStatement.setLong(1, companyId);
-			preparedStatement.setTimestamp(
-				2, new Timestamp(cutoffDate.getTime()));
-
-			return preparedStatement.executeUpdate();
-		}
-	}
-
-	private static final String _DELETE_SQL =
-		"delete from SEL_SearchHit where companyId = ? and createDate < ?";
 
 }
