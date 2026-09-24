@@ -4,7 +4,6 @@
 
 package ai.tensoropt.sel.web.internal.export;
 
-import com.liferay.portal.kernel.dao.orm.ActionableDynamicQuery;
 import com.liferay.portal.kernel.json.JSONArray;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
@@ -45,11 +44,13 @@ import org.osgi.service.component.annotations.Reference;
  * <strong>This streams, and that is a hard requirement rather than an
  * optimization.</strong> A full-window export can span millions of hit rows,
  * and administrators will run the full window. Nothing here accumulates a
- * result set: events arrive one interval at a time from an
- * {@link ActionableDynamicQuery}, each is serialized to a line and written
- * through a buffered writer onto the {@link ZipOutputStream}, and the only rows
- * held at once are the hits of the event being written, which capture depth
- * already bounds. What bounds memory is that no line is retained after it is
+ * result set: rows arrive one at a time from a JDBC cursor over an event and
+ * hit join (<code>SearchEventLocalService.forEachExportRow</code>, which fetches
+ * them from the database in batches of its own fetch size), each event is
+ * serialized to a line once its last hit has arrived and written through a
+ * buffered writer onto the {@link ZipOutputStream}, and the only rows held at
+ * once are the hits of the event being written, which capture depth already
+ * bounds. What bounds memory is that no line is retained after it is
  * written, not the flushing: the writer is flushed once, at the end of the
  * entry, and the buffer in between is a fixed size. Memory stays flat whether
  * the export covers an hour or ninety days.
@@ -426,13 +427,6 @@ public class SearchEvalExportWriter {
 		"{\"rank\":0,\"score\":0,\"doc_uid\":null,\"entry_class_name\":null," +
 			"\"entry_class_pk\":0,\"title\":null,\"snippet\":null," +
 				"\"extra_fields\":{}}";
-
-	/**
-	 * Rows fetched per round trip. Small enough that one round trip's events
-	 * are trivially sized, large enough that a ninety day export is not a query
-	 * per row.
-	 */
-	private static final int _INTERVAL = 100;
 
 	private static final String _MANIFEST_FILE_NAME = "manifest.json";
 

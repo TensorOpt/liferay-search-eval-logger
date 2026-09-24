@@ -20,7 +20,7 @@ What is *not* done: every empirical check in DESIGN.md §7 is still open except 
 - **api** holds what more than one bundle needs: the enums, `SearchEvalLoggerConstants`, `SearchEvalLoggerConfiguration` (the `@Meta.OCD` interface — it lives here, not in impl, because the web module reads the same settings the collector applies), `SearchEvalLoggerStatistics`, and the generated model and service interfaces.
 - **service** is the schema and persistence, nothing else.
 - **impl** is entirely under `ai.tensoropt.sel.internal` and exports nothing.
-- **web** owns the export: a `BackgroundTaskExecutor` that streams `ActionableDynamicQuery` → JSONL → `ZipOutputStream` into a temp file, the manifest and archive README builders, the admin portlet, and `resource-actions/default.xml` defining the dedicated `EXPORT` permission (granted to nobody by default, and checked on both the trigger and the download). It deliberately has **no** configuration screen: `@Meta.OCD` with `@ExtendedObjectClassDefinition(scope = COMPANY)` already yields Liferay's own System Settings UI, scoped per virtual instance.
+- **web** owns the export: a `BackgroundTaskExecutor` that streams a JDBC cursor (`SearchEventLocalService.forEachExportRow`) → JSONL → `ZipOutputStream` into a temp file, the manifest and archive README builders, the admin portlet, and `resource-actions/default.xml` defining the dedicated `EXPORT` permission (granted to nobody by default, and checked on both the trigger and the download). It deliberately has **no** configuration screen: `@Meta.OCD` with `@ExtendedObjectClassDefinition(scope = COMPANY)` already yields Liferay's own System Settings UI, scoped per virtual instance.
 
 ### Decisions that look wrong until you know why
 
@@ -59,7 +59,7 @@ Key mechanisms to know before touching any of these:
 - **Async dispatch**: Message Bus serial destination, fire-and-forget, drop-under-backpressure rather than block or queue unboundedly (§3.3).
 - **Retention purge**: batched deletes on a recurring job, never one large `DELETE` (§3.4).
 - **Data model**: two tables, `SEL_SearchEvent` and `SEL_SearchHit`, joined by `searchEventUuid` (§4). Every text column needs an explicit `max-length` in `portlet-model-hints.xml` or must be a `Clob` — Service Builder's default `VARCHAR(75)` silently truncates otherwise.
-- **Export**: must stream (`ActionableDynamicQuery` or raw JDBC cursor → JSONL → `ZipOutputStream`) — never load the full dataset into memory. JSONL, not CSV, because snippets contain quotes/newlines/highlight markup. See §6 for exact archive layout and `manifest.json` contents.
+- **Export**: must stream (raw JDBC cursor over the event/hit join → JSONL → `ZipOutputStream`) — never load the full dataset into memory. JSONL, not CSV, because snippets contain quotes/newlines/highlight markup. See §6 for exact archive layout and `manifest.json` contents.
 
 ## JSPs compile at render time, so the build cannot vet them
 
