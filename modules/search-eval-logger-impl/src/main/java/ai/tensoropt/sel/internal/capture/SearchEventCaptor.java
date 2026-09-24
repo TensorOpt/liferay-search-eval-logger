@@ -69,10 +69,10 @@ public class SearchEventCaptor {
 		capturedSearchEvent.setLocale(
 			_truncate(_getLanguageId(searchContext), _LOCALE_MAX_LENGTH));
 		capturedSearchEvent.setScopeGroupIds(
-			_truncate(
+			_truncateList(
 				_join(searchContext.getGroupIds()), _SCOPE_GROUP_IDS_MAX_LENGTH));
 		capturedSearchEvent.setEntryClassNames(
-			_truncate(
+			_truncateList(
 				_getEntryClassNames(searchRequest, searchContext),
 				_ENTRY_CLASS_NAMES_MAX_LENGTH));
 
@@ -489,16 +489,26 @@ public class SearchEventCaptor {
 		return StringUtil.merge(values, _SEPARATOR);
 	}
 
-	/**
-	 * Cuts on a separator boundary where there is one, so a truncated list
-	 * never ends in half an identifier that reads as a whole one.
-	 */
 	private String _truncate(String value, int maxLength) {
 		if ((value == null) || (value.length() <= maxLength)) {
 			return value;
 		}
 
-		String truncated = value.substring(0, maxLength);
+		return value.substring(0, maxLength);
+	}
+
+	/**
+	 * For the comma separated columns only. Cuts on a separator boundary where
+	 * there is one, so a truncated list never ends in half an identifier that
+	 * reads as a whole one. Applied to free text such as a title, the same cut
+	 * would throw away everything after the last comma (TO-94).
+	 */
+	private String _truncateList(String value, int maxLength) {
+		String truncated = _truncate(value, maxLength);
+
+		if ((truncated == null) || (truncated.length() == value.length())) {
+			return truncated;
+		}
 
 		int index = truncated.lastIndexOf(_SEPARATOR);
 
