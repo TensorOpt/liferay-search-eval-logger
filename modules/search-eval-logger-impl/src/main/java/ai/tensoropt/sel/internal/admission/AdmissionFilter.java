@@ -10,6 +10,7 @@ import com.liferay.portal.search.searcher.SearchRequest;
 
 import ai.tensoropt.sel.api.FacetCaptureStatus;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.capture.EntryClassNames;
 import ai.tensoropt.sel.internal.capture.FacetCapture;
 import ai.tensoropt.sel.internal.capture.FacetExtractor;
 import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
@@ -177,31 +178,12 @@ public class AdmissionFilter {
 
 		List<String> excluded = Arrays.asList(excludedEntryClassNames);
 
-		List<String> entryClassNames = searchRequest.getEntryClassNames();
-
-		if ((entryClassNames != null) && !entryClassNames.isEmpty()) {
-			for (String entryClassName : entryClassNames) {
-				if (excluded.contains(entryClassName)) {
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		String[] contextEntryClassNames = searchContext.getEntryClassNames();
-
-		if (contextEntryClassNames == null) {
-			return false;
-		}
-
-		for (String entryClassName : contextEntryClassNames) {
-			if (excluded.contains(entryClassName)) {
-				return true;
-			}
-		}
-
-		return false;
+		return EntryClassNames.get(
+			searchRequest, searchContext
+		).stream(
+		).anyMatch(
+			excluded::contains
+		);
 	}
 
 	/**

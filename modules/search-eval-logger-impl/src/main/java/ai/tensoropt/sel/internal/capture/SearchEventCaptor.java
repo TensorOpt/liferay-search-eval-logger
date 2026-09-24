@@ -73,7 +73,7 @@ public class SearchEventCaptor {
 				_join(searchContext.getGroupIds()), _SCOPE_GROUP_IDS_MAX_LENGTH));
 		capturedSearchEvent.setEntryClassNames(
 			_truncateList(
-				_getEntryClassNames(searchRequest, searchContext),
+				_join(EntryClassNames.get(searchRequest, searchContext)),
 				_ENTRY_CLASS_NAMES_MAX_LENGTH));
 
 		FacetCapture facetCapture = _facetExtractor.extract(
@@ -275,26 +275,6 @@ public class SearchEventCaptor {
 		}
 
 		return value;
-	}
-
-	private String _getEntryClassNames(
-		SearchRequest searchRequest, SearchContext searchContext) {
-
-		List<String> entryClassNames = searchRequest.getEntryClassNames();
-
-		if ((entryClassNames != null) && !entryClassNames.isEmpty()) {
-			return _join(entryClassNames);
-		}
-
-		String[] contextEntryClassNames = searchContext.getEntryClassNames();
-
-		if ((contextEntryClassNames != null) &&
-			(contextEntryClassNames.length > 0)) {
-
-			return _join(Arrays.asList(contextEntryClassNames));
-		}
-
-		return null;
 	}
 
 	/**
