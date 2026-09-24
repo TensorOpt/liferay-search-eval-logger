@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Every change, and every review, is held to these:
 
 1. **YAGNI.** If it does not need to exist, remove it: unused constants, speculative options, abstractions with one caller and no second in sight.
-2. **DRY.** If the codebase already does it, reuse that rather than writing a second copy. Two copies drift, and in this project drift is usually silent (see the column-width constants and the `@Meta.AD` defaults below, the two duplications kept on purpose).
+2. **DRY.** If the codebase already does it, reuse that rather than writing a second copy. Two copies drift, and in this project drift is usually silent (see the column-width constants below, the one duplication kept on purpose).
 3. **SOLID.** One reason to change per class (SRP); extend by adding, not by editing what works (OCP); a subtype must honour its supertype's contract (LSP); narrow interfaces over wide ones (ISP); depend on OSGi service interfaces, not implementations (DIP).
 4. **No unnecessary dependencies.** If the JDK or the Liferay API already provides it, use that. A new third-party jar needs a reason that neither can meet.
 5. **Succinct, readable code.** If it fits on one line, it is one line. No ceremony that does not carry meaning.
