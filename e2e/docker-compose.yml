@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The end to end stack for TO-84. It is deliberately self contained: its own
+# project name, its own container names, its own volumes and its own host
+# ports, so it can run alongside a developer's own Liferay instance and its own
+# "liferay-postgres" container without touching either.
+#
+# Every image is pinned. liferay/dxp is pinned by digest as well as by tag,
+# because a tag on Docker Hub is mutable and a CI run that silently changes its
+# target platform is not a regression test.
+
+# The project name is passed on the command line (docker compose -p) rather
+# than set here, so that one variable names the project, the containers and the
+# volumes with no second place to keep in step.
+
+services:
+
+  postgres:
+    container_name: ${SEL_E2E_PROJECT:-sel-e2e}-postgres
+    image: postgres:15.19
+    environment:
+      POSTGRES_DB: lportal
+      POSTGRES_USER: lportal
+      POSTGRES_PASSWORD: lportal
+      # Liferay requires a case sensitive, UTF-8 collation. The Debian default
+      # would be en_US.utf8, which is case insensitive for ordering and makes
+      # Liferay's own upgrade checks complain.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    command:
+      # Bulk generation writes up to ten million hit rows. These settings serve
+      # that one operation and are a test fixture, not a recommendation.
+      # max_wal_size is deliberately modest: a larger write ahead log makes
+      # generation a little faster and costs disk a CI runner may not have.
+      - postgres
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - synchronous_commit=off
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_connections=200
+    ports:
+      - "127.0.0.1:${SEL_E2E_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lportal -d lportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    shm_size: 512mb
+
+  liferay:
+    container_name: ${SEL_E2E_PROJECT:-sel-e2e}-liferay
+    image: liferay/dxp:2025.q1.27-lts@sha256:c17554d5d1a42cbf0ec0ee38dbb0c658754ae965483ea582ce9000c16b15fdba
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Docker image convention: a portal property key with its dots spelled as
+      # _PERIOD_ and its capitals as _UPPERCASE<x>_.
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_DRIVER_UPPERCASEC_LASS_UPPERCASEN_AME: org.postgresql.Driver
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: jdbc:postgresql://postgres:5432/lportal
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_USERNAME: lportal
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_PASSWORD: lportal
+
+      LIFERAY_SETUP_PERIOD_WIZARD_PERIOD_ENABLED: "false"
+      LIFERAY_SETUP_PERIOD_WIZARD_PERIOD_ADD_PERIOD_SAMPLE_PERIOD_DATA: "false"
+      LIFERAY_TERMS_PERIOD_OF_PERIOD_USE_PERIOD_REQUIRED: "false"
+      LIFERAY_USERS_PERIOD_REMINDER_PERIOD_QUERIES_PERIOD_ENABLED: "false"
+
+      # The harness logs in as the default administrator over HTTP. A forced
+      # password change on first login would turn every request into a redirect
+      # to the change-password form.
+      LIFERAY_PASSWORDS_PERIOD_DEFAULT_PERIOD_POLICY_PERIOD_CHANGEABLE: "true"
+      LIFERAY_PASSWORDS_PERIOD_DEFAULT_PERIOD_POLICY_PERIOD_CHANGE_PERIOD_REQUIRED: "false"
+
+      # Events are stored and exported in UTC. Running the portal in any other
+      # zone would make a date range assertion depend on where CI happens to be.
+      LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_TIME_PERIOD_ZONE: UTC
+      LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_WEB_PERIOD_ID: liferay.com
+      LIFERAY_DEFAULT_PERIOD_ADMIN_PERIOD_EMAIL_PERIOD_ADDRESS_PERIOD_PREFIX: test
+
+      # The Gogo shell is already bound to 0.0.0.0:11311 by the image. Naming it
+      # here keeps that visible rather than inherited.
+      LIFERAY_MODULE_PERIOD_FRAMEWORK_PERIOD_PROPERTIES_PERIOD_OSGI_PERIOD_CONSOLE: "0.0.0.0:11311"
+
+      LIFERAY_JVM_OPTS: ${SEL_E2E_LIFERAY_JVM_OPTS:--Xms2g -Xmx2g}
+
+    ports:
+      - "127.0.0.1:${SEL_E2E_HTTP_PORT:-18080}:8080"
+      - "127.0.0.1:${SEL_E2E_GOGO_PORT:-18311}:11311"
+    volumes:
+      # Copied into Liferay Home before the portal starts: the collector's
+      # configuration and anything else the harness needs in place from the
+      # first boot rather than applied afterwards.
+      - ./liferay/files:/mnt/liferay/files:ro
+      # The entrypoint replaces /opt/liferay/deploy with a symlink to this, so
+      # bundles dropped here before the first boot are installed during startup
+      # and bundles dropped here later are hot deployed.
+      - ./.work/deploy:/mnt/liferay/deploy
+      - liferay-data:/opt/liferay/data
+      - liferay-osgi-state:/opt/liferay/osgi/state
+    healthcheck:
+      # Liferay's own container probe URL. It answers 200 only once the portal
+      # is serving, which is the signal this project's experience says to use:
+      # "Server startup in" never appears in the log here.
+      test: ["CMD-SHELL", "curl --fail --silent --output /dev/null http://localhost:8080/c/portal/robots || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 90
+      start_period: 60s
+    mem_limit: ${SEL_E2E_LIFERAY_MEM_LIMIT:-5g}
+
+volumes:
+  postgres-data:
+  liferay-data:
+  liferay-osgi-state:

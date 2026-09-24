@@ -1,0 +1,5 @@
+# Everything a run creates: staged bundles, results, and Python bytecode.
+.work/
+results/
+__pycache__/
+*.pyc
