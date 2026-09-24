@@ -189,6 +189,34 @@ the export screen under Configuration as Search Eval Export. Collection stays of
 until an administrator enables it, and exporting is gated by its own `EXPORT`
 permission, granted to nobody by default.
 
+## Database
+
+The export streams its result set out of the database rather than loading it,
+which is what keeps a multi-million-row export in constant memory. That depends
+on the JDBC driver honouring a fetch size, and not every driver does by default.
+
+| Database | Driver | Streams |
+|---|---|---|
+| PostgreSQL | bundled with DXP | Yes, as shipped |
+| MariaDB | MariaDB Connector/J, bundled with DXP | Yes, as shipped |
+| MySQL | MySQL Connector/J | **Only with `useCursorFetch=true` on the JDBC URL** |
+| Oracle, SQL Server, DB2 | | Untested |
+
+**On MySQL, `useCursorFetch=true` is required.** Without it Connector/J reads
+the entire result set into memory whatever fetch size the plugin asks for, and a
+full-window export can exhaust the portal's heap. Measured with Connector/J 8.4
+against MySQL 8.4: exporting one million hit rows took about 800 MB of heap
+without the property and 77 MB with it. Add it to the URL Liferay connects with:
+
+```
+jdbc.default.url=jdbc:mysql://localhost/lportal?useCursorFetch=true
+```
+
+or, on the Docker image, to `LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL`. The
+property is connection wide: every statement in the portal that sets a fetch
+size then reads through a server-side cursor. Statements that set none are
+unaffected. Its effect on the rest of the portal has not been measured.
+
 ## Restart the portal after installing, and after every redeploy
 
 **Installing onto a running portal is not enough. Restart it before enabling
