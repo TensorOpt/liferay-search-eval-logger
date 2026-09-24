@@ -19,9 +19,10 @@ recorded there with what running the plugin actually showed.
 **Running and measured on a real instance. Not released.**
 
 Every part of the pipeline — capture, filtering, asynchronous persistence, the
-retention purge, the admin screen and the export — has been deployed to and
-exercised against Liferay DXP 2025.Q1.27 LTS on PostgreSQL 15. The figures below
-are observed rather than projected.
+retention purge, the collection cycle and its notifications, the admin screen
+and the export — has been deployed to and exercised against Liferay DXP
+2025.Q1.27 LTS on PostgreSQL 15. The figures below are observed rather than
+projected.
 
 Verified:
 
@@ -38,18 +39,39 @@ Verified:
   highlighted snippet are both present on the widget path, but the snippet comes
   from `SearchHit#getHighlightFieldsMap()`, not from any field inside the
   `Document`.
-- **Export at scale.** A synthetic corpus of 600,017 events and 6,000,056 hits
-  exports in about two and a half minutes to a 114 MB archive, streamed in constant
-  memory. The result was checked rather than assumed: one JSONL line per event,
-  chronologically ordered end to end, every `manifest.json` key from DESIGN.md 6.2
-  present, and per-field coverage matching the generator's own ratios to fourteen
-  decimal places.
-- **Retention purge.** Against that corpus, deleting one day costs 0.168 s, a first
-  application to a 400,000-event backlog about 13 s, and a run with nothing to
-  delete 13 ms. Rows with backdated timestamps were included deliberately, so the
-  sliding window is exercised rather than only the empty case.
-- **Unit tests.** 41, run by `./gradlew test` — 15 in api, 16 in impl, 10 in web.
-  The service module has none: it is entirely Service Builder output.
+- **Export at scale.** On a corpus of 1,000,000 events and 10,000,000 hits, the
+  retention purge removes the 500,008 events and 5,000,080 hits past a 30-day
+  window in 14 s, and the remaining month exports in two and a half minutes to a
+  66 MB archive, streamed rather than loaded. The archive is checked rather than
+  assumed: one JSONL line per event, every `manifest.json` key from DESIGN.md 6.2
+  present, ids and counts as JSON numbers, the file named for the requested
+  range, and exactly the rows the range holds.
+- **Streaming on each database's driver.** The export's statement, run against
+  real servers with one million hit rows on a 256 MB heap, streams on PostgreSQL
+  and on MariaDB with the drivers DXP ships, and on MySQL only with
+  `useCursorFetch=true` — see [Database](#database). That was measured at the
+  JDBC level; the plugin as a whole has only run on PostgreSQL.
+- **Search is not slowed by collection.** Over 180 searches each way, collection
+  on added 4 ms to the median search round trip (64 ms against 60 ms). With the
+  persistence listener blocked, 2,600 searches from 16 clients all answered
+  normally: the 598 past the queue's 2,000 events were dropped and counted once,
+  and search latency was no worse than with the queue draining.
+- **The collection cycle.** The daily purge and cycle check are scheduled for
+  03:00 and 03:30 every day, whenever the portal last restarted. The stall and
+  readiness notifications appear in the administrator's own notifications list.
+- **Uninstalling and reinstalling.** Removing the four bundles from a running
+  portal leaves search answering with no restart, logs no error and leaves the
+  data in place; reinstalling picks up the existing tables and the collection
+  start date, and collection resumes after the restart.
+- **Unit tests.** 128, run by `./gradlew test`: 5 in api, 6 in service, 70 in
+  impl, 47 in web. The service module's are for the export query builder; the rest
+  of that module is Service Builder output.
+- **End-to-end suite.** `e2e/run.sh` brings up PostgreSQL 15 and DXP 2025.Q1.27
+  LTS in Docker, installs the plugin onto the running portal, and runs 26 cases
+  covering everything above that the PostgreSQL stack can reach, including the
+  `EXPORT` permission refusing a user who does not hold it and the export's
+  download URL refusing another background task's attachment. All 26 passed at
+  full scale (`--scale full`). See [e2e/README.md](e2e/README.md).
 
 Not verified:
 
@@ -59,10 +81,18 @@ Not verified:
   path resolves `Searcher` through the registry and would be wrapped, inheriting
   EC-3's constraint, but that is reasoning, not a measurement.
 - DXP Cloud (EC-9). Never deployed there.
-- The `EXPORT` permission gate has only ever been exercised as an administrator who
-  holds it. That it correctly refuses a user who does not is untested.
+- The whole plugin on anything but PostgreSQL. MySQL and MariaDB were measured
+  for the export's streaming only; Oracle, SQL Server and DB2 not at all.
+- Clusters. Everything has run on one node; the collection cycle's per-node
+  marker (DESIGN.md 3.6) exists for the multi-node case and has never met one.
+- The scheduler firing a job. Both jobs' triggers are confirmed set to their
+  time of day, and the jobs themselves are exercised directly, but no test has
+  waited until 03:00 to watch Liferay fire one.
 - The internal-traffic ratio (EC-10) was measured only on an idle instance, where
   the denominator was dominated by test searches. It is not a production figure.
+- The two evaluation service links still carry the placeholder addresses
+  `{{SIGNUP_URL}}` and `{{BOOKING_URL}}`; they are replaced when a release is cut
+  (TO-107).
 
 See DESIGN.md section 7 for each check in full.
 
@@ -88,7 +118,7 @@ See DESIGN.md section 7 for each check in full.
   discarded, so a cohort cannot be followed across a rotation
 
 Events and hits older than the retention window (90 days by default) are deleted by
-a daily purge.
+a purge that runs every day at 03:00, in the portal's time zone.
 
 ## What is not collected
 
