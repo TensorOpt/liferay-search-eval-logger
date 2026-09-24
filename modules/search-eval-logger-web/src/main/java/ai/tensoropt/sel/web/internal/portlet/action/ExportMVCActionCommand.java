@@ -18,6 +18,7 @@ import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.util.WebKeys;
 
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
+import ai.tensoropt.sel.web.internal.export.ExportArchiveNames;
 import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
 
@@ -103,7 +104,7 @@ public class ExportMVCActionCommand extends BaseMVCActionCommand {
 
 		BackgroundTaskManagerUtil.addBackgroundTask(
 			themeDisplay.getUserId(), themeDisplay.getScopeGroupId(),
-			_getName(startDate, endDate),
+			ExportArchiveNames.getTaskName(startDate, endDate),
 			SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME,
 			taskContextMap, serviceContext);
 
@@ -128,11 +129,6 @@ public class ExportMVCActionCommand extends BaseMVCActionCommand {
 		}
 
 		return Date.from(localDate.atStartOfDay(ZoneOffset.UTC).toInstant());
-	}
-
-	private String _getName(Date startDate, Date endDate) {
-		return "search-eval-export-" + ((startDate == null) ? "all" : startDate) +
-			"-" + ((endDate == null) ? "all" : endDate);
 	}
 
 }

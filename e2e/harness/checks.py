@@ -55,13 +55,10 @@ EMPTY_PURGE_BUDGET_MS = 5000
 # a failure so it gets retired, and a run that breaks early cannot be mistaken
 # for the baseline because its known failures turned into skips.
 #
-# No ticket numbers yet; each identifier is the one used in the TO-84 report
-# and in e2e/README.md.
-EXPECTED_FAILURES = {
-    "export-archive-name": (
-        "D-4, the exclusive end date leaks into the archive name, DESIGN.md 6.2"
-    ),
-}
+# Empty since TO-90 fixed D-4, the last of the defects the TO-84 run found.
+# The mechanism stays: a new known defect is entered here with its ticket and
+# retired in the change that fixes it.
+EXPECTED_FAILURES = {}
 
 
 # The record shape of DESIGN.md 6.2, exactly. Both sets are asserted on every
@@ -963,12 +960,13 @@ def export_archive_name(context, case):
     for. A pattern of two runs of eight digits would accept any pair of dates,
     which is how the deviation below stayed invisible.
 
-    This case fails today. The action makes the end date exclusive by adding a
-    day before handing it to the background task, and the task formats that
-    same value into the file name, so an export requested "to 2026-09-23"
-    arrives called ...-20260924.zip. The range is right and the label on it is
-    not, which matters because the name is what the archive is filed under
-    once it leaves the instance.
+    This was D-4, fixed by TO-90. The action makes the end date exclusive by
+    adding a day before handing it to the background task, and the task used
+    to format that same value into the file name, so an export requested "to
+    2026-09-23" arrived called ...-20260924.zip. The range was right and the
+    label on it was not, which matters because the name is what the archive is
+    filed under once it leaves the instance. ExportArchiveNames now names the
+    last day the range includes.
     """
     start_date, end_date = context.export_range
 

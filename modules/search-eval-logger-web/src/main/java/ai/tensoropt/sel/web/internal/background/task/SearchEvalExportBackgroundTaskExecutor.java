@@ -14,17 +14,13 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.FileUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.web.internal.export.ExportArchiveNames;
 import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportResult;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportWriter;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportConfigurationProvider;
 
 import java.io.File;
-
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 
 import java.util.Date;
 import java.util.Map;
@@ -89,7 +85,8 @@ public class SearchEvalExportBackgroundTaskExecutor
 
 			backgroundTask.addAttachment(
 				backgroundTask.getUserId(),
-				_getFileName(companyId, startDate, endDate), file);
+				ExportArchiveNames.getFileName(companyId, startDate, endDate),
+				file);
 
 			if (_log.isInfoEnabled()) {
 				_log.info(
@@ -122,27 +119,6 @@ public class SearchEvalExportBackgroundTaskExecutor
 	public boolean isSerial() {
 		return true;
 	}
-
-	private String _getFileName(
-		long companyId, Date startDate, Date endDate) {
-
-		return "search-eval-export-" + companyId + "-" + _format(startDate) +
-			"-" + _format(endDate) + ".zip";
-	}
-
-	private String _format(Date date) {
-		if (date == null) {
-			return "all";
-		}
-
-		Instant instant = date.toInstant();
-
-		return _DATE_TIME_FORMATTER.format(
-			instant.truncatedTo(ChronoUnit.DAYS));
-	}
-
-	private static final DateTimeFormatter _DATE_TIME_FORMATTER =
-		DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEvalExportBackgroundTaskExecutor.class);

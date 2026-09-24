@@ -273,7 +273,7 @@ is then the one a real installation makes.
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
 | `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored and the banner rendered |
 | `export` | DESIGN.md 6.1: the action starts a background task that completes and offers a download |
-| `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested. **This case fails against the plugin as it stands; see below.** |
+| `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested, asserted as an exact string |
 | `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back, and every id and count in the manifest a JSON number |
 | `export-range-is-honoured` | DESIGN.md 6.1: a narrow window exports exactly the rows that window holds, counted independently in the database |
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
@@ -323,46 +323,31 @@ flag and the terms of use flag, so the user actually arrives.
 
 ## Known defects are a mechanism, not a paragraph
 
-One case fails because of a defect in the plugin rather than in the harness.
-It is named in `checks.EXPECTED_FAILURES`, and `Results` treats a named case
-that fails as an expected failure: it is reported as skipped in the JUnit XML
-with the whole traceback kept in `system-out`, it does not count toward the
-exit code, and **the suite exits 0 on this exact set**. A gate can be switched
-on today.
+No case currently fails because of a defect in the plugin. The three the TO-84
+run caught, D-1, D-2 and D-4, have all since been fixed. A case that does fail
+because of a plugin defect is named in `checks.EXPECTED_FAILURES`, and
+`Results` treats a named case that fails as an expected failure: it is reported
+as skipped in the JUnit XML with the whole traceback kept in `system-out`, it
+does not count toward the exit code, and **the suite exits 0 on exactly that
+set**, so a gate can stay switched on while a defect is open.
 
 The same case *passing* is recorded as a failure, so an entry cannot go stale:
 either the defect was fixed and the entry should be retired, or the case
-stopped testing what it claims to. That is how `export-unbounded-range` and
-`export-jsonl-number-types` left this list: TO-87 fixed D-1 and TO-88 fixed
-D-2, each case passed, the run failed on the unexpected pass, and each entry
-was retired in the same change as its fix.
+stopped testing what it claims to. That is how `export-unbounded-range`,
+`export-jsonl-number-types` and `export-archive-name` left this list: TO-87
+fixed D-1, TO-88 fixed D-2 and TO-90 fixed D-4, each case passed, the run
+failed on the unexpected pass, and each entry was retired in the same change
+as its fix.
 
 This is a mechanism rather than a rule a person applies, because "expect
-exactly one failure" is not a rule about the thing it sounds like. Kill the
-database halfway through a run and that one becomes a skip, since its
+exactly N failures" is not a rule about the thing it sounds like. Kill the
+database halfway through a run and those N become skips, since their
 prerequisites never passed, and the run then shows zero failures and reads as
 healthier than the baseline while being entirely broken. `selftest.py`
 exercises that exact scenario.
 
 Each case asserts what DESIGN.md says, and the plugin is the side that
 disagrees. None of them is rewritten to expect the failure.
-
-### `export-archive-name`
-
-DESIGN.md 6.2 names the archive
-`search-eval-export-<instance>-<from>-<to>.zip`. An export requested from
-2026-08-23 **to 2026-09-23** arrives called
-`search-eval-export-<id>-20260823-20260924.zip`.
-
-`ExportMVCActionCommand._getDate` makes the end bound exclusive by adding a
-day, which is right, and hands that same value to the background task, which
-formats it into the file name. The range exported is correct; the label on it
-is not, and the name is what the archive is filed under once it leaves the
-instance.
-
-The assertion is an exact string match on purpose. The pattern it replaced,
-two runs of eight digits, accepted any pair of dates and is how this stayed
-invisible.
 
 ## Testing the tests
 
