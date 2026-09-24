@@ -46,11 +46,19 @@ import org.osgi.service.component.annotations.Reference;
  */
 @Component(
 	property = {
-		"search.eval.logger=true", "service.ranking:Integer=100"
+		LoggingSearcher.MARKER_PROPERTY_NAME + "=true",
+		"service.ranking:Integer=100"
 	},
 	service = Searcher.class
 )
 public class LoggingSearcher implements Searcher {
+
+	/**
+	 * Marks this wrapper's own registration, so that neither its delegate
+	 * reference nor the interception check ever mistakes it for the portal's
+	 * searcher.
+	 */
+	public static final String MARKER_PROPERTY_NAME = "search.eval.logger";
 
 	@Override
 	public SearchResponse search(SearchRequest searchRequest) {
@@ -185,7 +193,7 @@ public class LoggingSearcher implements Searcher {
 	 * An absent property makes the negation true in OSGi filter semantics, so
 	 * the portal's own unranked Searcher matches.
 	 */
-	@Reference(target = "(!(search.eval.logger=true))")
+	@Reference(target = "(!(" + MARKER_PROPERTY_NAME + "=true))")
 	private Searcher _searcher;
 
 	@Reference

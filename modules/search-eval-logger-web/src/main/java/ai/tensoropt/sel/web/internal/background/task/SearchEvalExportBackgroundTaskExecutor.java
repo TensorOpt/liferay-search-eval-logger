@@ -15,6 +15,7 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.FileUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
 import ai.tensoropt.sel.web.internal.export.ExportArchiveNames;
 import ai.tensoropt.sel.web.internal.export.ExportTaskContext;
 import ai.tensoropt.sel.web.internal.export.SearchEvalExportResult;
@@ -49,7 +50,7 @@ import org.osgi.service.component.annotations.Reference;
  * </p>
  */
 @Component(
-	property = "background.task.executor.class.name=ai.tensoropt.sel.web.internal.background.task.SearchEvalExportBackgroundTaskExecutor",
+	property = "background.task.executor.class.name=" + SearchEvalLoggerPortletKeys.BACKGROUND_TASK_EXECUTOR_CLASS_NAME,
 	service = BackgroundTaskExecutor.class
 )
 public class SearchEvalExportBackgroundTaskExecutor

@@ -92,7 +92,9 @@ public class SearchInterceptionStatusImpl implements SearchInterceptionStatus {
 			_bundleContext.getServiceReferences(Searcher.class, null);
 
 		for (ServiceReference<Searcher> serviceReference : serviceReferences) {
-			if (serviceReference.getProperty(_MARKER_PROPERTY_NAME) != null) {
+			if (serviceReference.getProperty(
+					LoggingSearcher.MARKER_PROPERTY_NAME) != null) {
+
 				continue;
 			}
 
@@ -111,8 +113,6 @@ public class SearchInterceptionStatusImpl implements SearchInterceptionStatus {
 
 		return false;
 	}
-
-	private static final String _MARKER_PROPERTY_NAME = "search.eval.logger";
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchInterceptionStatusImpl.class);
