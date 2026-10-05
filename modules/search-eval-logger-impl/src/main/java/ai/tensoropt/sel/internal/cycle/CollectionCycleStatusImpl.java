@@ -109,9 +109,15 @@ public class CollectionCycleStatusImpl
 			CollectionCycle collectionCycle = _collectionCycleStore.get(
 				companyId);
 
-			if (!collectionCycle.isOpen() ||
-				collectionCycle.isSignupBannerDismissed()) {
+			// The banner is only shown on an open cycle, so a closed one here
+			// is a failed read (the store answers closed on one) or a close
+			// racing the click. Either way nothing is recorded, so say so.
 
+			if (!collectionCycle.isOpen()) {
+				return false;
+			}
+
+			if (collectionCycle.isSignupBannerDismissed()) {
 				return true;
 			}
 

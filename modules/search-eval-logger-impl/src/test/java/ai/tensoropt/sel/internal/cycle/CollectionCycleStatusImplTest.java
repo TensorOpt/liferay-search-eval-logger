@@ -165,7 +165,7 @@ public class CollectionCycleStatusImplTest {
 	}
 
 	/**
-	 * TO-112, round 3 review: an instance upgraded from before TO-112 has an
+	 * TO-112: an instance upgraded from before TO-112 has an
 	 * open cycle whose <code>collectionStartDate</code> is weeks old and
 	 * whose <code>collectionStartedNotifiedDate</code> does not exist, since
 	 * the field did not exist to have one. The first event persisted after
@@ -413,10 +413,11 @@ public class CollectionCycleStatusImplTest {
 	}
 
 	@Test
-	public void dismissingAClosedCycleDoesNothing() {
-		assertTrue(
+	public void dismissingAClosedCycleRecordsNothingAndSaysSo() {
+		assertFalse(
 			_collectionCycleStatusImpl.dismiss(_COMPANY_ID),
-			"Nothing left to persist is not a failure");
+			"A closed cycle is also what a failed read looks like, so " +
+				"answering success would report a dismissal never saved");
 
 		CollectionCycle collectionCycle =
 			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
@@ -439,7 +440,7 @@ public class CollectionCycleStatusImplTest {
 	}
 
 	/**
-	 * TO-112, round 3 review: a caller that ignores this return value cannot
+	 * TO-112: a caller that ignores this return value cannot
 	 * tell a saved dismissal from one that silently was not, which is what
 	 * made the web module's own failure handling unreachable dead code.
 	 */

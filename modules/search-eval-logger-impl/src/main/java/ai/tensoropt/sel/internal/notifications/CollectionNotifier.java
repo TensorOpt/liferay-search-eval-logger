@@ -23,6 +23,7 @@ import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.Portal;
 import com.liferay.portal.kernel.util.ResourceBundleUtil;
 
+import ai.tensoropt.sel.api.NotificationLanguageKeys;
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 
 import java.time.Clock;
@@ -276,7 +277,8 @@ public class CollectionNotifier {
 	private String _emailBody(
 		long companyId, Locale locale, String notificationType) {
 
-		String body = _message(locale, _bodyKey(notificationType));
+		String body = _message(
+			locale, NotificationLanguageKeys.body(notificationType));
 
 		if (Objects.equals(
 				SearchEvalLoggerConstants.NOTIFICATION_TYPE_STALL,
@@ -299,43 +301,8 @@ public class CollectionNotifier {
 	}
 
 	private String _emailSubject(Locale locale, String notificationType) {
-		return _message(locale, _titleKey(notificationType));
-	}
-
-	private String _bodyKey(String notificationType) {
-		if (Objects.equals(
-				SearchEvalLoggerConstants.NOTIFICATION_TYPE_READINESS,
-				notificationType)) {
-
-			return "notification-readiness-body";
-		}
-
-		if (Objects.equals(
-				SearchEvalLoggerConstants.NOTIFICATION_TYPE_COLLECTION_STARTED,
-				notificationType)) {
-
-			return "notification-collection-started-body";
-		}
-
-		return "notification-stall-body";
-	}
-
-	private String _titleKey(String notificationType) {
-		if (Objects.equals(
-				SearchEvalLoggerConstants.NOTIFICATION_TYPE_READINESS,
-				notificationType)) {
-
-			return "notification-readiness-title";
-		}
-
-		if (Objects.equals(
-				SearchEvalLoggerConstants.NOTIFICATION_TYPE_COLLECTION_STARTED,
-				notificationType)) {
-
-			return "notification-collection-started-title";
-		}
-
-		return "notification-stall-title";
+		return _message(
+			locale, NotificationLanguageKeys.title(notificationType));
 	}
 
 	/**

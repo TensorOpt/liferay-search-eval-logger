@@ -17,6 +17,7 @@ import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.Portal;
 import com.liferay.portal.kernel.util.ResourceBundleUtil;
 
+import ai.tensoropt.sel.api.NotificationLanguageKeys;
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
 
@@ -59,7 +60,8 @@ public class SearchEvalLoggerUserNotificationHandler
 
 		return _get(
 			serviceContext,
-			_bodyKey(_getNotificationType(userNotificationEvent)));
+			NotificationLanguageKeys.body(
+				_getNotificationType(userNotificationEvent)));
 	}
 
 	@Override
@@ -97,7 +99,8 @@ public class SearchEvalLoggerUserNotificationHandler
 
 		return _get(
 			serviceContext,
-			_titleKey(_getNotificationType(userNotificationEvent)));
+			NotificationLanguageKeys.title(
+				_getNotificationType(userNotificationEvent)));
 	}
 
 	/**
@@ -158,18 +161,6 @@ public class SearchEvalLoggerUserNotificationHandler
 		}
 	}
 
-	private String _bodyKey(String notificationType) {
-		if (_READINESS.equals(notificationType)) {
-			return "notification-readiness-body";
-		}
-
-		if (_COLLECTION_STARTED.equals(notificationType)) {
-			return "notification-collection-started-body";
-		}
-
-		return "notification-stall-body";
-	}
-
 	/**
 	 * Which of the three messages of DESIGN.md 3.6 to render.
 	 *
@@ -214,18 +205,6 @@ public class SearchEvalLoggerUserNotificationHandler
 
 			return _STALL;
 		}
-	}
-
-	private String _titleKey(String notificationType) {
-		if (_READINESS.equals(notificationType)) {
-			return "notification-readiness-title";
-		}
-
-		if (_COLLECTION_STARTED.equals(notificationType)) {
-			return "notification-collection-started-title";
-		}
-
-		return "notification-stall-title";
 	}
 
 	private static final String _COLLECTION_STARTED =

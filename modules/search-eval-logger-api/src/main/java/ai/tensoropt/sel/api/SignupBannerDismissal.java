@@ -25,15 +25,15 @@ package ai.tensoropt.sel.api;
 public interface SignupBannerDismissal {
 
 	/**
-	 * Idempotent: dismissing an already dismissed banner, or a closed cycle,
-	 * does nothing and answers <code>true</code> - there is nothing left to
-	 * persist, which is not a failure.
+	 * Idempotent: dismissing an already dismissed banner does nothing and
+	 * answers <code>true</code>.
 	 *
 	 * @return whether the dismissal is durably recorded (or already was).
-	 *         <code>false</code> means the underlying write failed; the
-	 *         caller decides what to do with that, typically surfacing it as
-	 *         a failed request rather than reporting success for a change
-	 *         that was not actually saved.
+	 *         <code>false</code> means nothing was saved: the write failed,
+	 *         the cycle could not be read, or there is no open cycle to
+	 *         record it on. The caller typically surfaces that as a failed
+	 *         request rather than reporting success for a change that was
+	 *         not actually saved.
 	 */
 	public boolean dismiss(long companyId);
 
