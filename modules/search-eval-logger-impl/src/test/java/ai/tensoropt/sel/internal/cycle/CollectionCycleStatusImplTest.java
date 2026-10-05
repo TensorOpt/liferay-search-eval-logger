@@ -8,12 +8,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ai.tensoropt.sel.api.CollectionCycle;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegistry;
+import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -25,6 +30,9 @@ import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,11 +70,14 @@ public class CollectionCycleStatusImplTest {
 			_searchEvalLoggerConfiguration
 		);
 
+		_collectionNotifier = mock(CollectionNotifier.class);
+
 		_collectionCycleStatusImpl = new CollectionCycleStatusImpl();
 
 		_collectionCycleStatusImpl.setClock(_tickingClock());
 		_collectionCycleStatusImpl.setCollectionCycleStore(
 			_collectionCycleStore);
+		_collectionCycleStatusImpl.setCollectionNotifier(_collectionNotifier);
 		_collectionCycleStatusImpl.setSearchEvalLoggerConfigurationRegistry(
 			searchEvalLoggerConfigurationRegistry);
 	}
@@ -85,6 +96,146 @@ public class CollectionCycleStatusImplTest {
 			LocalDate.parse("2026-03-01"),
 			collectionCycle.getCollectionStartDate());
 		assertEquals(42L, collectionCycle.getEnabledByUserId());
+	}
+
+	/**
+	 * TO-112: fired from the persistence path, not the daily job, the moment
+	 * the collection start date is first set.
+	 */
+	@Test
+	public void theFirstPersistedEventNotifiesCollectionStarted() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		verify(_collectionNotifier).notifyCollectionStarted(_COMPANY_ID, 42L);
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertEquals(
+			LocalDate.parse("2026-03-01"),
+			collectionCycle.getCollectionStartedNotifiedDate());
+	}
+
+	/**
+	 * Exactly once per cycle: later events in the same cycle must not notify
+	 * again.
+	 */
+	@Test
+	public void laterEventsDoNotNotifyCollectionStartedAgain() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		for (int i = 0; i < 5; i++) {
+			_collectionCycleStatusImpl.recordPersistedEvent(
+				_COMPANY_ID, _date("2026-03-01T09:32:00Z"));
+		}
+
+		verify(_collectionNotifier, times(1)).notifyCollectionStarted(
+			anyLong(), anyLong());
+	}
+
+	/**
+	 * A new cycle re-arms the notification: closing and reopening must
+	 * produce a second one, not leave it permanently fired.
+	 */
+	@Test
+	public void aNewCycleReArmsTheCollectionStartedNotification() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		_collectionCycleStatusImpl.closeCycle(_COMPANY_ID);
+
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-11T09:31:00Z"));
+
+		verify(
+			_collectionNotifier, times(2)
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
+	}
+
+	/**
+	 * TO-112, round 3 review: an instance upgraded from before TO-112 has an
+	 * open cycle whose <code>collectionStartDate</code> is weeks old and
+	 * whose <code>collectionStartedNotifiedDate</code> does not exist, since
+	 * the field did not exist to have one. The first event persisted after
+	 * the upgrade restart must not read that as "just started" and send a
+	 * false "collection started, confirming the restart worked" for a
+	 * restart that happened weeks ago; it must backfill the marker silently
+	 * instead.
+	 */
+	@Test
+	public void aLegacyRecordWithNoNotifiedMarkerIsBackfilledWithoutNotifying() {
+		LocalDate legacyStartDate = LocalDate.parse("2026-01-01");
+
+		_collectionCycleStore.save(
+			new CollectionCycle(
+				_COMPANY_ID, true, 42L, Instant.parse("2026-01-01T00:00:00Z"),
+				legacyStartDate, null, null, null, false));
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		verify(
+			_collectionNotifier, never()
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertEquals(
+			legacyStartDate, collectionCycle.getCollectionStartDate(),
+			"A legacy collection start date must never move to a later " +
+				"event's date");
+		assertEquals(
+			legacyStartDate,
+			collectionCycle.getCollectionStartedNotifiedDate(),
+			"The marker should be backfilled rather than left null forever");
+	}
+
+	/**
+	 * The backfill must not repeat the notification check on every
+	 * subsequent event either, once the marker is durably recorded.
+	 */
+	@Test
+	public void aLegacyRecordIsBackfilledOnlyOnceAcrossMultipleEvents() {
+		_collectionCycleStore.save(
+			new CollectionCycle(
+				_COMPANY_ID, true, 42L, Instant.parse("2026-01-01T00:00:00Z"),
+				LocalDate.parse("2026-01-01"), null, null, null, false));
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		_collectionCycleStore.resetCounts();
+
+		for (int i = 0; i < 1000; i++) {
+			_collectionCycleStatusImpl.recordPersistedEvent(
+				_COMPANY_ID, _date("2026-03-01T09:32:00Z"));
+		}
+
+		assertEquals(
+			0, _collectionCycleStore.getReadCount(),
+			"Once the marker is backfilled, later events must not reach " +
+				"the store either, the same guarantee a normally started " +
+					"cycle already gets");
+		verify(
+			_collectionNotifier, never()
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
 	}
 
 	/**
@@ -195,14 +346,123 @@ public class CollectionCycleStatusImplTest {
 		_collectionCycleStatusImpl.recordReadinessNotified(
 			_COMPANY_ID, LocalDate.parse("2026-04-01"));
 
+		_collectionCycleStatusImpl.dismiss(_COMPANY_ID);
+
 		_collectionCycleStatusImpl.closeCycle(_COMPANY_ID);
 
 		CollectionCycle collectionCycle =
 			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
 
 		assertFalse(collectionCycle.isOpen());
+		assertNull(collectionCycle.getCycleOpenedDate());
 		assertNull(collectionCycle.getCollectionStartDate());
+		assertNull(collectionCycle.getCollectionStartedNotifiedDate());
 		assertNull(collectionCycle.getReadinessNotifiedDate());
+		assertNull(collectionCycle.getStallNotifiedDate());
+		assertFalse(collectionCycle.isSignupBannerDismissed());
+	}
+
+	/**
+	 * TO-112: opening a cycle records when, which the stall grace period
+	 * counts from.
+	 */
+	@Test
+	public void openingACycleRecordsWhenItOpened() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertEquals(_now, collectionCycle.getCycleOpenedDate());
+	}
+
+	/**
+	 * An open cycle carried over from before TO-112 has no recorded open
+	 * instant. It is backfilled with now rather than left null, or the stall
+	 * notification would be suppressed for that cycle's whole remaining life.
+	 */
+	@Test
+	public void anOpenCycleWithNoRecordedOpenInstantIsBackfilled() {
+		_collectionCycleStore.save(
+			new CollectionCycle(
+				_COMPANY_ID, true, 42L, null, null, null, null, null,
+				false));
+
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertEquals(_now, collectionCycle.getCycleOpenedDate());
+	}
+
+	/**
+	 * TO-112: dismissing the signup banner, or clicking its link, both call
+	 * this, and either suppresses it for the rest of the cycle.
+	 */
+	@Test
+	public void dismissingTheSignupBannerRecordsIt() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		assertTrue(_collectionCycleStatusImpl.dismiss(_COMPANY_ID));
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertTrue(collectionCycle.isSignupBannerDismissed());
+	}
+
+	@Test
+	public void dismissingAClosedCycleDoesNothing() {
+		assertTrue(
+			_collectionCycleStatusImpl.dismiss(_COMPANY_ID),
+			"Nothing left to persist is not a failure");
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertFalse(collectionCycle.isOpen());
+		assertFalse(collectionCycle.isSignupBannerDismissed());
+	}
+
+	@Test
+	public void dismissingAnAlreadyDismissedBannerIsIdempotent() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.dismiss(_COMPANY_ID);
+		_collectionCycleStore.resetCounts();
+
+		assertTrue(_collectionCycleStatusImpl.dismiss(_COMPANY_ID));
+		assertEquals(
+			0, _collectionCycleStore.getWriteCount(),
+			"Dismissing an already dismissed banner must not write again");
+	}
+
+	/**
+	 * TO-112, round 3 review: a caller that ignores this return value cannot
+	 * tell a saved dismissal from one that silently was not, which is what
+	 * made the web module's own failure handling unreachable dead code.
+	 */
+	@Test
+	public void dismissReportsWhenTheWriteFails() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStore.setFailWrites(true);
+
+		assertFalse(
+			_collectionCycleStatusImpl.dismiss(_COMPANY_ID),
+			"A failed write must be reported rather than swallowed as " +
+				"success");
+
+		_collectionCycleStore.setFailWrites(false);
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertFalse(
+			collectionCycle.isSignupBannerDismissed(),
+			"A failed write must not be reflected in the stored cycle " +
+				"either");
 	}
 
 	@Test
@@ -349,6 +609,75 @@ public class CollectionCycleStatusImplTest {
 			collectionCycle.getCollectionStartDate());
 	}
 
+	/**
+	 * TO-112: the lost update a concurrent {@link
+	 * CollectionCycleStatusImpl#dismiss} can cause without the per-company
+	 * lock. The daily job's thread is paused with the readiness marker's
+	 * record read but not yet saved, which is exactly the window a web
+	 * request thread's dismiss used to be able to run entirely inside -
+	 * reading the same old record, saving its own single change, and
+	 * silently erasing whatever the first thread was about to save. If the
+	 * lock in <code>CollectionCycleStatusImpl</code> is ever removed, the
+	 * dismiss thread runs inside that window instead of blocking on it, and
+	 * this test starts failing on the first assertion.
+	 */
+	@Test
+	public void concurrentDismissCannotLoseAReadinessMarker()
+		throws InterruptedException {
+
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		CountDownLatch readinessIsMidWrite = new CountDownLatch(1);
+		CountDownLatch dismissIsDone = new CountDownLatch(1);
+
+		_collectionCycleStore.pauseAfterNextGet(
+			() -> {
+				readinessIsMidWrite.countDown();
+
+				try {
+					dismissIsDone.await(2, TimeUnit.SECONDS);
+				}
+				catch (InterruptedException interruptedException) {
+					Thread.currentThread(
+					).interrupt();
+				}
+			});
+
+		Thread dismissThread = new Thread(
+			() -> {
+				try {
+					readinessIsMidWrite.await(2, TimeUnit.SECONDS);
+				}
+				catch (InterruptedException interruptedException) {
+					Thread.currentThread(
+					).interrupt();
+				}
+
+				_collectionCycleStatusImpl.dismiss(_COMPANY_ID);
+
+				dismissIsDone.countDown();
+			});
+
+		dismissThread.start();
+
+		_collectionCycleStatusImpl.recordReadinessNotified(
+			_COMPANY_ID, LocalDate.parse("2026-04-01"));
+
+		dismissThread.join(TimeUnit.SECONDS.toMillis(2));
+
+		CollectionCycle collectionCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertEquals(
+			LocalDate.parse("2026-04-01"),
+			collectionCycle.getReadinessNotifiedDate(),
+			"A concurrent dismiss erased the readiness marker, which would " +
+				"re-send a notification that already went out");
+		assertTrue(
+			collectionCycle.isSignupBannerDismissed(),
+			"The dismissal itself must not be the one lost instead");
+	}
+
 	private Date _date(String instant) {
 		return Date.from(Instant.parse(instant));
 	}
@@ -378,6 +707,7 @@ public class CollectionCycleStatusImplTest {
 
 	private CollectionCycleStatusImpl _collectionCycleStatusImpl;
 	private RecordingCollectionCycleStore _collectionCycleStore;
+	private CollectionNotifier _collectionNotifier;
 	private Instant _now;
 	private SearchEvalLoggerConfiguration _searchEvalLoggerConfiguration;
 
@@ -396,10 +726,30 @@ public class CollectionCycleStatusImplTest {
 			CollectionCycle collectionCycle = _collectionCycles.get(companyId);
 
 			if (collectionCycle == null) {
-				return CollectionCycle.closed(companyId);
+				collectionCycle = CollectionCycle.closed(companyId);
+			}
+
+			// After the read, not before: the snapshot about to be returned
+			// has to be the stale one a lost update needs, which means the
+			// pause happens once this method already has it in hand.
+
+			Runnable pauseAfterGet = _pauseAfterGet.getAndSet(null);
+
+			if (pauseAfterGet != null) {
+				pauseAfterGet.run();
 			}
 
 			return collectionCycle;
+		}
+
+		/**
+		 * Runs once, on the very next {@link #get}, then clears itself. Lets a
+		 * test force a concurrent mutator to run inside the gap between this
+		 * read and the save that follows it, which is exactly the window a
+		 * lost update needs.
+		 */
+		private void pauseAfterNextGet(Runnable runnable) {
+			_pauseAfterGet.set(runnable);
 		}
 
 		@Override
@@ -436,6 +786,8 @@ public class CollectionCycleStatusImplTest {
 		private final Map<Long, CollectionCycle> _collectionCycles =
 			new HashMap<>();
 		private boolean _failWrites;
+		private final AtomicReference<Runnable> _pauseAfterGet =
+			new AtomicReference<>();
 		private int _readCount;
 		private int _writeCount;
 

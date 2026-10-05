@@ -117,7 +117,7 @@ public class CollectionCycleMonitorTest {
 
 	@Test
 	public void enabledLoggingOpensACycleThatWasNeverObserved() {
-		_setCycle(CollectionCycle.open(_COMPANY_ID, 0));
+		_setCycle(CollectionCycle.open(_COMPANY_ID, 0, _CLOCK_INSTANT));
 
 		_collectionCycleMonitor.check(_COMPANY_ID);
 
@@ -132,7 +132,8 @@ public class CollectionCycleMonitorTest {
 			false
 		);
 
-		_setCycle(CollectionCycle.open(_COMPANY_ID, 42L));
+		_setCycle(
+			CollectionCycle.open(_COMPANY_ID, 42L, _OPENED_OVER_A_DAY_AGO));
 
 		_collectionCycleMonitor.check(_COMPANY_ID);
 
@@ -144,6 +145,32 @@ public class CollectionCycleMonitorTest {
 		);
 	}
 
+	/**
+	 * TO-112: the stall notification is not sent when the cycle opened less
+	 * than 24 hours ago, which is the false alarm this grace period exists to
+	 * suppress - the daily job landing between enabling and a restart the
+	 * administrator was already about to do.
+	 */
+	@Test
+	public void aBypassedInstanceWithinTheGracePeriodIsNotNotified() {
+		when(
+			_searchInterceptionStatus.isIntercepting()
+		).thenReturn(
+			false
+		);
+
+		_setCycle(CollectionCycle.open(_COMPANY_ID, 42L, _CLOCK_INSTANT));
+
+		_collectionCycleMonitor.check(_COMPANY_ID);
+
+		verify(_collectionNotifier, never()).notifyStall(anyLong(), anyLong());
+		verify(
+			_collectionCycleStatusImpl, never()
+		).recordStallNotified(
+			anyLong(), any(LocalDate.class)
+		);
+	}
+
 	@Test
 	public void theStallNotificationIsSentOnlyOncePerCycle() {
 		when(
@@ -152,7 +179,8 @@ public class CollectionCycleMonitorTest {
 			false
 		);
 
-		CollectionCycle collectionCycle = CollectionCycle.open(_COMPANY_ID, 42L);
+		CollectionCycle collectionCycle = CollectionCycle.open(
+			_COMPANY_ID, 42L, _OPENED_OVER_A_DAY_AGO);
 
 		_setCycle(
 			collectionCycle.withStallNotifiedDate(
@@ -267,7 +295,8 @@ public class CollectionCycleMonitorTest {
 			false
 		);
 
-		_setCycle(CollectionCycle.open(_COMPANY_ID, 42L));
+		_setCycle(
+			CollectionCycle.open(_COMPANY_ID, 42L, _OPENED_OVER_A_DAY_AGO));
 
 		_collectionCycleMonitor.check(_COMPANY_ID);
 
@@ -279,7 +308,8 @@ public class CollectionCycleMonitorTest {
 	}
 
 	private CollectionCycle _cycleStartedOn(LocalDate localDate) {
-		CollectionCycle collectionCycle = CollectionCycle.open(_COMPANY_ID, 42L);
+		CollectionCycle collectionCycle = CollectionCycle.open(
+			_COMPANY_ID, 42L, _CLOCK_INSTANT);
 
 		return collectionCycle.withCollectionStartDate(localDate);
 	}
@@ -301,7 +331,17 @@ public class CollectionCycleMonitorTest {
 		);
 	}
 
+	private static final Instant _CLOCK_INSTANT = Instant.parse(
+		"2026-06-01T02:00:00Z");
+
 	private static final long _COMPANY_ID = 20097L;
+
+	/**
+	 * Comfortably past the 24 hour stall grace period of TO-112, measured
+	 * against the monitor's fixed clock above.
+	 */
+	private static final Instant _OPENED_OVER_A_DAY_AGO = Instant.parse(
+		"2026-05-01T00:00:00Z");
 
 	private CollectionCycleMonitor _collectionCycleMonitor;
 	private CollectionCycleStatusImpl _collectionCycleStatusImpl;

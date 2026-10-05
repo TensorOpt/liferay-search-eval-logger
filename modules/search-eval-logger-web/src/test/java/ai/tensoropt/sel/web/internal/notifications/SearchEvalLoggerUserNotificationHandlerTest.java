@@ -26,15 +26,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The two notifications say opposite things, so which one an unreadable
+ * The three notifications say different things, so which one an unreadable
  * payload renders as is a decision, not a detail.
  *
  * <p>
  * Reading it as readiness would tell an administrator their search log is ready
  * to export on an instance that may have collected nothing, and they would find
  * out by running an empty export. Reading it as a stall costs them a restart
- * they may not have needed. Only an explicit readiness payload gets the
- * reassuring message.
+ * they may not have needed. Only an explicit readiness or collection-started
+ * payload gets its own message; everything else, including a type this
+ * version does not recognise, falls to the stall message.
  * </p>
  *
  * <p>
@@ -80,6 +81,19 @@ public class SearchEvalLoggerUserNotificationHandlerTest {
 
 		assertEquals(
 			"notification-readiness-title",
+			_searchEvalLoggerUserNotificationHandler.getTitle(
+				_userNotificationEvent, _serviceContext));
+	}
+
+	@Test
+	public void anExplicitCollectionStartedPayloadRendersAsCollectionStarted()
+		throws Exception {
+
+		_setPayloadType(
+			SearchEvalLoggerConstants.NOTIFICATION_TYPE_COLLECTION_STARTED);
+
+		assertEquals(
+			"notification-collection-started-title",
 			_searchEvalLoggerUserNotificationHandler.getTitle(
 				_userNotificationEvent, _serviceContext));
 	}

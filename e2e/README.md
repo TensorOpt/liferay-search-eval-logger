@@ -264,12 +264,15 @@ is then the one a real installation makes.
 | `plugin-absent-baseline` | The SEL tables do not exist before installation, so their later presence means something |
 | `install-onto-running-portal` | All four bundles start on a portal that is already serving, and Service Builder creates both tables and their indexes |
 | `ec3-bypass-detected` | DESIGN.md 3.1: installed onto a running portal, the wrapper is registered and never called, and the plugin says so in the log and on its screen rather than leaving an empty table to be discovered |
-| `stall-notification` | DESIGN.md 3.6 condition 1 fires, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
+| `stall-grace-period` | TO-112: the stall notification is suppressed while the cycle is within its first 24 hours, the false alarm the grace period exists to prevent |
+| `stall-notification` | DESIGN.md 3.6 condition 1 fires once the grace period has passed, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
 | `restart-clears-bypass` | The restart is what makes Liferay's search consumers bind the wrapper |
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
+| `collection-started-notification` | TO-112: exactly one "collection started" notification per cycle, fired from the persistence path rather than the daily job, none for a later event in the same cycle, and a new cycle re-arms it |
+| `email-delivery-preference` | EC-15 (TO-112): `UserNotificationManagerUtil.fetchUserNotificationDefinition` finds the registered definition and `isDeliver` answers true for email for an administrator who never set a preference. Not evidence of delivery - the stack has no SMTP sink - only of the gate `CollectionNotifier` checks |
 | `scale-data` | The corpus is written, and every hit's duplicated `companyId` and `createDate` match its event's |
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
 | `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored, shown in the administrator's notifications list, and the banner rendered |
@@ -280,6 +283,7 @@ is then the one a real installation makes.
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
 | `funnel-links` | DESIGN.md 10.1 and 10.3 |
 | `funnel-zero-egress` | D9, as far as a rendered page can be inspected |
+| `signup-banner` | DESIGN.md 10.1/10.2 (TO-112): the signup banner is shown under the same conditions as the link it replaces, and dismissing it through its own resource URL hides it and persists `signupBannerDismissed` |
 | `export-foreign-download` | TO-91: the export's download URL, given another background task's id, does not serve that task's attachment, while its own id still serves the archive |
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
@@ -391,12 +395,16 @@ alongside the unit tests rather than only before a release.
 - **EC-5, EC-6, EC-13.** The headless Search API is behind feature flag
   `LPS-179669` and Blueprints need Liferay Enterprise Search. Both are open in
   DESIGN.md section 7 for the same reasons.
-- **Notification delivery beyond the website.** The two notification cases
-  read the administrator's notifications list, which is where the plugin
-  delivers. Email or any other delivery channel is not configured and not
-  checked.
+- **Email delivery (TO-112, EC-15).** The notification cases read the
+  administrator's notifications list and the stored `UserNotificationEvent`
+  row, which cover the website path. The stack has no SMTP sink (no
+  MailHog/Mailpit container, no mail server configuration), so nothing here
+  observes whether `EmailDelivery.send` was ever called or whether a message
+  actually arrived; see DESIGN.md EC-15 for what was established about email
+  from the API instead.
 - **Cluster behaviour.** One node, one JVM. The collection cycle's expiring
-  marker (DESIGN.md 3.6) exists for the multi node case, which this does not
+  marker and its per-company lock (DESIGN.md 3.6) exist for the multi node
+  case, which this does not
   reach.
 - **Anything `selftest.py` does not have a mutation for.** It covers the
   assertions that were found to be vacuous and the ones added since. It is a

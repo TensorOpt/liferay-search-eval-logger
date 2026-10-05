@@ -285,9 +285,14 @@ def main(argv):
             requires=["install-onto-running-portal"],
         )
         results.run(
+            "stall-grace-period",
+            lambda case: checks.stall_grace_period(context, case),
+            requires=["ec3-bypass-detected"],
+        )
+        results.run(
             "stall-notification",
             lambda case: checks.stall_notification(context, case),
-            requires=["ec3-bypass-detected"],
+            requires=["stall-grace-period"],
         )
         results.run(
             "restart-clears-bypass",
@@ -313,6 +318,16 @@ def main(argv):
             "collection-start-recorded",
             lambda case: checks.collection_start_recorded(context, case),
             requires=["capture"],
+        )
+        results.run(
+            "collection-started-notification",
+            lambda case: checks.collection_started_notification(context, case),
+            requires=["collection-start-recorded"],
+        )
+        results.run(
+            "email-delivery-preference",
+            lambda case: checks.email_delivery_preference(context, case),
+            requires=["collection-started-notification"],
         )
         results.run(
             "scale-data",
@@ -368,6 +383,11 @@ def main(argv):
             "funnel-zero-egress",
             lambda case: checks.zero_egress(context, case),
             requires=["funnel-links"],
+        )
+        results.run(
+            "signup-banner",
+            lambda case: checks.signup_banner(context, case),
+            requires=["funnel-zero-egress"],
         )
         results.run(
             "export-foreign-download",

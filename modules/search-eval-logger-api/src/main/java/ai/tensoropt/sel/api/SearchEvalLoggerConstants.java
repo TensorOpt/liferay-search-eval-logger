@@ -44,6 +44,29 @@ public final class SearchEvalLoggerConstants {
 	 */
 	public static final String DESTINATION_NAME = "tensoropt/search-eval-log";
 
+	/**
+	 * The <code>classNameId</code> the three notifications of DESIGN.md 3.6
+	 * register their email delivery preference under (TO-112, EC-15). Zero
+	 * rather than a resolved class name id, because none of the three is
+	 * backed by a real Liferay model the way a Message Boards post is;
+	 * Liferay's own <code>MBAddEntryUserNotificationDefinition</code> uses the
+	 * same zero for exactly that reason. Shared between the web module, which
+	 * registers the <code>UserNotificationDefinition</code>, and the impl
+	 * module, which checks <code>UserNotificationManagerUtil.isDeliver</code>
+	 * against it: the two have to agree, or every check silently answers as if
+	 * no definition were registered at all.
+	 */
+	public static final long DELIVERY_PREFERENCE_CLASS_NAME_ID = 0L;
+
+	/**
+	 * The <code>notificationType</code> paired with {@link
+	 * #DELIVERY_PREFERENCE_CLASS_NAME_ID}. One value for all three
+	 * notifications: they share a single email/website preference rather than
+	 * three independently toggleable ones, which is the simpler choice absent
+	 * any evidence an administrator wants to tell them apart.
+	 */
+	public static final int DELIVERY_PREFERENCE_NOTIFICATION_TYPE = 0;
+
 	public static final String FIELD_SNIPPET = "snippet";
 
 	public static final String FIELD_TITLE = "title";
@@ -54,6 +77,15 @@ public final class SearchEvalLoggerConstants {
 	 */
 	public static final String NOTIFICATION_PAYLOAD_KEY_TYPE =
 		"notificationType";
+
+	/**
+	 * Fired once per cycle from the persistence path the moment
+	 * <code>collectionStartDate</code> is first set (TO-112), rather than from
+	 * the daily job, so an administrator learns the restart worked without
+	 * waiting up to 24 hours for the next run.
+	 */
+	public static final String NOTIFICATION_TYPE_COLLECTION_STARTED =
+		"COLLECTION_STARTED";
 
 	public static final String NOTIFICATION_TYPE_READINESS = "READINESS";
 

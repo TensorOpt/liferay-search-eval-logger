@@ -24,6 +24,7 @@ import ai.tensoropt.sel.api.CollectionCycle;
 import ai.tensoropt.sel.api.CollectionCycleStatus;
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 import ai.tensoropt.sel.api.SearchInterceptionStatus;
+import ai.tensoropt.sel.api.SignupBannerDismissal;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
 import ai.tensoropt.sel.web.internal.funnel.EvaluationServiceLinks;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
@@ -44,6 +46,8 @@ import javax.portlet.RenderRequest;
 import javax.portlet.RenderResponse;
 import javax.portlet.ResourceRequest;
 import javax.portlet.ResourceResponse;
+
+import javax.servlet.http.HttpServletResponse;
 
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -120,8 +124,12 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 			_collectionCycleStatus.getCollectionCycle(
 				themeDisplay.getCompanyId());
 
-		boolean showEvaluationServiceLinks = _showEvaluationServiceLinks(
-			themeDisplay.getCompanyId());
+		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
+			_getSearchEvalLoggerConfiguration(themeDisplay.getCompanyId());
+
+		boolean showEvaluationServiceLinks =
+			(searchEvalLoggerConfiguration != null) &&
+				searchEvalLoggerConfiguration.showEvaluationServiceLinks();
 
 		renderRequest.setAttribute("intercepting", intercepting);
 		renderRequest.setAttribute("statistics", _searchEvalLoggerStatistics);
@@ -135,14 +143,41 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 		renderRequest.setAttribute(
 			"showEvaluationServiceLinks", showEvaluationServiceLinks);
 
-		if (EvaluationServiceLinks.isCollectionStartLinkVisible(
-				showEvaluationServiceLinks, intercepting,
-				collectionCycle.getCollectionStartDate())) {
+		// DESIGN.md 10.1/10.2 (TO-112): the banner replaces the plain inline
+		// link, under the same visibility rule plus "not already dismissed or
+		// clicked this cycle".
+
+		boolean showSignupBanner = EvaluationServiceLinks.isSignupBannerVisible(
+			showEvaluationServiceLinks, intercepting,
+			collectionCycle.getCollectionStartDate(),
+			collectionCycle.isSignupBannerDismissed());
+
+		renderRequest.setAttribute("showSignupBanner", showSignupBanner);
+
+		if (showSignupBanner) {
+			LocalDate collectionStartDate =
+				collectionCycle.getCollectionStartDate();
 
 			renderRequest.setAttribute(
 				"collectionStartURL",
 				EvaluationServiceLinks.getCollectionStartURL(
-					collectionCycle.getCollectionStartDate()));
+					collectionStartDate));
+
+			// TO-112: a cycle running long enough to have already passed its
+			// own readiness threshold must not promise a reminder "around" a
+			// date that has already gone by; the generic phrasing covers
+			// that instead.
+
+			LocalDate readyAroundDate = collectionStartDate.plusDays(
+				searchEvalLoggerConfiguration.readinessMinimumDays());
+
+			if (EvaluationServiceLinks.isSignupBannerDateMeaningful(
+					collectionCycle.isReadinessNotified(), readyAroundDate,
+					LocalDate.now(ZoneOffset.UTC))) {
+
+				renderRequest.setAttribute(
+					"signupBannerReadyAroundDate", _toString(readyAroundDate));
+			}
 		}
 
 		renderRequest.setAttribute(
@@ -181,11 +216,77 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 			ResourceRequest resourceRequest, ResourceResponse resourceResponse)
 		throws IOException, PortletException {
 
+		if (SearchEvalLoggerPortletKeys.RESOURCE_ID_DISMISS_SIGNUP_BANNER.
+				equals(resourceRequest.getResourceID())) {
+
+			_dismissSignupBanner(resourceRequest, resourceResponse);
+
+			return;
+		}
+
 		try {
 			_serveArchive(resourceRequest, resourceResponse);
 		}
 		catch (PortalException portalException) {
 			throw new PortletException(portalException);
+		}
+	}
+
+	/**
+	 * TO-112: dismissing the signup banner, or clicking its link, both reach
+	 * here. No permission check beyond ordinary portlet access, because this
+	 * only hides a banner for the viewing company's administrators and touches
+	 * nothing an export-specific check guards.
+	 *
+	 * <p>
+	 * <b>POST only.</b> A resource URL is otherwise reachable by a plain GET,
+	 * which is exactly what a browser's own link prefetch, a mail client's
+	 * image proxy, or a passive crawler following the rendered page can issue
+	 * without anybody actually clicking anything. This plugin's own
+	 * <code>&#64;Component</code> property leaves the default resource weight,
+	 * so nothing else here distinguishes a real click from one of those; the
+	 * method is what does. <code>p_auth</code> is deliberately not also
+	 * checked: Liferay does not require it for a resource request the way it
+	 * does for an action (the export download resource above never has), and
+	 * the only thing a forged cross-site POST here could do is hide a banner
+	 * for the viewing company's own administrators - not worth the added
+	 * surface for a check this plugin would be the only thing relying on.
+	 * </p>
+	 */
+	private void _dismissSignupBanner(
+		ResourceRequest resourceRequest, ResourceResponse resourceResponse) {
+
+		if (!"POST".equalsIgnoreCase(resourceRequest.getMethod())) {
+			resourceResponse.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+
+			return;
+		}
+
+		ThemeDisplay themeDisplay = (ThemeDisplay)resourceRequest.getAttribute(
+			WebKeys.THEME_DISPLAY);
+
+		try {
+			boolean dismissed = _signupBannerDismissal.dismiss(
+				themeDisplay.getCompanyId());
+
+			if (!dismissed) {
+				resourceResponse.setStatus(
+					HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+
+				if (_log.isWarnEnabled()) {
+					_log.warn(
+						"Unable to dismiss the signup banner for company " +
+							themeDisplay.getCompanyId());
+				}
+			}
+		}
+		catch (Exception exception) {
+			resourceResponse.setStatus(
+				HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+
+			if (_log.isWarnEnabled()) {
+				_log.warn("Unable to dismiss the signup banner", exception);
+			}
 		}
 	}
 
@@ -282,17 +383,18 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 	}
 
 	/**
-	 * Hidden when the configuration cannot be read. The setting exists so an
-	 * administrator can remove the links without forking, so an unreadable
-	 * configuration must not put them back.
+	 * <code>null</code> when the configuration cannot be read. The setting
+	 * that hides the funnel links exists so an administrator can remove them
+	 * without forking, so an unreadable configuration must not put them back;
+	 * every caller here treats <code>null</code> the same way "links off"
+	 * would be treated.
 	 */
-	private boolean _showEvaluationServiceLinks(long companyId) {
-		try {
-			SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
-				_configurationProvider.getCompanyConfiguration(
-					SearchEvalLoggerConfiguration.class, companyId);
+	private SearchEvalLoggerConfiguration _getSearchEvalLoggerConfiguration(
+		long companyId) {
 
-			return searchEvalLoggerConfiguration.showEvaluationServiceLinks();
+		try {
+			return _configurationProvider.getCompanyConfiguration(
+				SearchEvalLoggerConfiguration.class, companyId);
 		}
 		catch (Exception exception) {
 			if (_log.isDebugEnabled()) {
@@ -302,7 +404,7 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 					exception);
 			}
 
-			return false;
+			return null;
 		}
 	}
 
@@ -330,5 +432,8 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 	@Reference
 	private SearchInterceptionStatus _searchInterceptionStatus;
+
+	@Reference
+	private SignupBannerDismissal _signupBannerDismissal;
 
 }

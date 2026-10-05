@@ -18,6 +18,13 @@ result = String.valueOf(
     com.liferay.portal.kernel.util.PortalUtil.getDefaultCompanyId())
 """
 
+USER_ID_BY_EMAIL = """
+long companyId = %(company_id)dL
+result = String.valueOf(
+    com.liferay.portal.kernel.service.UserLocalServiceUtil.
+        getUserByEmailAddress(companyId, "%(email)s").getUserId())
+"""
+
 GROUP_ID = """
 long companyId = %(company_id)dL
 result = String.valueOf(
@@ -123,6 +130,23 @@ if (refs != null) {
 result = lines.join("\\n")
 """
 
+# Closes and reopens the collection cycle, through the same service the
+# configuration listener and the daily job call (TO-112's re-arm test):
+# CollectionCycleStatusImpl.closeCycle then .openCycle. Reflective for the
+# same reason PURGE and CYCLE_CHECK are: search-eval-logger-impl exports
+# nothing.
+CYCLE_REOPEN = _SERVICE_PREAMBLE + """
+def status = __find("ai.tensoropt.sel.internal.cycle.CollectionCycleStatusImpl")
+
+__call(
+    status, "closeCycle", [long.class] as Class[], [%(company_id)dL] as Object[])
+__call(
+    status, "openCycle", [long.class, long.class] as Class[],
+    [%(company_id)dL, %(enabled_by_user_id)dL] as Object[])
+
+result = "ok"
+"""
+
 # The collection cycle record of DESIGN.md 3.6, read from where the plugin
 # keeps it: company scoped portlet preferences under its own portlet id.
 # The plugin's two scheduled jobs, with their next two fire times in UTC.
@@ -174,6 +198,26 @@ result = JsonOutput.toJson([
         task.getBackgroundTaskId()).getAttachmentsFileEntriesCount()])
 """
 
+# EC-15 (TO-112): the isDeliver gate, checked directly against a running
+# instance rather than only through CollectionNotifier's own behaviour.
+# UserNotificationManagerUtil is public portal-kernel API, so this needs no
+# reflection the way CYCLE_CHECK and PURGE do.
+EMAIL_DELIVERY_PREFERENCE = """
+long userId = %(user_id)dL
+
+def definition =
+    com.liferay.portal.kernel.notifications.UserNotificationManagerUtil.
+        fetchUserNotificationDefinition("%(portlet_id)s", 0L, 0)
+
+def deliverEmail =
+    com.liferay.portal.kernel.notifications.UserNotificationManagerUtil.
+        isDeliver(userId, "%(portlet_id)s", 0L, 0, 10000)
+
+result = JsonOutput.toJson([
+    definitionFound: definition != null,
+    isDeliverEmail: deliverEmail])
+"""
+
 CYCLE_READ = """
 long companyId = %(company_id)dL
 
@@ -187,13 +231,43 @@ def preferences =
 
 def values = [:]
 
-for (key in ["open", "enabledByUserId", "collectionStartDate",
-             "readinessNotifiedDate", "stallNotifiedDate"]) {
+for (key in ["open", "enabledByUserId", "cycleOpenedDate",
+             "collectionStartDate", "collectionStartedNotifiedDate",
+             "readinessNotifiedDate", "stallNotifiedDate",
+             "signupBannerDismissed"]) {
 
     values.put(key, String.valueOf(preferences.getValue(key, "")))
 }
 
 result = values
+"""
+
+# Writes arbitrary preference values into the collection cycle record, through
+# the same service the plugin itself writes with. Used to backdate
+# collectionStartDate (readiness) and cycleOpenedDate (the TO-112 stall grace
+# period) to their real thresholds instead of lowering the thresholds to suit
+# the test.
+CYCLE_WRITE = """
+long companyId = %(company_id)dL
+
+def preferences =
+    com.liferay.portal.kernel.service.PortletPreferencesLocalServiceUtil.
+        getPreferences(
+            companyId, companyId,
+            com.liferay.portal.kernel.util.PortletKeys.PREFS_OWNER_TYPE_COMPANY,
+            com.liferay.portal.kernel.util.PortletKeys.PREFS_PLID_SHARED,
+            "%(portlet_id)s")
+
+%(assignments)s
+
+com.liferay.portal.kernel.service.PortletPreferencesLocalServiceUtil.
+    updatePreferences(
+        companyId,
+        com.liferay.portal.kernel.util.PortletKeys.PREFS_OWNER_TYPE_COMPANY,
+        com.liferay.portal.kernel.util.PortletKeys.PREFS_PLID_SHARED,
+        "%(portlet_id)s", preferences)
+
+result = "ok"
 """
 
 # Moves the collection start date back, so the readiness condition can be

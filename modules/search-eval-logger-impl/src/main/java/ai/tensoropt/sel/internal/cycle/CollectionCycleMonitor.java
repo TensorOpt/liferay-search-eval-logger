@@ -15,6 +15,7 @@ import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 import ai.tensoropt.sel.service.SearchEventLocalService;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
@@ -113,7 +114,7 @@ public class CollectionCycleMonitor {
 
 		LocalDate today = LocalDate.now(_clock.withZone(ZoneOffset.UTC));
 
-		if (_checkStall(collectionCycle, today)) {
+		if (_checkStall(collectionCycle, today, _clock.instant())) {
 			return;
 		}
 
@@ -160,10 +161,11 @@ public class CollectionCycleMonitor {
 	 * evaluate after it.
 	 */
 	private boolean _checkStall(
-		CollectionCycle collectionCycle, LocalDate today) {
+		CollectionCycle collectionCycle, LocalDate today, Instant now) {
 
 		if (!CollectionReadiness.isStalled(
-				collectionCycle, _searchInterceptionStatus.isIntercepting())) {
+				collectionCycle, _searchInterceptionStatus.isIntercepting(),
+				now)) {
 
 			return false;
 		}

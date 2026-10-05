@@ -83,8 +83,10 @@ public final class EvaluationServiceLinks {
 	}
 
 	/**
-	 * Shown only once collection is demonstrably working: a start date exists,
-	 * so an event has been persisted, and interception is not being bypassed.
+	 * The base visibility rule of 10.1, shared by the signup banner
+	 * ({@link #isSignupBannerVisible}) that is now the only thing that renders
+	 * it (TO-112): a start date exists, so an event has been persisted, and
+	 * interception is not being bypassed.
 	 *
 	 * <p>
 	 * Both conditions matter for the same reason. The date carried to the
@@ -102,6 +104,47 @@ public final class EvaluationServiceLinks {
 		}
 
 		return collectionStartDate != null;
+	}
+
+	/**
+	 * The signup banner of 10.1 (TO-112), which replaces the plain inline link
+	 * the section originally specified. Visible under exactly the same
+	 * conditions as {@link #isCollectionStartLinkVisible}, plus one more:
+	 * <code>signupBannerDismissed</code> must not already be set, whether that
+	 * came from an explicit dismissal or from the administrator having clicked
+	 * the banner's own link. Both are local, in-portal state; see
+	 * <code>ai.tensoropt.sel.api.SignupBannerDismissal</code>.
+	 */
+	public static boolean isSignupBannerVisible(
+		boolean showEvaluationServiceLinks, boolean intercepting,
+		LocalDate collectionStartDate, boolean signupBannerDismissed) {
+
+		if (signupBannerDismissed) {
+			return false;
+		}
+
+		return isCollectionStartLinkVisible(
+			showEvaluationServiceLinks, intercepting, collectionStartDate);
+	}
+
+	/**
+	 * Whether the "around {0}" date in the signup banner's benefit text is
+	 * still a date worth saying (TO-112). A long-running, never-dismissed
+	 * cycle that has already passed its readiness threshold would otherwise
+	 * promise a reminder "around" a day that has already gone by, or one the
+	 * readiness notification already announced - confusing rather than
+	 * informative. <code>false</code> means the caller should fall back to
+	 * the dateless phrasing instead of omitting the benefit altogether.
+	 */
+	public static boolean isSignupBannerDateMeaningful(
+		boolean readinessNotified, LocalDate readyAroundDate,
+		LocalDate today) {
+
+		if (readinessNotified) {
+			return false;
+		}
+
+		return !readyAroundDate.isBefore(today);
 	}
 
 	/**

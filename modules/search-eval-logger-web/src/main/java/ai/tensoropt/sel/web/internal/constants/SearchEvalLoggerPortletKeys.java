@@ -28,6 +28,13 @@ public class SearchEvalLoggerPortletKeys {
 		"/search_eval_logger/export";
 
 	/**
+	 * The signup banner's dismiss and click tracking (TO-112), served as a
+	 * resource rather than an action so dismissing it costs no page reload.
+	 */
+	public static final String RESOURCE_ID_DISMISS_SIGNUP_BANNER =
+		"dismissSignupBanner";
+
+	/**
 	 * The impl bundle sends notifications typed with this same name, so it is
 	 * defined once in the api bundle and read from there rather than repeated.
 	 */

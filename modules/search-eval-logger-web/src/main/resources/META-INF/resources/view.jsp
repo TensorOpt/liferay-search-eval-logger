@@ -45,24 +45,90 @@ job writes, not the notification.
 	</div>
 
 	<%--
-	DESIGN.md 10.1. A plain anchor, opened by a person, in a new tab. No
-	prefetch, no preload, no iframe, no image, no script: nothing here or
-	anywhere else in this plugin contacts this address until somebody clicks it
-	(D9). It is rendered only once a collection start date exists, so the date
-	it carries is the date collection actually began, and it is suppressed
-	while the bypass warning above is showing.
+	DESIGN.md 10.1/10.2 (TO-112). The signup banner replaces the plain inline
+	link: same visibility rule (not shown until a collection start date exists
+	and the bypass warning above is clear), plus a local dismiss control.
+	Clicking the link or the dismiss control both hide the banner for the rest
+	of this cycle; see SignupBannerDismissal. Nothing about either action is
+	transmitted anywhere - the fetch below targets this portlet's own resource
+	URL, same origin, nothing else.
 
-	rel="noopener noreferrer" so the new tab gets no handle on this window and
-	no referrer: the target learns that someone clicked, and nothing about
-	where from beyond the UTM tags in the address itself.
+	The anchor itself: a plain link, opened by a person, in a new tab. No
+	prefetch, no preload, no iframe, no image, no script contacts
+	${collectionStartURL} until somebody clicks it (D9). rel="noopener
+	noreferrer" so the new tab gets no handle on this window and no referrer:
+	the target learns that someone clicked, and nothing about where from
+	beyond the UTM tags in the address itself.
 	--%>
 
-	<c:if test="${not empty collectionStartURL}">
-		<p>
-			<a href="${collectionStartURL}" rel="noopener noreferrer" target="_blank">
-				<liferay-ui:message key="collection-start-link" />
-			</a>
-		</p>
+	<c:if test="${showSignupBanner}">
+		<portlet:resourceURL id="<%= SearchEvalLoggerPortletKeys.RESOURCE_ID_DISMISS_SIGNUP_BANNER %>" var="dismissSignupBannerURL" />
+
+		<div class="alert alert-info" id="<portlet:namespace />selSignupBanner">
+			<p>
+				<c:choose>
+					<c:when test="${not empty signupBannerReadyAroundDate}">
+						<liferay-ui:message arguments="${signupBannerReadyAroundDate}" key="signup-banner-benefit" />
+					</c:when>
+					<c:otherwise>
+						<liferay-ui:message key="signup-banner-benefit-generic" />
+					</c:otherwise>
+				</c:choose>
+			</p>
+
+			<p class="mb-0">
+				<a href="${collectionStartURL}" id="<portlet:namespace />selSignupBannerLink" rel="noopener noreferrer" target="_blank">
+					<liferay-ui:message key="collection-start-link" />
+				</a>
+
+				&#160;&#8226;&#160;
+
+				<button class="btn btn-link" id="<portlet:namespace />selSignupBannerDismiss" type="button">
+					<liferay-ui:message key="dismiss" />
+				</button>
+			</p>
+		</div>
+
+		<%--
+		aui:script rather than a plain script tag: Liferay's own tag renders
+		it with whatever CSP nonce the request needs, which a literal
+		<script> block does not get. The fetch below is same origin - this
+		portlet's own resource URL - which is what keeps it on the right side
+		of D9; nothing here ever references an external host.
+		--%>
+
+		<aui:script>
+			(function() {
+				var banner = document.getElementById('<portlet:namespace />selSignupBanner');
+
+				function dismiss() {
+					if (banner) {
+						banner.style.display = 'none';
+					}
+
+					try {
+						fetch(
+							'${dismissSignupBannerURL}',
+							{credentials: 'same-origin', method: 'POST'}
+						).catch(function() {});
+					}
+					catch (error) {
+					}
+				}
+
+				var link = document.getElementById('<portlet:namespace />selSignupBannerLink');
+
+				if (link) {
+					link.addEventListener('click', dismiss);
+				}
+
+				var dismissButton = document.getElementById('<portlet:namespace />selSignupBannerDismiss');
+
+				if (dismissButton) {
+					dismissButton.addEventListener('click', dismiss);
+				}
+			})();
+		</aui:script>
 	</c:if>
 
 	<c:choose>

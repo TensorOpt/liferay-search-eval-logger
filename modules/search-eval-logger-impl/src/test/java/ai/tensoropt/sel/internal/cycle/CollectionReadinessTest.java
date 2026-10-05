@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import ai.tensoropt.sel.api.CollectionCycle;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
@@ -24,7 +26,8 @@ public class CollectionReadinessTest {
 	public void notReadyWhileNothingHasBeenCollected() {
 		assertFalse(
 			CollectionReadiness.isReady(
-				CollectionCycle.open(1L, 0), _TODAY, 30, 100000L, 500),
+				CollectionCycle.open(1L, 0, _OPENED), _TODAY, 30, 100000L,
+				500),
 			"A cycle with no collection start date has collected nothing, " +
 				"whatever else is true of it");
 	}
@@ -89,15 +92,19 @@ public class CollectionReadinessTest {
 	}
 
 	@Test
-	public void stalledWhenEnabledCollectingNothingAndBypassed() {
+	public void stalledWhenEnabledCollectingNothingBypassedAndPastGrace() {
 		assertTrue(
-			CollectionReadiness.isStalled(CollectionCycle.open(1L, 0), false));
+			CollectionReadiness.isStalled(
+				CollectionCycle.open(1L, 0, _OPENED_OVER_A_DAY_AGO), false,
+				_NOW));
 	}
 
 	@Test
 	public void notStalledWhileInterceptionIsWorking() {
 		assertFalse(
-			CollectionReadiness.isStalled(CollectionCycle.open(1L, 0), true));
+			CollectionReadiness.isStalled(
+				CollectionCycle.open(1L, 0, _OPENED_OVER_A_DAY_AGO), true,
+				_NOW));
 	}
 
 	/**
@@ -109,20 +116,64 @@ public class CollectionReadinessTest {
 	public void notStalledOnceSomethingHasBeenCollected() {
 		assertFalse(
 			CollectionReadiness.isStalled(
-				_cycleStartedOn(_TODAY.minusDays(1)), false));
+				_cycleStartedOn(_TODAY.minusDays(1)), false, _NOW));
 	}
 
 	@Test
 	public void notStalledWhileNoCycleIsOpen() {
 		assertFalse(
-			CollectionReadiness.isStalled(CollectionCycle.closed(1L), false));
+			CollectionReadiness.isStalled(CollectionCycle.closed(1L), false, _NOW));
+	}
+
+	/**
+	 * TO-112: the grace period this guards against is exactly the daily job
+	 * landing between enabling and a restart the administrator was already
+	 * about to do.
+	 */
+	@Test
+	public void notStalledWithinTheGracePeriod() {
+		assertFalse(
+			CollectionReadiness.isStalled(
+				CollectionCycle.open(1L, 0, _NOW.minus(Duration.ofHours(23))),
+				false, _NOW));
+	}
+
+	@Test
+	public void stalledExactlyAtTheGracePeriodBoundary() {
+		assertTrue(
+			CollectionReadiness.isStalled(
+				CollectionCycle.open(1L, 0, _NOW.minus(Duration.ofHours(24))),
+				false, _NOW));
+	}
+
+	/**
+	 * A cycle opened before TO-112 added this field has no recorded open
+	 * instant. Treating that as "grace period not over" is the safe
+	 * direction: it costs a delayed notification rather than a false one, and
+	 * {@code CollectionCycleStatusImpl} backfills the field on the next
+	 * reconciliation.
+	 */
+	@Test
+	public void notStalledWithNoRecordedOpenInstant() {
+		assertFalse(
+			CollectionReadiness.isStalled(
+				new CollectionCycle(
+					1L, true, 0, null, null, null, null, null, false),
+				false, _NOW));
 	}
 
 	private CollectionCycle _cycleStartedOn(LocalDate localDate) {
-		CollectionCycle collectionCycle = CollectionCycle.open(1L, 0);
+		CollectionCycle collectionCycle = CollectionCycle.open(1L, 0, _OPENED);
 
 		return collectionCycle.withCollectionStartDate(localDate);
 	}
+
+	private static final Instant _NOW = Instant.parse("2026-06-01T03:30:00Z");
+
+	private static final Instant _OPENED = _NOW.minus(Duration.ofDays(60));
+
+	private static final Instant _OPENED_OVER_A_DAY_AGO = _NOW.minus(
+		Duration.ofHours(25));
 
 	private static final LocalDate _TODAY = LocalDate.parse("2026-06-01");
 

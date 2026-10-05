@@ -13,6 +13,7 @@ import com.liferay.portal.kernel.util.Validator;
 
 import ai.tensoropt.sel.api.CollectionCycle;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
@@ -37,7 +38,7 @@ import org.osgi.service.component.annotations.Reference;
  *
  * <p>
  * Company-scoped portlet preferences rather than a Service Builder entity,
- * because five scalars per virtual instance do not justify a table. A new table
+ * because eight scalars per virtual instance do not justify a table. A new table
  * in this plugin's service module means a schema version bump and an upgrade
  * step that an administrator has to run on an instance where the module is
  * already installed; the failure mode if they do not is that the module refuses
@@ -91,9 +92,16 @@ public class CollectionCycleStore {
 				companyId, true,
 				GetterUtil.getLong(
 					portletPreferences.getValue(_KEY_ENABLED_BY_USER_ID, null)),
+				_getInstant(portletPreferences, _KEY_CYCLE_OPENED_DATE),
 				_getLocalDate(portletPreferences, _KEY_COLLECTION_START_DATE),
+				_getLocalDate(
+					portletPreferences,
+					_KEY_COLLECTION_STARTED_NOTIFIED_DATE),
 				_getLocalDate(portletPreferences, _KEY_READINESS_NOTIFIED_DATE),
-				_getLocalDate(portletPreferences, _KEY_STALL_NOTIFIED_DATE));
+				_getLocalDate(portletPreferences, _KEY_STALL_NOTIFIED_DATE),
+				GetterUtil.getBoolean(
+					portletPreferences.getValue(
+						_KEY_SIGNUP_BANNER_DISMISSED, null)));
 		}
 		catch (Exception exception) {
 			if (_log.isWarnEnabled()) {
@@ -124,10 +132,19 @@ public class CollectionCycleStore {
 			portletPreferences.setValue(
 				_KEY_ENABLED_BY_USER_ID,
 				String.valueOf(collectionCycle.getEnabledByUserId()));
+			portletPreferences.setValue(
+				_KEY_SIGNUP_BANNER_DISMISSED,
+				String.valueOf(collectionCycle.isSignupBannerDismissed()));
 
+			_setInstant(
+				portletPreferences, _KEY_CYCLE_OPENED_DATE,
+				collectionCycle.getCycleOpenedDate());
 			_setLocalDate(
 				portletPreferences, _KEY_COLLECTION_START_DATE,
 				collectionCycle.getCollectionStartDate());
+			_setLocalDate(
+				portletPreferences, _KEY_COLLECTION_STARTED_NOTIFIED_DATE,
+				collectionCycle.getCollectionStartedNotifiedDate());
 			_setLocalDate(
 				portletPreferences, _KEY_READINESS_NOTIFIED_DATE,
 				collectionCycle.getReadinessNotifiedDate());
@@ -151,6 +168,34 @@ public class CollectionCycleStore {
 			}
 
 			return false;
+		}
+	}
+
+	/**
+	 * <code>cycleOpenedDate</code> is the one value here stored at instant
+	 * rather than day granularity; see the class comment on
+	 * <code>CollectionCycle</code> for why.
+	 */
+	private Instant _getInstant(
+		PortletPreferences portletPreferences, String key) {
+
+		String value = portletPreferences.getValue(key, null);
+
+		if (Validator.isNull(value)) {
+			return null;
+		}
+
+		try {
+			return Instant.parse(value);
+		}
+		catch (DateTimeParseException dateTimeParseException) {
+			if (_log.isWarnEnabled()) {
+				_log.warn(
+					"Ignoring unparseable collection cycle value for " + key,
+					dateTimeParseException);
+			}
+
+			return null;
 		}
 	}
 
@@ -198,6 +243,20 @@ public class CollectionCycleStore {
 			PortletKeys.PREFS_PLID_SHARED, _PORTLET_ID);
 	}
 
+	private void _setInstant(
+			PortletPreferences portletPreferences, String key,
+			Instant instant)
+		throws Exception {
+
+		if (instant == null) {
+			portletPreferences.setValue(key, "");
+
+			return;
+		}
+
+		portletPreferences.setValue(key, instant.toString());
+	}
+
 	private void _setLocalDate(
 			PortletPreferences portletPreferences, String key,
 			LocalDate localDate)
@@ -220,12 +279,20 @@ public class CollectionCycleStore {
 	private static final String _KEY_COLLECTION_START_DATE =
 		"collectionStartDate";
 
+	private static final String _KEY_COLLECTION_STARTED_NOTIFIED_DATE =
+		"collectionStartedNotifiedDate";
+
+	private static final String _KEY_CYCLE_OPENED_DATE = "cycleOpenedDate";
+
 	private static final String _KEY_ENABLED_BY_USER_ID = "enabledByUserId";
 
 	private static final String _KEY_OPEN = "open";
 
 	private static final String _KEY_READINESS_NOTIFIED_DATE =
 		"readinessNotifiedDate";
+
+	private static final String _KEY_SIGNUP_BANNER_DISMISSED =
+		"signupBannerDismissed";
 
 	private static final String _KEY_STALL_NOTIFIED_DATE =
 		"stallNotifiedDate";

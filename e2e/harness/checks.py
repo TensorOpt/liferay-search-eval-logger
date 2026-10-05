@@ -116,11 +116,15 @@ OVERFLOW_CLIENTS = 16
 # be recognised whatever else the response carries.
 FOREIGN_ATTACHMENT_CONTENT = "E2E-FOREIGN-ATTACHMENT-CONTENT"
 
-# The rendered bodies of the two notifications, from the web module's
+# The rendered bodies of the three notifications, from the web module's
 # Language.properties. The notifications list shows the body, not the title.
 STALL_NOTIFICATION_TEXT = "Restart the portal to begin collecting."
 
 READINESS_NOTIFICATION_TEXT = "Open Search Eval Export to produce the archive."
+
+COLLECTION_STARTED_NOTIFICATION_TEXT = (
+    "confirming that the restart after installation worked"
+)
 
 # Keys that would satisfy the shape checks while carrying nothing. A file whose
 # every row has a null query is not a (query, result[]) log.
@@ -205,6 +209,7 @@ class Context:
         self.options = options
         self.company_id = None
         self.group_id = None
+        self.user_id = None
         self.archive_path = None
         self.archive_name = None
         self.download_url = None
@@ -389,13 +394,61 @@ def ec3_bypass_detected(context, case):
     )
 
 
+def stall_grace_period(context, case):
+    """TO-112: the stall notification is suppressed inside its first 24 hours.
+
+    The daily check here opens the cycle for the first time (nothing has
+    enabled logging and then been checked yet), which is exactly the false
+    alarm the grace period exists to prevent: the job landing between
+    enabling and a restart the administrator was already about to do. Must
+    run before stall-notification, which backdates cycleOpenedDate and marks
+    the cycle notified - after that there is nothing left here to observe.
+    """
+    context.portal.run_script(
+        scripts.CYCLE_CHECK % {"company_id": context.company_id}
+    )
+
+    cycle = _read_cycle(context)
+
+    case.note("cycle just opened: %s" % cycle)
+
+    assert_equal(cycle.get("open"), "true", "The daily check did not open a cycle")
+    assert_true(
+        cycle.get("cycleOpenedDate"),
+        "cycleOpenedDate was not recorded when the cycle opened",
+    )
+    assert_true(
+        not cycle.get("stallNotifiedDate"),
+        "The stall notification fired inside its 24 hour grace period",
+    )
+
+    payloads = _notification_payloads(context)
+
+    assert_true(
+        not any("STALL" in payload for payload in payloads),
+        "A stall notification reached UserNotificationEvent inside the "
+        "grace period",
+    )
+
+
 def stall_notification(context, case):
     """DESIGN.md 3.6 condition 1, and the runtime half of EC-14.
 
     Running the daily check by hand is the only way to see this inside a CI
     run. It opens the cycle, finds interception bypassed and nothing collected,
     and notifies once.
+
+    cycleOpenedDate is backdated past the TO-112 grace period first.
+    stall-grace-period already proved the fresh-cycle suppression; this is
+    the other half, the notification DESIGN.md 3.6 condition 1 promises once
+    that period has passed.
     """
+    backdated = (
+        datetime.now(timezone.utc) - timedelta(hours=25)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    _write_cycle(context, {"cycleOpenedDate": backdated})
+
     context.portal.run_script(
         scripts.CYCLE_CHECK % {"company_id": context.company_id}
     )
@@ -779,6 +832,179 @@ def collection_start_recorded(context, case):
             context.collection_start_date,
             " or ".join(acceptable_utc_dates(now)),
         ),
+    )
+
+
+def collection_started_notification(context, case):
+    """TO-112: fired once per cycle from the persistence path, not the daily
+    job, the moment collectionStartDate is first set.
+
+    collection-start-recorded already waited for the first event of this
+    cycle to be persisted, so this is the state that event should have left
+    behind: exactly one notification, stored and in the administrator's own
+    list. A later event in the same cycle must produce none, and a new cycle
+    must re-arm it.
+
+    Every count here is scoped to the signed-in user's own id and waited
+    for, rather than read once right after the proxy signal of the admission
+    counters rising: CollectionNotifierLocalService stores the row (and
+    attempts the email) strictly after that counter increments, on the same
+    thread but not inside the same database round trip, and an environment
+    with more than one instance administrator would otherwise overcount a
+    single logical notification by one row per administrator.
+    """
+    user_id = _signed_in_user_id(context)
+
+    cycle = _read_cycle(context)
+
+    case.note("cycle: %s" % cycle)
+
+    assert_true(
+        cycle.get("collectionStartedNotifiedDate"),
+        "collectionStartedNotifiedDate was not recorded even though "
+        "collectionStartDate is",
+    )
+
+    _wait_for_notification_count(context, "COLLECTION_STARTED", 1, user_id)
+
+    assert_equal(
+        _notification_count(context, "COLLECTION_STARTED", user_id),
+        1,
+        "Expected exactly one collection-started notification for this "
+        "user's cycle",
+    )
+
+    assert_notification_listed(
+        context.portal.notifications_list(),
+        COLLECTION_STARTED_NOTIFICATION_TEXT,
+    )
+
+    # A later event in the same cycle must not produce a second one.
+    # CollectionNotifier stores its row (and attempts its email) strictly
+    # after the admission counter below rises, on the same thread but not
+    # inside the same database round trip, so a regression that did notify
+    # again could still read as "1" if checked immediately; settling closes
+    # most of that window instead of none of it.
+
+    before = context.portal.admission_counters()["persisted"]
+
+    context.portal.search_result_count(MARKER_TERM)
+
+    _wait_for_persisted_increase(context, before)
+
+    _assert_notification_count_settles_at(
+        context, "COLLECTION_STARTED", user_id, 1
+    )
+
+    # A new cycle re-arms it. Closing and reopening goes through the same
+    # service the configuration listener and the daily job call; see
+    # scripts.CYCLE_REOPEN.
+
+    context.portal.run_script(
+        scripts.CYCLE_REOPEN
+        % {"company_id": context.company_id, "enabled_by_user_id": user_id}
+    )
+
+    before = context.portal.admission_counters()["persisted"]
+
+    context.portal.search_result_count(MARKER_TERM)
+
+    _wait_for_persisted_increase(context, before)
+
+    _wait_for_notification_count(context, "COLLECTION_STARTED", 2, user_id)
+
+    count = _assert_notification_count_settles_at(
+        context, "COLLECTION_STARTED", user_id, 2
+    )
+
+    case.note("collection-started notifications after the re-arm: %d" % count)
+
+
+def email_delivery_preference(context, case):
+    """EC-15 (TO-112): the isDeliver gate, checked directly against a running
+    instance rather than only inferred from CollectionNotifier's own
+    behaviour.
+
+    This proves two things DESIGN.md EC-15 establishes from the API:
+    SearchEvalLoggerUserNotificationDefinition is registered and found by
+    UserNotificationManagerUtil, and isDeliver answers true for email for an
+    administrator who never touched the preference (the registered default).
+    It does **not** prove an email arrives anywhere - the e2e stack has no
+    SMTP sink - so this is not evidence of delivery, only of the gate
+    CollectionNotifier checks before attempting it.
+    """
+    user_id = _signed_in_user_id(context)
+
+    result = json.loads(
+        context.portal.run_script(
+            scripts.EMAIL_DELIVERY_PREFERENCE
+            % {"user_id": user_id, "portlet_id": ADMIN_PORTLET_ID}
+        )
+    )
+
+    case.note("email delivery preference: %s" % result)
+
+    assert_true(
+        result["definitionFound"],
+        "UserNotificationManagerUtil.fetchUserNotificationDefinition found "
+        "no registered definition for this plugin's notifications",
+    )
+    assert_true(
+        result["isDeliverEmail"],
+        "UserNotificationManagerUtil.isDeliver answered false for email, "
+        "for a user who never set a preference (the registered default is "
+        "true)",
+    )
+
+
+def signup_banner(context, case):
+    """DESIGN.md 10.1/10.2 (TO-112): the signup banner's visibility and its
+    dismiss control.
+
+    Run after funnel-zero-egress rather than next to collection-started-
+    notification: dismissing sets signupBannerDismissed for the rest of this
+    cycle, and funnel-links and funnel-zero-egress still need the banner's
+    link visible. Nothing else in the suite depends on it after this case.
+    """
+    text = context.portal.admin_screen()
+
+    assert_true(
+        'selSignupBanner"' in text,
+        "The signup banner is not on the admin screen even though "
+        "collection has started, interception is active and the evaluation "
+        "service links are on",
+    )
+
+    href, attributes = _anchor_for(text, COLLECTION_START_LABEL)
+
+    assert_true(href, "The signup banner's link is not rendered")
+
+    _assert_new_tab_anchor(attributes, "signup banner")
+
+    match = re.search(r"fetch\(\s*'([^']+)'", text)
+
+    assert_true(match, "The signup banner's dismiss resource URL was not found")
+
+    dismiss_url = _unescape_html(match.group(1))
+
+    case.note("dismiss URL: %s" % dismiss_url)
+
+    response = context.portal.post(dismiss_url, {})
+
+    assert_equal(response.status, 200, "Dismissing the signup banner failed")
+
+    text = context.portal.admin_screen()
+
+    assert_true(
+        'selSignupBanner"' not in text,
+        "The signup banner is still shown after being dismissed",
+    )
+
+    cycle = _read_cycle(context)
+
+    assert_equal(
+        cycle.get("signupBannerDismissed"), "true",
+        "signupBannerDismissed was not persisted",
     )
 
 
@@ -2525,6 +2751,47 @@ def _read_cycle(context):
     )
 
 
+def _write_cycle(context, values):
+    """Writes preference values into the collection cycle record directly,
+    through the same service the plugin itself writes with. Used to backdate
+    a value to its real threshold rather than lowering the threshold to suit
+    the test; see funnel_readiness for the same idea applied to
+    collectionStartDate.
+    """
+    assignments = "\n".join(
+        'preferences.setValue("%s", "%s")' % (key, value)
+        for key, value in values.items()
+    )
+
+    context.portal.run_script(
+        scripts.CYCLE_WRITE
+        % {
+            "company_id": context.company_id,
+            "portlet_id": CYCLE_PORTLET_ID,
+            "assignments": assignments,
+        }
+    )
+
+
+def _wait_for_persisted_increase(context, before):
+    """Waits for the admin screen's persisted counter to rise above `before`,
+    and returns the counters once it has. Used wherever a case needs to know
+    that one more search was actually written, not just dispatched.
+    """
+
+    def settled():
+        counters = context.portal.admission_counters()
+
+        if counters["persisted"] > before:
+            return counters
+
+        return None
+
+    return wait_for(
+        "a search to be persisted", settled, timeout=60, interval=2.0
+    )
+
+
 def assert_notification_listed(list_text, expected):
     """The notification is in the user's own notifications list.
 
@@ -2539,13 +2806,103 @@ def assert_notification_listed(list_text, expected):
     )
 
 
-def _notification_payloads(context):
-    rows = context.stack.psql(
+def _notification_payloads(context, user_id=None):
+    """All stored rows by default, or (TO-112) only one recipient's.
+
+    CollectionNotifier stores one row per recipient, and the fallback
+    recipient list is every active instance administrator, not just the
+    signed-in one. An environment with more than one administrator would
+    make a raw row count overcount: scoping to `user_id` is what keeps a
+    count-based assertion meaningful regardless of how many administrators
+    this install happens to have.
+    """
+    query = (
         "select payload from usernotificationevent where type_ = '%s'"
         % ADMIN_PORTLET_ID
     )
 
+    if user_id is not None:
+        query += " and userId = %s" % user_id
+
+    rows = context.stack.psql(query)
+
     return [row[0] for row in rows]
+
+
+def _signed_in_user_id(context):
+    if context.user_id is None:
+        context.user_id = context.portal.run_script(
+            scripts.USER_ID_BY_EMAIL
+            % {"company_id": context.company_id, "email": context.portal.user}
+        )
+
+    return context.user_id
+
+
+def _wait_for_notification_count(context, notification_type, expected, user_id):
+    """Polls the stored notification count up to `expected`, rather than
+    inferring it is already there from something else having happened
+    (TO-112): CollectionNotifier's website store and its email attempt both
+    happen after whatever the caller just waited for, not inside it.
+    """
+
+    def settled():
+        count = _notification_count(context, notification_type, user_id)
+
+        if count >= expected:
+            return count
+
+        return None
+
+    return wait_for(
+        "%d stored %s notification(s) for user %s"
+        % (expected, notification_type, user_id),
+        settled, timeout=60, interval=2.0,
+    )
+
+
+def _notification_count(context, notification_type, user_id):
+    return sum(
+        1
+        for payload in _notification_payloads(context, user_id)
+        if notification_type in payload
+    )
+
+
+def _assert_notification_count_settles_at(
+    context, notification_type, user_id, expected, settle_seconds=10,
+    interval=1.0,
+):
+    """Polls for `settle_seconds`, failing the moment the count exceeds
+    `expected` rather than only at the end of the window.
+
+    This is the negative half of a once-per-cycle assertion (TO-112):
+    CollectionNotifier writes its row, and attempts its email, some short and
+    unbounded time after whatever external signal the caller already waited
+    for (an admission counter rising, a notification count reaching some
+    earlier value), on the same thread but not inside the same database
+    round trip. Reading the count once, immediately after that signal, could
+    pass by having been read before a regression's extra row lands - racy in
+    exactly the regression this exists to catch. A bounded settle does not
+    prove a negative outright, nothing short of a cluster-wide barrier would,
+    but it closes most of that window instead of none of it.
+    """
+    deadline = time.monotonic() + settle_seconds
+    count = _notification_count(context, notification_type, user_id)
+
+    while True:
+        assert_true(
+            count <= expected,
+            "Expected at most %d stored %s notification(s) for user %s, "
+            "found %d" % (expected, notification_type, user_id, count),
+        )
+
+        if time.monotonic() >= deadline:
+            return count
+
+        time.sleep(interval)
+
+        count = _notification_count(context, notification_type, user_id)
 
 
 def _count_older_than(context, table, cutoff, band_seconds):
