@@ -2831,9 +2831,11 @@ def _notification_payloads(context, user_id=None):
 
 def _signed_in_user_id(context):
     if context.user_id is None:
-        context.user_id = context.portal.run_script(
-            scripts.USER_ID_BY_EMAIL
-            % {"company_id": context.company_id, "email": context.portal.user}
+        context.user_id = int(
+            context.portal.run_script(
+                scripts.USER_ID_BY_EMAIL
+                % {"company_id": context.company_id, "email": context.portal.user}
+            )
         )
 
     return context.user_id
