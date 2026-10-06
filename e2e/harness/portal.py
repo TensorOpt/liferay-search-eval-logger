@@ -245,10 +245,11 @@ class Portal:
         #
         # The console's CAPTCHA is a separate matter and is turned off for the
         # test portal by osgi/configs/com.liferay.captcha.configuration.
-        # CaptchaConfiguration.config. Signing in again here would also avoid
-        # it, since the first action of a session is exempt, but relying on
-        # that while the config file is also present would leave two mechanisms
-        # for one problem and no way to tell which was working.
+        # CaptchaConfiguration.config together with captcha.enforce.disabled in
+        # docker-compose.yml; see e2e/README.md. Signing in again here would
+        # also avoid it, since the first action of a session is exempt, but
+        # relying on that as well would leave two mechanisms for one problem
+        # and no way to tell which was working.
 
         self._auth_token = None
 

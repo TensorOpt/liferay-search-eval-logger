@@ -123,20 +123,29 @@ so reflection is what makes its services reachable without exporting them. The
 production bundles are exactly the ones that ship; the code under test is
 entered the same way the scheduler enters it.
 
-The console carries a CAPTCHA.
+The console carries a CAPTCHA, and turning it off takes two settings.
 `liferay/files/osgi/configs/com.liferay.captcha.configuration.CaptchaConfiguration.config`
-sets `maxChallenges` to a negative value, which means never check. That belongs
-to the test portal and to nothing else, which is why the stack binds every
-published port to `127.0.0.1` and is destroyed at the end of a run.
+sets `maxChallenges` to a negative value, which means never check. On its own
+that lasts one script per session: every render of the Server Administration
+screen, including the one that answers a script, calls
+`CaptchaUtil.enforceCaptcha`, which stores a per-session override that wins over
+`maxChallenges`. The second script of a session was therefore rejected, logged
+`CAPTCHA text is null` at ERROR, and only got through on the harness's retry
+with a fresh session. The portal property `captcha.enforce.disabled`, set in
+`docker-compose.yml`, makes `enforceCaptcha` a no-op, so the configuration is
+what decides. Both belong to the test portal and to nothing else, which is why
+the stack binds every published port to `127.0.0.1` and is destroyed at the end
+of a run.
 
 One more property of the console is worth knowing before debugging it: Liferay
 rotates the session's CSRF token across a portlet action, so an auth token read
 once is good for exactly one action. The harness re-reads the token before each
-script, which costs one page load. It does **not** also sign in again. Signing
-in would stay inside the CAPTCHA's stock allowance of one challenge-free check
-per session and would make the config file above unnecessary, but keeping both
+script, which costs one page load. It does **not** sign in again before each
+script to stay inside the CAPTCHA's one challenge-free check per session: that
 would leave two mechanisms for one problem and no way to tell which was
-working. The config file is the mechanism; `portal.py` says so too.
+working. The two settings above are the mechanism; `portal.py` says so too, and
+its one retry with a fresh session is for a session invalidated underneath it,
+not for the CAPTCHA.
 
 ### Scale data is written with SQL, in chunks
 

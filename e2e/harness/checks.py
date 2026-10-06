@@ -2345,6 +2345,8 @@ def uninstall_and_reinstall(context, case):
         % (events_before, cycle_before.get("collectionStartDate"))
     )
 
+    widgets_before = _search_widgets_deployed(context)
+
     uninstalled_at = time.monotonic()
 
     context.stack.liferay_exec(
@@ -2362,6 +2364,18 @@ def uninstall_and_reinstall(context, case):
 
     wait_for("the four bundles to stop", stopped, timeout=300, interval=3.0)
 
+    # STOPPED is not yet the end of it: the search widgets are still being
+    # redeployed against the portal's own Searcher, and a search rendered
+    # before they are back fails for reasons that are not the plugin's. See
+    # scripts.SEARCH_WIDGETS_DEPLOYED.
+
+    wait_for(
+        "the search widgets to be redeployed",
+        lambda: _search_widgets_deployed(context) == widgets_before,
+        timeout=60,
+        interval=0.5,
+    )
+
     count, _ = context.portal.search_result_count(MARKER_TERM)
 
     case.note("search after uninstall: %s results" % count)
@@ -2371,11 +2385,20 @@ def uninstall_and_reinstall(context, case):
         "Search stopped answering when the plugin was uninstalled",
     )
 
+    # One ERROR is Liferay's own and is tolerated here only. Every component
+    # holding a static reference down to Searcher is restarted, Commerce's
+    # included, and when the new portlet registers before the old one is gone
+    # PortletTracker logs "Portlet id ... is already in use" and keeps serving
+    # the old instance until the next restart. Seen in about one uninstall in
+    # five; the old instance stays fully wired and holds nothing of this
+    # plugin's, and every portlet deployed before is deployed after.
+
     assert_log_clean(
         context.stack.liferay_log(
             since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
         ),
         "uninstalling",
+        tolerated=("[PortletTracker:", "is already in use"),
     )
 
     assert_equal(
@@ -2442,9 +2465,24 @@ def uninstall_and_reinstall(context, case):
     )
 
 
-def assert_log_clean(log_text, while_doing):
-    """No ERROR line in a stretch of the portal log."""
-    errors = [line for line in log_text.splitlines() if " ERROR " in line]
+def _search_widgets_deployed(context):
+    return json.loads(
+        context.portal.run_script(
+            scripts.SEARCH_WIDGETS_DEPLOYED % {"company_id": context.company_id}
+        )
+    )
+
+
+def assert_log_clean(log_text, while_doing, tolerated=None):
+    """No ERROR line in a stretch of the portal log, except one carrying every
+    substring in `tolerated`.
+    """
+    errors = [
+        line
+        for line in log_text.splitlines()
+        if " ERROR " in line
+        and not (tolerated and all(part in line for part in tolerated))
+    ]
 
     assert_equal(
         errors,

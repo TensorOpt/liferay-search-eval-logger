@@ -84,6 +84,10 @@ services:
       LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_WEB_PERIOD_ID: liferay.com
       LIFERAY_DEFAULT_PERIOD_ADMIN_PERIOD_EMAIL_PERIOD_ADDRESS_PERIOD_PREFIX: test
 
+      # Lets the script console's CAPTCHA stay off. See e2e/README.md, "The
+      # script console".
+      LIFERAY_CAPTCHA_PERIOD_ENFORCE_PERIOD_DISABLED: "true"
+
       # The Gogo shell is already bound to 0.0.0.0:11311 by the image. Naming it
       # here keeps that visible rather than inherited.
       LIFERAY_MODULE_PERIOD_FRAMEWORK_PERIOD_PROPERTIES_PERIOD_OSGI_PERIOD_CONSOLE: "0.0.0.0:11311"

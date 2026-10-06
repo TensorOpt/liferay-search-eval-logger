@@ -94,6 +94,26 @@ result = String.valueOf(
     __call(status, "isIntercepting", new Class[0], new Object[0]))
 """
 
+# The search widgets that are deployed and can render right now: active, with
+# a portlet bag. Taking the wrapper away makes Declarative Services deactivate
+# and reactivate every widget holding a static reference down to Searcher, and
+# for a moment most of them are gone (17 dropping to 2 on 2025.Q1.27), ending
+# after the last bundle has already logged STOPPED. Rendering the search page
+# inside that moment answers without the Search Results widget, or HTTP 400
+# with "No portlet bag" logged at ERROR. This reads the same state without
+# rendering anything.
+SEARCH_WIDGETS_DEPLOYED = """
+def deployed = com.liferay.portal.kernel.service.PortletLocalServiceUtil.
+    getPortlets(%(company_id)dL).findAll {
+        it.getPortletId().startsWith("com_liferay_portal_search_web") &&
+            it.isActive() &&
+            com.liferay.portal.kernel.portlet.PortletBagPool.get(
+                it.getRootPortletId()) != null
+    }
+
+result = JsonOutput.toJson(deployed*.getPortletId().sort())
+"""
+
 # Which Searcher services are registered, and which bundles are using each.
 # This is the raw evidence behind EC-3: a non-wrapper Searcher with a consumer
 # bundle other than the plugin's own is a consumer that will never rebind.
