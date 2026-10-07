@@ -128,26 +128,6 @@ public final class EvaluationServiceLinks {
 	}
 
 	/**
-	 * Whether the "around {0}" date in the signup banner's benefit text is
-	 * still a date worth saying (TO-112). A long-running, never-dismissed
-	 * cycle that has already passed its readiness threshold would otherwise
-	 * promise a reminder "around" a day that has already gone by, or one the
-	 * readiness notification already announced - confusing rather than
-	 * informative. <code>false</code> means the caller should fall back to
-	 * the dateless phrasing instead of omitting the benefit altogether.
-	 */
-	public static boolean isSignupBannerDateMeaningful(
-		boolean readinessNotified, LocalDate readyAroundDate,
-		LocalDate today) {
-
-		if (readinessNotified) {
-			return false;
-		}
-
-		return !readyAroundDate.isBefore(today);
-	}
-
-	/**
 	 * <code>exportSucceeded</code> means "at least one of the exports listed
 	 * on the screen succeeded", which is the bounded reading of 10.3's "after
 	 * a successful export" that the caller can answer from the list it has

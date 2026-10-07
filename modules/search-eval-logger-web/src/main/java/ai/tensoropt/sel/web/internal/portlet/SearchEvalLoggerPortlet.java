@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
@@ -155,29 +154,10 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 		renderRequest.setAttribute("showSignupBanner", showSignupBanner);
 
 		if (showSignupBanner) {
-			LocalDate collectionStartDate =
-				collectionCycle.getCollectionStartDate();
-
 			renderRequest.setAttribute(
 				"collectionStartURL",
 				EvaluationServiceLinks.getCollectionStartURL(
-					collectionStartDate));
-
-			// TO-112: a cycle running long enough to have already passed its
-			// own readiness threshold must not promise a reminder "around" a
-			// date that has already gone by; the generic phrasing covers
-			// that instead.
-
-			LocalDate readyAroundDate = collectionStartDate.plusDays(
-				searchEvalLoggerConfiguration.readinessMinimumDays());
-
-			if (EvaluationServiceLinks.isSignupBannerDateMeaningful(
-					collectionCycle.isReadinessNotified(), readyAroundDate,
-					LocalDate.now(ZoneOffset.UTC))) {
-
-				renderRequest.setAttribute(
-					"signupBannerReadyAroundDate", _toString(readyAroundDate));
-			}
+					collectionCycle.getCollectionStartDate()));
 		}
 
 		renderRequest.setAttribute(

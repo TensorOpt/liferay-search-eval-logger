@@ -86,36 +86,6 @@ public class EvaluationServiceLinksTest {
 				true, true, _COLLECTION_START_DATE, true));
 	}
 
-	/**
-	 * TO-112: a cycle that has run long enough to have already passed its own
-	 * readiness threshold must not promise a reminder "around" a date that has
-	 * already gone by.
-	 */
-	@Test
-	public void theSignupBannerDateIsNotMeaningfulOncePassed() {
-		assertFalse(
-			EvaluationServiceLinks.isSignupBannerDateMeaningful(
-				false, _TODAY.minusDays(1), _TODAY));
-		assertTrue(
-			EvaluationServiceLinks.isSignupBannerDateMeaningful(
-				false, _TODAY, _TODAY));
-		assertTrue(
-			EvaluationServiceLinks.isSignupBannerDateMeaningful(
-				false, _TODAY.plusDays(1), _TODAY));
-	}
-
-	/**
-	 * Once the readiness notification has already fired, "around {0}" is
-	 * stale even if the arithmetic still lands on a future day: the thing it
-	 * was promising already happened.
-	 */
-	@Test
-	public void theSignupBannerDateIsNotMeaningfulOnceReadinessHasFired() {
-		assertFalse(
-			EvaluationServiceLinks.isSignupBannerDateMeaningful(
-				true, _TODAY.plusDays(10), _TODAY));
-	}
-
 	@Test
 	public void theExportCompleteLinkNeedsASuccessfulExport() {
 		assertFalse(
@@ -164,7 +134,5 @@ public class EvaluationServiceLinksTest {
 
 	private static final LocalDate _COLLECTION_START_DATE = LocalDate.parse(
 		"2026-03-01");
-
-	private static final LocalDate _TODAY = LocalDate.parse("2026-06-01");
 
 }

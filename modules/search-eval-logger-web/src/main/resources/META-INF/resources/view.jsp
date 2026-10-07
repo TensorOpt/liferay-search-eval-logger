@@ -66,14 +66,7 @@ job writes, not the notification.
 
 		<div class="alert alert-info" id="<portlet:namespace />selSignupBanner">
 			<p>
-				<c:choose>
-					<c:when test="${not empty signupBannerReadyAroundDate}">
-						<liferay-ui:message arguments="${signupBannerReadyAroundDate}" key="signup-banner-benefit" />
-					</c:when>
-					<c:otherwise>
-						<liferay-ui:message key="signup-banner-benefit-generic" />
-					</c:otherwise>
-				</c:choose>
+				<liferay-ui:message key="signup-banner-benefit" />
 			</p>
 
 			<p class="mb-0">
@@ -86,6 +79,10 @@ job writes, not the notification.
 				<button class="btn btn-link" id="<portlet:namespace />selSignupBannerDismiss" type="button">
 					<liferay-ui:message key="dismiss" />
 				</button>
+			</p>
+
+			<p class="text-muted small mb-0">
+				<liferay-ui:message key="signup-banner-destination-note" />
 			</p>
 		</div>
 

@@ -1905,9 +1905,7 @@ def archive_is_vendor_neutral(context, case):
 # web module's Language.properties. The anchors are found by these rather than
 # by the address they point at, so the case keeps testing the same two links
 # after a release substitutes real URLs for the placeholders.
-COLLECTION_START_LABEL = (
-    "Get an email reminder when your search log is ready to export"
-)
+COLLECTION_START_LABEL = "What to look for in your search log"
 
 EXPORT_COMPLETE_LABEL = "Want this dataset evaluated? Book a call"
 

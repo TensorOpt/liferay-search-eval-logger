@@ -195,7 +195,7 @@ ADMIN_SCREEN = """
 <p class="mb-0">Collecting since 2026-09-15, the day the first search was recorded.</p></div>
 <p>
 <a href="{{SIGNUP_URL}}?started=2026-09-15&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" rel="noopener noreferrer" target="_blank">
-Get an email reminder when your search log is ready to export (optional).
+What to look for in your search log (free guide, optional reminder)
 </a>
 </p>
 <h3>Run an Export</h3>
@@ -565,7 +565,7 @@ def check_funnel_links():
     )
 
     no_link = ADMIN_SCREEN.replace(
-        "Get an email reminder when your search log is ready to export", "Nothing"
+        "What to look for in your search log", "Nothing"
     )
 
     expect_rejected(
