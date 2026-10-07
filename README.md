@@ -14,6 +14,11 @@ See [DESIGN.md](DESIGN.md) for the full design, including the settled constraint
 (D1-D9) that any change must satisfy and the empirical checks (EC-1-EC-15), each
 recorded there with what running the plugin actually showed.
 
+If you need to get this past a security review before installing it on
+production, start with [SECURITY-REVIEW.md](SECURITY-REVIEW.md) — a document
+written to be forwarded unedited, with every claim traced to a design
+section, a named class, or a named end-to-end test.
+
 ## Status
 
 **Running and measured on a real instance. Not released.**
