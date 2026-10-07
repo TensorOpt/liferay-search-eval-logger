@@ -132,21 +132,30 @@ REQUIRED_NON_NULL_EVENT_KEYS = ("event_id", "query", "source_type")
 
 # What "an address belonging to the evaluation service" looks like.
 #
-# The placeholders are what ships today. The hosts are listed as well, and that
-# is the point: a release that substitutes real URLs must not quietly turn
-# every egress assertion into a check that nothing spells "{{SIGNUP_URL}}" any
-# more. Whoever substitutes them adds the real host here.
+# The two funnel URLs. A future change to either one must not quietly turn
+# every egress assertion into a check that nothing spells the old address any
+# more, so the hosts below are listed separately rather than derived from
+# these. Whoever changes a URL updates it here too.
+#
+# One of these is a URL-path prefix of the other (.../search-log is a prefix
+# of .../search-log/evaluate), so a plain substring search for the first would
+# be satisfied by the second alone - matching must stop at a URL boundary, not
+# a word boundary, since '/' and '-' are both valid in a path segment. See
+# zero_egress below.
 #
 # The bare word "tensoropt" is deliberately not in this set. It is the
 # plugin's own package name, so it appears in the portlet id, in every
 # namespaced form field and in every portlet URL on its own screen; treating
 # it as a vendor address on a page would fail on the plugin simply being
 # installed.
-FUNNEL_PLACEHOLDERS = ("{{SIGNUP_URL}}", "{{BOOKING_URL}}")
+FUNNEL_URLS = (
+    "https://tensoropt.ai/search-log",
+    "https://tensoropt.ai/search-log/evaluate",
+)
 
 VENDOR_HOSTS = ("tensoropt.ai", "tensoropt.com", "tensoropt.io")
 
-VENDOR_ADDRESSES = FUNNEL_PLACEHOLDERS + VENDOR_HOSTS
+VENDOR_ADDRESSES = FUNNEL_URLS + VENDOR_HOSTS
 
 # Inside an archive the bare word is fair game and worth keeping. DESIGN.md
 # 10.4 says the dataset stays vendor neutral whoever evaluates it, so the
@@ -1903,8 +1912,9 @@ def archive_is_vendor_neutral(context, case):
 
 # The labels DESIGN.md 10.1 and 10.3 give the two links, as they appear in the
 # web module's Language.properties. The anchors are found by these rather than
-# by the address they point at, so the case keeps testing the same two links
-# after a release substitutes real URLs for the placeholders.
+# by the address they point at, which is what let this case keep testing the
+# same two links across the TO-113 cutover from the {{SIGNUP_URL}}/
+# {{BOOKING_URL}} placeholders to the released addresses, without a rewrite.
 COLLECTION_START_LABEL = "What to look for in your search log"
 
 EXPORT_COMPLETE_LABEL = "Want this dataset evaluated? Book a call"
@@ -2069,15 +2079,22 @@ _INERT_SCHEMES = ("data:", "about:", "blob:", "javascript:", "mailto:", "tel:", 
 def zero_egress(context, case):
     """DESIGN.md D9, as far as a rendered page can be inspected.
 
-    Two rules, and the second is the one that matters after a release
-    substitutes the placeholder URLs.
+    Two rules.
 
     First, every occurrence of a vendor token on the screen sits inside an
     anchor's href. Second, and independently of how anything is spelled, no
     element the browser fetches on its own may point at a host other than the
     portal's. An earlier version keyed the element check on the literal "{{",
-    so it proved only that nothing fetched a placeholder; an image pointing at
-    a real vendor host would have passed it.
+    so it proved only that nothing fetched the pre-release placeholder token;
+    an image pointing at a real vendor host would have passed it.
+
+    A FUNNEL_URLS entry is matched at a URL boundary, not as a bare
+    substring: https://tensoropt.ai/search-log is a path prefix of
+    https://tensoropt.ai/search-log/evaluate, so a plain substring search
+    would let the booking link alone satisfy the "must appear" assertion for
+    the signup link even with the signup anchor missing entirely. The bare
+    hosts in VENDOR_HOSTS keep plain substring matching, deliberately: those
+    need to be caught even mid-path, in loose text outside any anchor.
 
     What this still cannot prove is the absence of a request made from
     somewhere the page does not mention. That stays a reading exercise, and
@@ -2086,11 +2103,21 @@ def zero_egress(context, case):
     text = context.portal.admin_screen()
 
     for token in VENDOR_ADDRESSES:
+        if token in FUNNEL_URLS:
+            # Stop at a URL boundary: the character after a genuine
+            # occurrence is a query/fragment delimiter, quote, whitespace, or
+            # end of string, never another path segment character - which is
+            # exactly what would make this token a prefix of the other,
+            # longer funnel URL instead of a real match for itself.
+            pattern = re.escape(token) + r"(?![\w/-])"
+        else:
+            pattern = re.escape(token)
+
         occurrences = [
-            match.start() for match in re.finditer(re.escape(token), text)
+            match.start() for match in re.finditer(pattern, text)
         ]
 
-        if token in FUNNEL_PLACEHOLDERS:
+        if token in FUNNEL_URLS:
             assert_true(
                 occurrences, "%s does not appear on the screen at all" % token
             )

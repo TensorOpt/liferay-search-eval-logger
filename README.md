@@ -21,7 +21,7 @@ section, a named class, or a named end-to-end test.
 
 ## Status
 
-**Running and measured on a real instance. Not released.**
+**Running and measured on a real instance. Released: v1.0.0.**
 
 Every part of the pipeline — capture, filtering, asynchronous persistence, the
 retention purge, the collection cycle and its notifications, the admin screen
@@ -95,9 +95,6 @@ Not verified:
   waited until 03:00 to watch Liferay fire one.
 - The internal-traffic ratio (EC-10) was measured only on an idle instance, where
   the denominator was dominated by test searches. It is not a production figure.
-- The two evaluation service links still carry the placeholder addresses
-  `{{SIGNUP_URL}}` and `{{BOOKING_URL}}`; they are replaced when a release is cut
-  (TO-107).
 
 See DESIGN.md section 7 for each check in full.
 
@@ -211,7 +208,34 @@ numeric virtual instance ID, not a site or host name. Inside:
 Coverage rates matter before anything else: how often a title or snippet is
 actually present depends on the installation's search UI, not on this plugin.
 
+## Install
+
+The release ships the four bundle JARs only — no `.lpkg`. Nothing in this
+workspace's build produces one yet (see DESIGN.md §9), and the four JARs
+install the same way a source build's `./gradlew deploy` already does, by
+copying into `[Liferay Home]/deploy`.
+
+1. Download the four bundle JARs from the [v1.0.0 release](https://github.com/TensorOpt/liferay-search-eval-logger/releases/tag/v1.0.0),
+   plus `SHA256SUMS`.
+2. Verify checksums before deploying anything to a production instance:
+   ```
+   shasum -a 256 -c SHA256SUMS
+   ```
+3. Copy the four JARs to `[Liferay Home]/deploy`.
+4. **Restart the portal.** This is not optional — see
+   [Restart the portal after installing, and after every redeploy](#restart-the-portal-after-installing-and-after-every-redeploy)
+   below for why, and do this before the next step.
+5. Enable collection: Control Panel > Configuration > **Instance Settings**
+   (not System Settings — this configuration is `COMPANY`-scoped, so it's set
+   per virtual instance, which is what Instance Settings is for; System
+   Settings is for the portal-wide, `SYSTEM`-scoped default shared across
+   every instance). Under the **Search** category, open **Search Eval
+   Logger** and switch on **Logging Enabled**. Collection is off on install,
+   so nothing is recorded until this step.
+
 ## Building
+
+Building from source instead of using a release is covered below.
 
 Prerequisites:
 

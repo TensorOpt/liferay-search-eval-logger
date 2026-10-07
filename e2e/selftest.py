@@ -194,13 +194,13 @@ ADMIN_SCREEN = """
 <div class="alert alert-info">Collection settings live in Configuration.
 <p class="mb-0">Collecting since 2026-09-15, the day the first search was recorded.</p></div>
 <p>
-<a href="{{SIGNUP_URL}}?started=2026-09-15&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" rel="noopener noreferrer" target="_blank">
+<a href="https://tensoropt.ai/search-log?started=2026-09-15&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" rel="noopener noreferrer" target="_blank">
 What to look for in your search log (free guide, optional reminder)
 </a>
 </p>
 <h3>Run an Export</h3>
 <p>
-<a href="{{BOOKING_URL}}?utm_source=liferay-plugin&amp;utm_medium=export-complete" rel="noopener noreferrer" target="_blank">
+<a href="https://tensoropt.ai/search-log/evaluate?utm_source=liferay-plugin&amp;utm_medium=export-complete" rel="noopener noreferrer" target="_blank">
 Want this dataset evaluated? Book a call to scope the analysis.
 </a>
 </p>
@@ -443,6 +443,35 @@ def check_zero_egress():
         lambda: checks.zero_egress(FakeContext(), FakeCase()),
     )
 
+    # The reviewer's finding: https://tensoropt.ai/search-log is a URL-path
+    # prefix of https://tensoropt.ai/search-log/evaluate, so with the signup
+    # anchor removed entirely, a plain substring search for the signup URL
+    # would still be "found" inside the booking URL alone, and the "must
+    # appear" assertion would pass vacuously. The booking anchor (and its
+    # longer URL) is left in place on purpose, so this fixture only proves
+    # anything if matching stops at a URL boundary.
+    signup_link_removed = ADMIN_SCREEN.replace(
+        '<p>\n<a href="https://tensoropt.ai/search-log?started=2026-09-15'
+        '&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" '
+        'rel="noopener noreferrer" target="_blank">\n'
+        'What to look for in your search log (free guide, optional reminder)'
+        '\n</a>\n</p>\n',
+        "",
+    )
+
+    _assert(
+        signup_link_removed != ADMIN_SCREEN,
+        "the fixture's replace() did not match anything in ADMIN_SCREEN",
+    )
+
+    expect_rejected(
+        "the signup link removed entirely, with the booking link (a longer "
+        "URL sharing the same prefix) still present",
+        lambda: checks.zero_egress(
+            FakeContext(screen=signup_link_removed), FakeCase()
+        ),
+    )
+
     pixel = ADMIN_SCREEN.replace(
         "<img src=\"/documents/logo.png\">",
         "<img src=\"https://tensoropt.ai/px.gif\">",
@@ -475,11 +504,12 @@ def check_zero_egress():
 
     loose = ADMIN_SCREEN.replace(
         "<h3>Admission Counters</h3>",
-        "<h3>Admission Counters</h3><p>Visit {{SIGNUP_URL}} to sign up.</p>",
+        "<h3>Admission Counters</h3><p>Visit https://tensoropt.ai/search-log "
+        "to sign up.</p>",
     )
 
     expect_rejected(
-        "a vendor placeholder in page text rather than in an anchor href",
+        "the released signup URL in page text rather than in an anchor href",
         lambda: checks.zero_egress(FakeContext(screen=loose), FakeCase()),
     )
 
@@ -489,7 +519,7 @@ def check_zero_egress():
     )
 
     expect_rejected(
-        "a real vendor host in page text after the placeholders are replaced",
+        "the bare vendor host in page text outside any anchor",
         lambda: checks.zero_egress(
             FakeContext(screen=real_host_loose), FakeCase()
         ),
@@ -529,7 +559,8 @@ def check_funnel_links():
     )
 
     identifying_path = ADMIN_SCREEN.replace(
-        "{{SIGNUP_URL}}?started=", "{{SIGNUP_URL}}/92102577642293/signup?started="
+        "https://tensoropt.ai/search-log?started=",
+        "https://tensoropt.ai/search-log/92102577642293/signup?started=",
     )
 
     expect_rejected(

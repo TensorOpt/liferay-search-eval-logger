@@ -18,11 +18,11 @@ import java.time.LocalDate;
  * </p>
  *
  * <p>
- * <b>The values below are placeholders and are meant to be.</b> They are the
- * literal tokens from the design document rather than real addresses, so that
- * an unfinished deployment produces a visibly broken link instead of a
- * plausible wrong one. Substituting them is a deliberate act by whoever ships a
- * release.
+ * <b>TO-113: these are the released v1.0.0 addresses.</b> They were literal
+ * <code>{{SIGNUP_URL}}</code>/<code>{{BOOKING_URL}}</code> design-document
+ * tokens before the release, specifically so that an unfinished deployment
+ * produced a visibly broken link instead of a plausible wrong one.
+ * Substituting them was a deliberate act, done once, here.
  * </p>
  *
  * <p>
@@ -40,16 +40,17 @@ import java.time.LocalDate;
 public final class EvaluationServiceLinks {
 
 	/**
-	 * Placeholder. See the class comment: this is the design document's token,
-	 * not an address, and it is replaced when a release is cut.
+	 * The booking page (10.3). Released with v1.0.0 (TO-113); see the class
+	 * comment.
 	 */
-	public static final String BOOKING_URL = "{{BOOKING_URL}}";
+	public static final String BOOKING_URL =
+		"https://tensoropt.ai/search-log/evaluate";
 
 	/**
-	 * Placeholder. See the class comment: this is the design document's token,
-	 * not an address, and it is replaced when a release is cut.
+	 * The signup/guide page (10.1). Released with v1.0.0 (TO-113); see the
+	 * class comment.
 	 */
-	public static final String SIGNUP_URL = "{{SIGNUP_URL}}";
+	public static final String SIGNUP_URL = "https://tensoropt.ai/search-log";
 
 	/**
 	 * The collection-start link of 10.1. <code>started</code> is the date

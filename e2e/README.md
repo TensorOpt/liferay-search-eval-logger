@@ -251,13 +251,16 @@ exporter to.
 
 ### The funnel is asserted on structure, not on an address
 
-`EvaluationServiceLinks` holds `{{SIGNUP_URL}}` and `{{BOOKING_URL}}` as
-literal placeholder tokens on purpose. The test asserts what DESIGN.md 10
-specifies around them: the collection start link carries `started` at day
+`EvaluationServiceLinks` held `{{SIGNUP_URL}}` and `{{BOOKING_URL}}` as literal
+placeholder tokens until the TO-113 release cut over to the real addresses
+(`https://tensoropt.ai/search-log` and `https://tensoropt.ai/search-log/evaluate`).
+The test asserts what DESIGN.md 10 specifies around them, by structure rather
+than by address, which is exactly what let it keep working across that cutover
+without a rewrite: the collection start link carries `started` at day
 granularity plus the two UTM tags and nothing else, the export complete link
 carries the UTM tags alone, both are plain anchors with `target="_blank"` and
-`rel` containing `noopener`, and neither token nor any UTM tag appears anywhere
-inside the export archive.
+`rel` containing `noopener noreferrer`, and neither address nor any UTM tag
+appears anywhere inside the export archive.
 
 Readiness needs its two thresholds met. Rather than lower them, the harness
 moves the stored `collectionStartDate` back past `readinessMinimumDays`,

@@ -6,9 +6,14 @@ package ai.tensoropt.sel.web.internal.funnel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.URI;
+
 import java.time.LocalDate;
+
+import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
@@ -102,8 +107,8 @@ public class EvaluationServiceLinksTest {
 	@Test
 	public void theCollectionStartURLCarriesTheDateAndTheUTMTagsOnly() {
 		assertEquals(
-			"{{SIGNUP_URL}}?started=2026-03-01&utm_source=liferay-plugin" +
-				"&utm_medium=admin-screen",
+			"https://tensoropt.ai/search-log?started=2026-03-01" +
+				"&utm_source=liferay-plugin&utm_medium=admin-screen",
 			EvaluationServiceLinks.getCollectionStartURL(
 				_COLLECTION_START_DATE));
 	}
@@ -116,20 +121,38 @@ public class EvaluationServiceLinksTest {
 	@Test
 	public void theExportCompleteURLCarriesTheUTMTagsOnly() {
 		assertEquals(
-			"{{BOOKING_URL}}?utm_source=liferay-plugin" +
+			"https://tensoropt.ai/search-log/evaluate?utm_source=liferay-plugin" +
 				"&utm_medium=export-complete",
 			EvaluationServiceLinks.getExportCompleteURL());
 	}
 
 	/**
-	 * The placeholders are deliberate (10.4). A real address appearing here
-	 * would mean a release was cut by editing something other than this class,
-	 * which is the arrangement that section exists to prevent.
+	 * TO-113: the released v1.0.0 addresses (10.4). Asserted on scheme, host,
+	 * path and the absence of a query or a fragment, rather than on the whole
+	 * literal string, so this test does not just restate
+	 * {@link #theCollectionStartURLCarriesTheDateAndTheUTMTagsOnly} and
+	 * {@link #theExportCompleteURLCarriesTheUTMTagsOnly} above.
 	 */
 	@Test
-	public void bothURLsAreStillPlaceholders() {
-		assertEquals("{{SIGNUP_URL}}", EvaluationServiceLinks.SIGNUP_URL);
-		assertEquals("{{BOOKING_URL}}", EvaluationServiceLinks.BOOKING_URL);
+	public void bothURLsAreTheReleasedAddresses() {
+		for (String url :
+				Arrays.asList(
+					EvaluationServiceLinks.SIGNUP_URL,
+					EvaluationServiceLinks.BOOKING_URL)) {
+
+			URI uri = URI.create(url);
+
+			assertEquals("https", uri.getScheme());
+			assertEquals("tensoropt.ai", uri.getHost());
+			assertNull(uri.getQuery());
+			assertNull(uri.getFragment());
+		}
+
+		assertEquals(
+			"https://tensoropt.ai/search-log", EvaluationServiceLinks.SIGNUP_URL);
+		assertEquals(
+			"https://tensoropt.ai/search-log/evaluate",
+			EvaluationServiceLinks.BOOKING_URL);
 	}
 
 	private static final LocalDate _COLLECTION_START_DATE = LocalDate.parse(
