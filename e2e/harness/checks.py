@@ -1992,6 +1992,12 @@ def _assert_new_tab_anchor(attributes, which):
         "The %s link does not set rel=noopener, so the new tab keeps a handle "
         "on this window" % which,
     )
+    assert_true(
+        "noreferrer" in (attributes or "").lower(),
+        "The %s link does not set rel=noreferrer, so the browser sends this "
+        "admin screen's own origin as the Referer header, which is often an "
+        "internal hostname" % which,
+    )
 
 
 def _query_parameters(href):

@@ -557,6 +557,19 @@ def check_funnel_links():
         lambda: checks.funnel_links(FakeContext(screen=no_noopener), FakeCase()),
     )
 
+    # noopener kept, noreferrer alone dropped: the referrer leak this check
+    # exists to catch. Without a dedicated noreferrer assertion this fixture
+    # would pass, since rel="noopener" alone still satisfies the noopener
+    # check above.
+    no_noreferrer = ADMIN_SCREEN.replace(
+        'rel="noopener noreferrer"', 'rel="noopener"', 1
+    )
+
+    expect_rejected(
+        "the collection start link losing rel=noreferrer while keeping noopener",
+        lambda: checks.funnel_links(FakeContext(screen=no_noreferrer), FakeCase()),
+    )
+
     wrong_date = ADMIN_SCREEN.replace("started=2026-09-15", "started=2020-01-01")
 
     expect_rejected(
