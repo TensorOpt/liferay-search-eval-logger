@@ -10,7 +10,7 @@
 
 ## 1. Purpose and Scope
 
-Liferay provides no persistent, queryable log of user search queries. Base DXP offers only DEBUG-level server logging and the Search Insights widget (both diagnostic, not analytical). Liferay Enterprise Search adds Blueprints, Semantic Search, Learning to Rank and Elasticsearch monitoring, but no search-term log. Liferay Analytics Cloud records search terms as aggregated frequency counts parsed from page-view URLs, with no link between a query and the result set that was returned.
+Base DXP and LES keep no stored record of each query together with the results it returned (TO-113: narrowed from an earlier, broader claim that Liferay keeps no log of search queries at all, which Analytics Cloud contradicts). Base DXP offers only DEBUG-level server logging and the Search Insights widget (both diagnostic, not analytical). Liferay Enterprise Search adds Blueprints, Semantic Search, Learning to Rank and Elasticsearch monitoring, but no search-term log. Liferay Analytics Cloud records search terms as aggregated frequency counts parsed from page-view URLs, with no link between a query and the result set that was returned.
 
 Relevance evaluation requires the missing artifact: a structured `(query, result[])` interaction log.
 
@@ -330,7 +330,7 @@ Exposed through a Configuration Admin-backed admin screen (`@Meta.OCD`), scoped 
 | Readiness: minimum events | `500` | Events recorded since `collectionStartDate` and **not yet purged** required before the readiness notification can fire. Setting this above what the retention window can hold makes readiness unreachable; see 3.6. Proposed default; tune once real install data exists. |
 | Show evaluation service links | `true` | Hides both TensorOpt links (Section 10). Lets an admin remove them without forking. |
 
-The whitelist matters more than it looks. It is the difference between an export an admin approves after one read and an export that goes to legal. Full document bodies are never captured.
+The whitelist matters more than it looks. It is the difference between an export an admin approves after one read and an export that goes to legal. Document bodies are not captured **by default** (the default whitelist is `title` and `snippet`), but the whitelist is not restricted to safe fields: adding a body field such as `content` to it captures that field whenever the response already carries it (D8, `SearchEventCaptor`), same as any other configured name.
 
 **Not configurable, deliberately: the stall grace period (TO-112).** Fixed at 24 hours in code, not a setting here. It exists to suppress exactly one false alarm (3.6), a fixed value is enough for that, and there is no install data yet suggesting a different number is needed. Adding a setting nobody has asked to tune is the kind of surface this project's own engineering principles (YAGNI) exist to keep out of a configuration screen an admin already has to read.
 

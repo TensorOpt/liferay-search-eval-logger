@@ -11,7 +11,7 @@ relevance analysis. Capture is designed to be passive — it wraps the public
 fails a search.
 
 See [DESIGN.md](DESIGN.md) for the full design, including the settled constraints
-(D1-D8) that any change must satisfy and the empirical checks (EC-1-EC-13), each
+(D1-D9) that any change must satisfy and the empirical checks (EC-1-EC-15), each
 recorded there with what running the plugin actually showed.
 
 ## Status
@@ -63,15 +63,15 @@ Verified:
   portal leaves search answering with no restart, logs no error and leaves the
   data in place; reinstalling picks up the existing tables and the collection
   start date, and collection resumes after the restart.
-- **Unit tests.** 128, run by `./gradlew test`: 5 in api, 6 in service, 70 in
-  impl, 47 in web. The service module's are for the export query builder; the rest
+- **Unit tests.** 155, run by `./gradlew test`: 5 in api, 6 in service, 92 in
+  impl, 52 in web. The service module's are for the export query builder; the rest
   of that module is Service Builder output.
 - **End-to-end suite.** `e2e/run.sh` brings up PostgreSQL 15 and DXP 2025.Q1.27
-  LTS in Docker, installs the plugin onto the running portal, and runs 26 cases
+  LTS in Docker, installs the plugin onto the running portal, and runs 30 cases
   covering everything above that the PostgreSQL stack can reach, including the
   `EXPORT` permission refusing a user who does not hold it and the export's
-  download URL refusing another background task's attachment. All 26 passed at
-  full scale (`--scale full`). See [e2e/README.md](e2e/README.md).
+  download URL refusing another background task's attachment. All 30 passed.
+  See [e2e/README.md](e2e/README.md).
 
 Not verified:
 
@@ -123,8 +123,11 @@ a purge that runs every day at 03:00, in the portal's time zone.
 ## What is not collected
 
 - No raw user identifiers, names, emails or IP addresses
-- No document bodies. Field capture is an explicit whitelist, never "whatever the
-  response contains"
+- No document bodies **by default**. Field capture is an explicit whitelist
+  (`title` and `snippet` by default), never "whatever the response contains" —
+  but the whitelist is not restricted to safe fields, so adding a body field
+  such as `content` to it would capture that field too, whenever the response
+  already carries it
 - Nothing in the portal log. Query text and result snippets are written to the
   plugin's own tables and nowhere else, so the retention window is a guarantee the
   plugin can actually keep: a log file it does not control would outlive the purge
@@ -163,7 +166,7 @@ them in one place.
 
 | Link | Where | What it carries |
 |---|---|---|
-| "Get an email reminder when your search log is ready to export" | Search Eval Export screen, once collection has demonstrably started | The date collection started, at day granularity, plus UTM tags. Nothing else: no hostname, instance ID, company name, plugin version, event counts or user data |
+| "What to look for in your search log (free guide, optional reminder)" | Search Eval Export screen, once collection has demonstrably started | The date collection started, at day granularity, plus UTM tags. Nothing else: no hostname, instance ID, company name, plugin version, event counts or user data |
 | "Want this dataset evaluated? Book a call" | Search Eval Export screen, after a successful export | UTM tags only. No row counts, coverage figures or date range |
 
 Both disappear when **Show evaluation service links** is switched off in
@@ -173,10 +176,17 @@ Neither link appears anywhere inside an export archive. The `manifest.json`, the
 archive `README.md` and `events.jsonl` are vendor-neutral, so a dataset can be
 handed to any evaluator without carrying an advertisement for a particular one.
 
-The plugin also raises two **local** notifications — one when logging is enabled
-but nothing is being collected, one when the log is large enough to be worth
-exporting. Those go to a Liferay user through Liferay's own notification
-framework, stay on your instance, and contain no external link.
+The plugin also raises three **local** notifications (DESIGN.md 3.6): one
+confirming that collection started (so an administrator learns the restart
+after installation worked, without waiting for either notification below),
+one when logging is enabled but nothing is being collected, and one when the
+log is large enough to be worth exporting. Those go to a Liferay user through
+Liferay's own notification framework and stay on your instance. Each is also
+sent by email through the portal's own configured mail server, when the
+recipient's own notification preference allows it (EC-15) — the same gate
+Liferay's own subscription email uses, so an administrator who turns email off
+in My Account keeps getting the website notification only. None of the three,
+by website or by email, contains an external link.
 
 ## What an export contains
 
