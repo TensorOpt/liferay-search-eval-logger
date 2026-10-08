@@ -39,3 +39,6 @@ replay_pid*
 # The Gradle wrapper JAR is part of the build, not a package artifact, so it is
 # committed despite the *.jar rule above.
 !gradle/wrapper/gradle-wrapper.jar
+
+# GitLab CI keeps Gradle's cache inside the project directory (GRADLE_USER_HOME).
+.gradle-home/
