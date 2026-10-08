@@ -3,8 +3,8 @@
 # Every workflow in one place. `make` lists the targets. Gradle uses JAVA_HOME,
 # which must point at JDK 17 or 21.
 #
-# This branch builds for one DXP LTS line, read from gradle.properties
-# (dxp-2026.q1 here); each line releases separately, from its own branch.
+# Each branch builds for one DXP LTS line, read from gradle.properties
+# (`make` prints it); each line releases separately, from its own branch.
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
