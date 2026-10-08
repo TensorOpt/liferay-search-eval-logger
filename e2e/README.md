@@ -12,12 +12,16 @@ it touches a container it did not create.
 
 ## Running it
 
+`make test` runs it on every database, ending with an `.lpkg` install, and
+`make e2e DB=mysql` on one; both are in the root `Makefile`. Directly:
+
 ```
 e2e/run.sh                      # smoke tier, the default
 e2e/run.sh --scale full         # 1,000,000 events and 10,000,000 hits
 e2e/run.sh --keep               # leave the stack up afterwards for debugging
 e2e/run.sh --no-build           # use modules/*/build/libs as they are
 e2e/run.sh --database mysql     # MySQL instead of PostgreSQL; see "Databases"
+e2e/run.sh --lpkg <path>        # also install this .lpkg as the last case
 python3 e2e/selftest.py         # test the tests; no Docker, about a second
 ```
 
@@ -46,7 +50,7 @@ Results land in `e2e/results`:
 
 ## Prerequisites
 
-- Docker with Compose v2, and roughly 6 GB of memory available to it. The
+- Docker with Compose v2, and roughly 7 GB of memory available to it. The
   portal alone asks for a 2 GB heap and runs an Elasticsearch sidecar beside it.
 - `python3`. Standard library only: no `pip install` step, deliberately, so a
   runner needs nothing prepared.
@@ -337,7 +341,8 @@ MySQL on Linux does not.
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
-| `uninstall-and-reinstall` | TO-111, last in the run: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled and restarted, interception is active, collection resumes and the collection start date is unchanged |
+| `uninstall-and-reinstall` | TO-111: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled and restarted, interception is active, collection resumes and the collection start date is unchanged |
+| `lpkg-install` | TO-116, last, only with `--lpkg`: the jars removed and an `.lpkg` of the same jars dropped into the deploy folder, the way a Liferay Marketplace download is installed; after the restart Liferay asks for, the plugin's four bundles are Active and loaded from inside the `.lpkg`, interception is active, and searches are recorded |
 
 ## Reading the EXPORT permission case
 
@@ -476,29 +481,38 @@ container by name.
 
 ## Running it in CI
 
-```yaml
-- run: e2e/run.sh --scale smoke
-- uses: actions/upload-artifact@v4
-  if: always()
-  with:
-    name: e2e-results
-    path: e2e/results
-```
+The pipeline is `.gitlab-ci.yml` at the root: a build job (`make package`),
+then this suite on all four databases as parallel jobs against the build job's
+jars and test `.lpkg`, then a manual release job (`make release`). JUnit XML from both the
+unit tests and this suite reaches GitLab's test report.
+
+The jobs run on GitLab.com's shared runners, where the stack runs under
+Docker-in-Docker. Three things make that work, and all three also hold on a
+workstation:
+
+- **Nothing is bind mounted.** A bind mount is resolved by the Docker daemon,
+  which under Docker-in-Docker is the dind service, not the job container that
+  holds the checkout. The harness's files and any JDBC driver are baked into a
+  thin image (`liferay/Dockerfile`), whose build context travels over the
+  Docker API, and bundles are deployed with `docker cp` (`Stack.deploy`).
+- **Ports are published on `SEL_E2E_BIND`** (default `127.0.0.1`); the
+  pipeline sets `0.0.0.0`.
+- **The harness reaches the portal at `SEL_E2E_HOST`** (default `localhost`);
+  the pipeline sets `docker`, the dind service.
+
+A deployed file is staged in `/tmp` inside the container, handed to the
+`liferay` user and renamed into the deploy folder. `docker cp` keeps the host's
+owner, and Liferay's auto deployer, which polls every three seconds, cannot move
+a file it does not own: it says only "Unable to write", once per poll.
 
 `run.sh` exits 0 on the known defect state, so a gate that fails on a non zero
-exit is correct from the first run. The three known defects are reported as
-skipped in the JUnit XML, with their tracebacks in `system-out`. If one of them
-starts passing, the run goes red on purpose.
+exit is correct from the first run. The known defects are reported as skipped
+in the JUnit XML, with their tracebacks in `system-out`. If one of them starts
+passing, the run goes red on purpose.
 
-Run `selftest.py` alongside the unit tests. It needs no Docker, takes about a
-second, and is what keeps the assertions above honest.
-
-The heavy tier belongs on a schedule rather than on a pull request, and needs
+The heavy tier belongs on a schedule rather than on every push, and needs
 around 10 GB free on the Docker filesystem:
-
-```yaml
-- run: e2e/run.sh --scale full --export-timeout 7200
-```
+`e2e/run.sh --scale full --export-timeout 7200`.
 
 ## Debugging a failure
 

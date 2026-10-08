@@ -40,6 +40,34 @@ One branch per supported DXP LTS line, the newest on `main`:
 - **Each new LTS repeats TO-85.** Deploy `main`'s current JARs onto the new LTS unchanged. If they resolve and the e2e suite passes, no new branch is needed. If not, branch the outgoing LTS off `main` first, then upgrade `main`.
 - **A branch is retired** when its LTS loses Premium Support; for 2025.Q1, February 2028.
 
+### Build, test and release
+
+Every workflow is a `make` target (`make` lists them), and the GitLab pipeline
+(`.gitlab-ci.yml`) only ever runs those targets, so a pipeline failure can be
+reproduced locally with the same command. GitLab holds the code and pipelines;
+GitHub is a distribution channel, reached by GitLab's push mirror and by
+`tools/publish.py`.
+
+- **Releases are per DXP line.** Each branch releases its own line from
+  `gradle.properties`: tag `v<version>-<line>`, e.g. `v1.0.0-dxp-2026.q1`.
+  The version is the bundles' own `Bundle-Version`; bump it in all four
+  `bnd.bnd` files first, or `make release` and `tools/package.py` refuse.
+- **A release is the four jars.** Liferay's own quarterly releases dropped
+  `.lpkg` packaging, and Liferay Marketplace takes the jars and builds the
+  `.lpkg` its customers download. Upload the same four jars there, per DXP
+  line, by hand: Marketplace has no publishing API. `make package` also builds
+  an `.lpkg` of the jars into `build/e2e/`, which the e2e suite installs as a
+  stand-in for Marketplace's; it is never published. Its name carries no
+  version, because Liferay identifies an installed `.lpkg` by its file name.
+- **`make release` fails fast.** `tools/publish.py preflight` runs before the
+  build: tokens, the tag being free on GitLab and GitHub, the commit being on
+  GitHub, and both evaluation service pages answering 200.
+- **The e2e stack has no bind mounts**, so it runs the same under GitLab's
+  Docker-in-Docker as on a workstation; see "Running it in CI" in
+  `e2e/README.md`. Keep it that way: a new file the portal needs goes into
+  `e2e/liferay/files` (baked into the image), a new artifact goes in through
+  `Stack.deploy`.
+
 ### Module boundaries
 
 - **api** holds what more than one bundle needs: the enums, `SearchEvalLoggerConstants`, `SearchEvalLoggerConfiguration` (the `@Meta.OCD` interface — it lives here, not in impl, because the web module reads the same settings the collector applies), `SearchEvalLoggerStatistics`, and the generated model and service interfaces.
