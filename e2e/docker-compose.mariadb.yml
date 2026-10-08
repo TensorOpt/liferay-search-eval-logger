@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# MariaDB 11.4 with the MariaDB driver the DXP image ships.
+
+services:
+
+  database:
+    image: mariadb:11.4.13
+    environment:
+      MARIADB_DATABASE: lportal
+      MARIADB_USER: lportal
+      MARIADB_PASSWORD: lportal
+      MARIADB_ROOT_PASSWORD: root
+    command: ["--max-connections=200"]
+    ports:
+      - "127.0.0.1:${SEL_E2E_DATABASE_PORT:-15432}:3306"
+    volumes:
+      - database-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  liferay:
+    environment:
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_DRIVER_UPPERCASEC_LASS_UPPERCASEN_AME: org.mariadb.jdbc.Driver
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: jdbc:mariadb://database/lportal?useUnicode=true&characterEncoding=UTF-8&useFastDateParsing=false

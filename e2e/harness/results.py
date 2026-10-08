@@ -31,7 +31,7 @@ from .util import Stopwatch, log
 _REPORT_FAILURE_LINES = 24
 
 # XML 1.0 allows tab, newline and carriage return, and nothing else below 0x20.
-# Container logs and psql output reach these documents through failure
+# Container logs and SQL client output reach these documents through failure
 # messages, and one stray byte from either would make junit.xml unparseable,
 # which loses every result in the run rather than the one that produced it.
 _ILLEGAL_XML = re.compile(

@@ -244,7 +244,7 @@ def stack_up(context, case):
     stack = context.stack
 
     stack.up()
-    stack.wait_for_postgres(timeout=300)
+    stack.wait_for_database(timeout=300)
 
     context.portal.wait_until_serving(timeout=context.options.boot_timeout)
 
@@ -279,10 +279,7 @@ def stack_up(context, case):
 
 def plugin_absent(context, case):
     """The plugin is not installed yet, which is the starting state EC-3 needs."""
-    count = context.stack.psql_long(
-        "select count(*) from information_schema.tables "
-        "where table_schema = 'public' and table_name ilike 'sel_search%'"
-    )
+    count = context.stack.sql_long(_sel_table_count_sql(context))
 
     assert_equal(count, 0, "SEL tables exist before the plugin was installed")
 
@@ -320,17 +317,21 @@ def install_onto_running_portal(context, case):
         )
 
     def tables_created():
-        return context.stack.psql_long(
-            "select count(*) from information_schema.tables "
-            "where table_schema = 'public' and table_name ilike 'sel_search%'"
-        ) == 2
+        return context.stack.sql_long(_sel_table_count_sql(context)) == 2
 
     wait_for("the SEL tables to be created", tables_created, timeout=300, interval=3.0)
 
-    indexes = context.stack.psql_long(
-        "select count(*) from pg_indexes where schemaname = 'public' "
-        "and tablename ilike 'sel_search%'"
-    )
+    if context.stack.dialect == "postgres":
+        indexes = context.stack.sql_long(
+            "select count(*) from pg_indexes where schemaname = 'public' "
+            "and tablename ilike 'sel_search%'"
+        )
+    else:
+        indexes = context.stack.sql_long(
+            "select count(distinct table_name, index_name) from "
+            "information_schema.statistics where table_schema = database() "
+            "and lower(table_name) like 'sel_search%'"
+        )
 
     case.note("two tables and %d indexes created by Service Builder" % indexes)
 
@@ -738,7 +739,7 @@ def capture(context, case):
     assert_funnel_adds_up(counters)
     assert_equal(counters["dropped"], 0, "Events were dropped under no load")
 
-    rows = context.stack.psql(
+    rows = context.stack.sql(
         "select count(*), min(sourceType), min(audienceType), "
         "count(distinct cohortHash) from SEL_SearchEvent "
         "where queryText like '%%%s%%'" % MARKER_TERM
@@ -754,7 +755,7 @@ def capture(context, case):
     assert_true(int(count) >= context.options.search_count, "Marker events missing")
     assert_equal(source_type, "WIDGET", "DESIGN.md 3.2 sourceType classification")
 
-    hits = context.stack.psql_long(
+    hits = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h join SEL_SearchEvent e "
         "on h.searchEventUuid = e.uuid_ where e.queryText like '%%%s%%'"
         % MARKER_TERM
@@ -764,7 +765,7 @@ def capture(context, case):
 
     assert_true(hits > 0, "No hits were captured for searches that returned results")
 
-    titles = context.stack.psql_long(
+    titles = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h join SEL_SearchEvent e "
         "on h.searchEventUuid = e.uuid_ where e.queryText like '%%%s%%' "
         "and h.title is not null and h.title <> ''" % MARKER_TERM
@@ -772,7 +773,7 @@ def capture(context, case):
 
     case.note("EC-4: %d of %d captured hits carry a title" % (titles, hits))
 
-    orphans = context.stack.psql_long(
+    orphans = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h left join SEL_SearchEvent e "
         "on h.searchEventUuid = e.uuid_ where e.uuid_ is null"
     )
@@ -1040,15 +1041,15 @@ def generate_scale_data(context, case):
 
     case.note("analyze took %.1fs" % seconds)
 
-    events = context.stack.psql_long("select count(*) from SEL_SearchEvent")
-    hits = context.stack.psql_long("select count(*) from SEL_SearchHit")
+    events = context.stack.sql_long("select count(*) from SEL_SearchEvent")
+    hits = context.stack.sql_long("select count(*) from SEL_SearchHit")
 
     case.note("table totals: %d events, %d hits" % (events, hits))
 
     assert_true(events >= result["events"], "Generated events are not all present")
     assert_true(hits >= result["hits"], "Generated hits are not all present")
 
-    mismatched = context.stack.psql_long(
+    mismatched = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h join SEL_SearchEvent e "
         "on h.searchEventUuid = e.uuid_ "
         "where h.createDate <> e.createDate or h.companyId <> e.companyId"
@@ -1088,10 +1089,16 @@ def retention_purge(context, case):
     """
     stopwatch = Stopwatch()
 
-    cutoff = context.stack.psql_scalar(
-        "select to_char((now() at time zone 'UTC') - interval '%d days', "
-        "'YYYY-MM-DD HH24:MI:SS')" % context.retention_days
-    )
+    if context.stack.dialect == "postgres":
+        cutoff = context.stack.sql_scalar(
+            "select to_char((now() at time zone 'UTC') - interval '%d days', "
+            "'YYYY-MM-DD HH24:MI:SS')" % context.retention_days
+        )
+    else:
+        cutoff = context.stack.sql_scalar(
+            "select date_format(utc_timestamp() - interval %d day, "
+            "'%%Y-%%m-%%d %%H:%%i:%%s')" % context.retention_days
+        )
 
     older_events = _count_older_than(context, "SEL_SearchEvent", cutoff, 0)
     older_hits = _count_older_than(context, "SEL_SearchHit", cutoff, 0)
@@ -1158,7 +1165,7 @@ def retention_purge(context, case):
     )
     assert_equal(kept_hits, newer_hits, "The purge deleted hits inside the window")
 
-    orphans = context.stack.psql_long(
+    orphans = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h left join SEL_SearchEvent e "
         "on h.searchEventUuid = e.uuid_ where e.uuid_ is null"
     )
@@ -1215,7 +1222,7 @@ def funnel_readiness(context, case):
 
     case.note("collectionStartDate moved back to %s" % backdated)
 
-    countable = context.stack.psql_long(
+    countable = context.stack.sql_long(
         "select count(*) from SEL_SearchEvent where companyId = %d "
         "and createDate >= timestamp '%s 00:00:00'" % (context.company_id, backdated)
     )
@@ -1441,7 +1448,7 @@ def validate_archive(context, case):
         )
         assert_equal(hits, manifest_hits, "Hit count does not match the manifest")
 
-    database_events = context.stack.psql_long(
+    database_events = context.stack.sql_long(
         "select count(*) from SEL_SearchEvent where companyId = %d"
         % context.company_id
     )
@@ -1481,14 +1488,14 @@ def export_range_is_honoured(context, case):
     start_date = start.isoformat()
     end_date = end.isoformat()
 
-    expected = context.stack.psql_long(
+    expected = context.stack.sql_long(
         "select count(*) from SEL_SearchEvent where companyId = %d "
         "and createDate >= timestamp '%s 00:00:00' "
         "and createDate < timestamp '%s 00:00:00'"
         % (context.company_id, start_date, (end + timedelta(days=1)).isoformat())
     )
 
-    total = context.stack.psql_long(
+    total = context.stack.sql_long(
         "select count(*) from SEL_SearchEvent where companyId = %d"
         % context.company_id
     )
@@ -1608,7 +1615,7 @@ def export_unbounded_range(context, case):
         ),
     )
 
-    total = context.stack.psql_long(
+    total = context.stack.sql_long(
         "select count(*) from SEL_SearchEvent where companyId = %d"
         % context.company_id
     )
@@ -1623,7 +1630,7 @@ def export_unbounded_range(context, case):
         # exporter that answered every unbounded request with no rows at all,
         # which is the failure a dropped predicate would most plausibly cause.
 
-        expected = context.stack.psql_long(
+        expected = context.stack.sql_long(
             "select count(*) from SEL_SearchEvent where companyId = %d%s%s"
             % (
                 context.company_id,
@@ -2368,7 +2375,7 @@ def uninstall_and_reinstall(context, case):
 
     Last in the run: it removes and restarts the plugin under every other case.
     """
-    events_before = context.stack.psql_long("select count(*) from SEL_SearchEvent")
+    events_before = context.stack.sql_long("select count(*) from SEL_SearchEvent")
     cycle_before = _read_cycle(context)
 
     case.note(
@@ -2433,7 +2440,7 @@ def uninstall_and_reinstall(context, case):
     )
 
     assert_equal(
-        context.stack.psql_long("select count(*) from SEL_SearchEvent"),
+        context.stack.sql_long("select count(*) from SEL_SearchEvent"),
         events_before,
         "Uninstalling changed the collected data",
     )
@@ -2474,7 +2481,7 @@ def uninstall_and_reinstall(context, case):
         context.portal.search_result_count(MARKER_TERM)
 
     def resumed():
-        events = context.stack.psql_long("select count(*) from SEL_SearchEvent")
+        events = context.stack.sql_long("select count(*) from SEL_SearchEvent")
 
         return events if events >= events_before + 5 else None
 
@@ -2502,6 +2509,30 @@ def _search_widgets_deployed(context):
             scripts.SEARCH_WIDGETS_DEPLOYED % {"company_id": context.company_id}
         )
     )
+
+
+def _sel_table_count_sql(context):
+    if context.stack.dialect == "postgres":
+        return (
+            "select count(*) from information_schema.tables "
+            "where table_schema = 'public' and table_name ilike 'sel_search%'"
+        )
+
+    # MySQL keeps table names in Liferay's mixed case on Linux, so the
+    # comparison is made case blind.
+
+    return (
+        "select count(*) from information_schema.tables where "
+        "table_schema = database() and lower(table_name) like 'sel_search%'"
+    )
+
+
+def _shifted(context, timestamp, sign, seconds):
+    """A timestamp literal moved by some seconds, in the stack's dialect."""
+    if context.stack.dialect == "postgres":
+        return "(timestamp '%s' %s interval '%d seconds')" % (timestamp, sign, seconds)
+
+    return "(timestamp '%s' %s interval %d second)" % (timestamp, sign, seconds)
 
 
 def assert_log_clean(log_text, while_doing, tolerated=None):
@@ -2886,14 +2917,14 @@ def _notification_payloads(context, user_id=None):
     this install happens to have.
     """
     query = (
-        "select payload from usernotificationevent where type_ = '%s'"
+        "select payload from UserNotificationEvent where type_ = '%s'"
         % ADMIN_PORTLET_ID
     )
 
     if user_id is not None:
         query += " and userId = %s" % user_id
 
-    rows = context.stack.psql(query)
+    rows = context.stack.sql(query)
 
     return [row[0] for row in rows]
 
@@ -2977,19 +3008,17 @@ def _assert_notification_count_settles_at(
 
 
 def _count_older_than(context, table, cutoff, band_seconds):
-    return context.stack.psql_long(
-        "select count(*) from %s where companyId = %d and createDate < "
-        "(timestamp '%s' - interval '%d seconds')"
-        % (table, context.company_id, cutoff, band_seconds),
+    return context.stack.sql_long(
+        "select count(*) from %s where companyId = %d and createDate < %s"
+        % (table, context.company_id, _shifted(context, cutoff, "-", band_seconds)),
         timeout=3600,
     )
 
 
 def _count_newer_than(context, table, cutoff, band_seconds):
-    return context.stack.psql_long(
-        "select count(*) from %s where companyId = %d and createDate > "
-        "(timestamp '%s' + interval '%d seconds')"
-        % (table, context.company_id, cutoff, band_seconds),
+    return context.stack.sql_long(
+        "select count(*) from %s where companyId = %d and createDate > %s"
+        % (table, context.company_id, _shifted(context, cutoff, "+", band_seconds)),
         timeout=3600,
     )
 

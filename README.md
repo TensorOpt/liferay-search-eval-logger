@@ -98,15 +98,17 @@ The outcomes:
 
 - **Liferay DXP 2025.Q1 LTS on Java 17.** Built and tested on 2025.Q1.27 LTS.
 - **Not built for DXP 2025.Q3 or later.** Those releases [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq) and need a port.
-- **Database.** Tested end to end on PostgreSQL 15. On MySQL, the JDBC URL needs `useCursorFetch=true` (see [Troubleshooting](#troubleshooting)).
-- **Not yet verified:** Blueprints, the headless Search API, DXP Cloud, clusters, and other databases. See [SECURITY-REVIEW.md, section 9](SECURITY-REVIEW.md#9-what-is-not-verified).
+- **Database.** Tested end to end on PostgreSQL 15, MySQL 8.4 and MariaDB 11.4.
+  - **MySQL with MySQL Connector/J:** add `useCursorFetch=true` to the JDBC URL. Without it, Connector/J loads an entire export into memory. The DXP image does not include Connector/J; copy it to `[Liferay Home]/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib`.
+  - **MariaDB, or MySQL with the MariaDB driver the DXP image ships:** no extra setting is needed.
+- **Not yet verified:** Blueprints, the headless Search API, DXP Cloud, clusters, and databases other than the three above. See [SECURITY-REVIEW.md, section 9](SECURITY-REVIEW.md#9-what-is-not-verified).
 
 ## Install
 
 1. Download the four bundle JARs and `SHA256SUMS` from the [v1.0.0 release](https://github.com/TensorOpt/liferay-search-eval-logger/releases/tag/v1.0.0).
-2. Verify the checksums:
+2. Verify the checksums. `SHA256SUMS` also lists the release zip, so `--ignore-missing` skips the files you did not download. On Linux, `sha256sum -c --ignore-missing SHA256SUMS` does the same.
    ```
-   shasum -a 256 -c SHA256SUMS
+   shasum -a 256 -c --ignore-missing SHA256SUMS
    ```
 3. Copy the four JARs to `[Liferay Home]/deploy`.
 4. **Restart the portal.**
@@ -124,7 +126,7 @@ Settings you may want to review:
 
 | Setting | Default | What it does |
 |---|---|---|
-| Retention Window (Days) | 90 | Deletes records older than this, nightly |
+| Retention Window (Days) | 90 | Deletes records older than this, nightly at 03:00 UTC |
 | Captured Fields | `title`, `snippet` | Result fields to record, if the response already has them |
 | Exclude Suggestion Traffic | on | Leaves typeahead requests out |
 | Require Web Request Context | off | Tightens the filter if internal searches show up |
@@ -147,17 +149,17 @@ You will also get a "Search logging is now collecting" notification.
 | Notification | When |
 |---|---|
 | Search logging is now collecting | Immediately after the first search is recorded |
-| Enabled but collecting nothing | Logging has been on for at least 24 hours, nothing has been recorded, and the restart is still outstanding |
+| Search logging is enabled but collecting nothing | Logging has been on for at least 24 hours, nothing has been recorded, and the restart is still outstanding |
 | Your search log is ready to export | At least 30 days since collection started and at least 500 searches on record. Both thresholds are configurable |
 
 - **Recipient.** Notifications go to the administrator who switched logging on. If that person cannot be determined, they go to the instance administrators.
-- **Schedule.** The second and third are checked once a day, at 03:30. The readiness state also shows as a banner on the Search Eval Export screen.
-- **Channels.** Each appears in the Liferay notifications list. It is also emailed through your portal's own mail server, if one is configured and the recipient has not turned email off under My Account > Notifications.
+- **Schedule.** The second and third are checked once a day, at 03:30 UTC. The readiness state also shows as a banner on the Search Eval Export screen.
+- **Channels.** Each appears in the Liferay notifications list. It is also emailed through your portal's own mail server, if the instance has a mail server and a sender address configured (Instance Settings > Email), and the recipient has not turned email off. The switch is in the notifications list's Configuration, under **Search Eval Export**.
 - **Links.** None contains an external link.
 
 ## Export
 
-1. Exporting needs the **Export Search Evaluation Data** permission. Portal administrators have it. For anyone else, grant it to a role: Control Panel > Users > Roles, then Define Permissions for Search Eval Export.
+1. Exporting needs the **Export Search Evaluation Data** permission. Portal administrators have it. For anyone else, grant it to a role: Control Panel > Users > Roles, then Define Permissions > Control Panel > Configuration > Search Eval Export.
 2. On the Search Eval Export screen, under **Run an Export**, enter a start and end date (`YYYY-MM-DD`, UTC). Leave a date empty for an open-ended range.
 3. The export runs in the background. Reload the screen and download the zip from **Recent Exports**.
 
@@ -192,13 +194,19 @@ Neither link is fetched until someone clicks it. The plugin sends no install pin
 
 **Remove the recorded data.**
 - Switch logging off and set **Retention Window (Days)** to 1.
-- Within two nightly purges (03:00), the tables are empty.
+- Within two nightly purges (03:00 UTC), the tables are empty.
 
 **Uninstall.**
 - Delete the four `ai.tensoropt.sel.*.jar` files from `[Liferay Home]/osgi/modules`.
 - Search keeps working without a restart.
 - Liferay does not drop a plugin's tables on uninstall, so the data stays in the database, and reinstalling picks it up again.
-- Dropping `SEL_SearchEvent` and `SEL_SearchHit` by hand is a database task that has not been tested together with a later reinstall.
+
+**Remove the tables as well.**
+1. Uninstall as above.
+2. Drop `SEL_SearchEvent` and `SEL_SearchHit`.
+3. Delete the plugin's schema record: `delete from Release_ where servletContextName = 'ai.tensoropt.sel.service'`.
+
+Do not skip step 3. With the record left in place, a later reinstall never recreates the tables, not even after a restart, and every recorded search fails with a "table does not exist" error in the log. With it removed, reinstalling and restarting creates the tables again, empty.
 
 ## Troubleshooting
 
@@ -209,9 +217,9 @@ Neither link is fetched until someone clicks it. The plugin sends no install pin
 | Internal searches appear in the data | Some internal traffic carries keywords | Switch on Require Web Request Context, or exclude asset types |
 | Most results have no snippet | Your search UI does not request highlighting | Expected. Check coverage in `manifest.json` before planning any labelling |
 | No readiness notification after 30 days | Fewer than 500 searches on record, or the retention window is shorter than the readiness period | Lower the thresholds, or keep retention above the readiness days |
-| Notification in Liferay but no email | No portal mail server, or email turned off for this notification | Configure mail, or check My Account > Notifications |
-| Export exhausts memory on MySQL | Connector/J loads the whole result set by default | Add `useCursorFetch=true` to the JDBC URL |
-| No "Run an Export" form | You lack the export permission | Grant Export Search Evaluation Data to your role |
+| Notification in Liferay but no email | No mail server or sender address for the instance, or email turned off for this notification. With the default sender, Liferay logs "Skipping email because the sender is not specified" | Configure both under Instance Settings > Email, or check the notifications list's Configuration under Search Eval Export |
+| Export exhausts memory on MySQL | MySQL Connector/J loads the whole result set unless told otherwise | Add `useCursorFetch=true` to the JDBC URL, or use the MariaDB driver the DXP image ships |
+| "You do not have permission to export search evaluation data." instead of the export form | You lack the export permission | Grant Export Search Evaluation Data to your role |
 
 ## Build from source
 

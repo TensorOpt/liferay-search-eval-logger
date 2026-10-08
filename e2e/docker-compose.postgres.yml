@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# PostgreSQL 15, the default database. See docker-compose.yml.
+
+services:
+
+  database:
+    image: postgres:15.19
+    environment:
+      POSTGRES_DB: lportal
+      POSTGRES_USER: lportal
+      POSTGRES_PASSWORD: lportal
+      # Liferay requires a case sensitive, UTF-8 collation. The Debian default
+      # would be en_US.utf8, which is case insensitive for ordering and makes
+      # Liferay's own upgrade checks complain.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    command:
+      # Bulk generation writes up to ten million hit rows. These settings serve
+      # that one operation and are a test fixture, not a recommendation.
+      # max_wal_size is deliberately modest: a larger write ahead log makes
+      # generation a little faster and costs disk a CI runner may not have.
+      - postgres
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - synchronous_commit=off
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_connections=200
+    ports:
+      - "127.0.0.1:${SEL_E2E_DATABASE_PORT:-15432}:5432"
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lportal -d lportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    shm_size: 512mb
+
+  liferay:
+    environment:
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_DRIVER_UPPERCASEC_LASS_UPPERCASEN_AME: org.postgresql.Driver
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: jdbc:postgresql://database:5432/lportal

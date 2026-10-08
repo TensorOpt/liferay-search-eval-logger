@@ -52,8 +52,8 @@ class Generator:
         for low in range(0, events, chunk):
             high = min(low + chunk, events)
 
-            self.stack.psql(
-                _EVENTS_SQL
+            self.stack.sql(
+                self._sql("EVENTS")
                 % {
                     "company_id": self.company_id,
                     "group_id": self.group_id,
@@ -66,8 +66,8 @@ class Generator:
                 timeout=7200,
             )
 
-            self.stack.psql(
-                _HITS_SQL
+            self.stack.sql(
+                self._sql("HITS")
                 % {
                     "event_id_base": EVENT_ID_BASE,
                     "hit_id_base": HIT_ID_BASE,
@@ -87,8 +87,8 @@ class Generator:
                 % (written_events, events, stopwatch.seconds())
             )
 
-        self.stack.psql(
-            _COUNTER_SQL
+        self.stack.sql(
+            self._sql("COUNTER")
             % {
                 "event_ceiling": EVENT_ID_BASE + events + 1,
                 "hit_ceiling": HIT_ID_BASE + events * hits_per_event + 1,
@@ -101,12 +101,26 @@ class Generator:
             "seconds": stopwatch.seconds(),
         }
 
+    def _sql(self, name):
+        """One of the statements below, in the stack's dialect."""
+        suffix = "" if self.stack.dialect == "postgres" else "_MYSQL"
+
+        sql = globals()["_%s_SQL%s" % (name, suffix)]
+
+        if self.stack.database == "mariadb":
+            sql = sql.replace("cte_max_recursion_depth", "max_recursive_iterations")
+
+        return sql
+
     def analyze(self):
         """Keeps the purge's plan honest on a table that just grew by millions."""
         stopwatch = Stopwatch()
 
-        self.stack.psql(
-            "analyze SEL_SearchEvent; analyze SEL_SearchHit;", timeout=3600
+        self.stack.sql(
+            "analyze SEL_SearchEvent; analyze SEL_SearchHit;"
+            if self.stack.dialect == "postgres"
+            else "analyze table SEL_SearchEvent, SEL_SearchHit;",
+            timeout=3600,
         )
 
         return stopwatch.seconds()
@@ -202,4 +216,95 @@ insert into Counter (name, currentId)
     values ('ai.tensoropt.sel.model.SearchHit', %(hit_ceiling)d)
     on conflict (name) do update
     set currentId = greatest(Counter.currentId, excluded.currentId);
+"""
+
+
+# MySQL and MariaDB dialect of the three statements above. A recursive CTE
+# stands in for generate_series, and the session variable lifts the recursion
+# limit for one chunk: MySQL's is 1,000 by default. Stack swaps its name for
+# MariaDB's.
+_EVENTS_SQL_MYSQL = """
+set session cte_max_recursion_depth = 10000000;
+insert into SEL_SearchEvent (
+    mvccVersion, uuid_, searchEventId, companyId, createDate, queryText,
+    queryTruncated, locale, scopeGroupIds, entryClassNames, appliedFacets,
+    facetCaptureStatus, blueprintId, audienceType, cohortHash, requestedSize,
+    requestedFrom, totalHits, loggedHitCount, sourceType)
+with recursive seq (g) as (
+    select %(low)d union all select g + 1 from seq where g < %(high)d)
+select
+    0,
+    concat('e2e-', lpad(g, 16, '0')),
+    %(event_id_base)d + g,
+    %(company_id)d,
+    utc_timestamp()
+        - interval (g %% %(days_span)d) day
+        - interval ((g * 37) %% 86400) second,
+    concat('generated query ', g %% 5000),
+    false,
+    'en_US',
+    '%(group_id)d',
+    'com.liferay.journal.model.JournalArticle',
+    case when g %% 3 = 0
+        then concat('{"category":["Generated ', g %% 7, '"]}')
+        else null
+    end,
+    case when g %% 3 = 0 then 'CAPTURED' else 'NONE_APPLIED' end,
+    null,
+    case when g %% 4 = 0 then 'GUEST' else 'AUTHENTICATED' end,
+    md5(concat('cohort', g %% 97)),
+    20,
+    0,
+    100 + (g %% 900),
+    %(hits_per_event)d,
+    'WIDGET'
+from seq;
+"""
+
+_HITS_SQL_MYSQL = """
+insert into SEL_SearchHit (
+    mvccVersion, searchHitId, searchEventUuid, companyId, createDate, rank_,
+    score, docUid, entryClassName, entryClassPK, title, snippet, extraFields)
+with recursive seq (r) as (
+    select 1 union all select r + 1 from seq where r < %(hits_per_event)d)
+select
+    0,
+    %(hit_id_base)d +
+        ((e.searchEventId - %(event_id_base)d - 1) * %(hits_per_event)d) + r,
+    e.uuid_,
+    e.companyId,
+    e.createDate,
+    r - 1,
+    10.0 - (r * 0.1),
+    concat('com.liferay.journal.model.JournalArticle_PORTLET_',
+        (e.searchEventId - %(event_id_base)d) * 100 + r),
+    'com.liferay.journal.model.JournalArticle',
+    (e.searchEventId - %(event_id_base)d) * 100 + r,
+    case
+        when (((e.searchEventId - %(event_id_base)d) * %(hits_per_event)d + r)
+            %% %(title_modulus)d) <> 0
+        then concat('Generated title ',
+            e.searchEventId - %(event_id_base)d, '-', r)
+        else null
+    end,
+    case
+        when (((e.searchEventId - %(event_id_base)d) * %(hits_per_event)d + r)
+            %% %(snippet_modulus)d) = 0
+        then 'a fragment mentioning <liferay-hl>generated</liferay-hl> text'
+        else null
+    end,
+    null
+from SEL_SearchEvent e cross join seq
+where e.searchEventId > %(event_id_base)d + %(low)d - 1
+  and e.searchEventId <= %(event_id_base)d + %(high)d;
+"""
+
+_COUNTER_SQL_MYSQL = """
+insert into Counter (name, currentId)
+    values ('ai.tensoropt.sel.model.SearchEvent', %(event_ceiling)d)
+    on duplicate key update currentId = greatest(currentId, values(currentId));
+
+insert into Counter (name, currentId)
+    values ('ai.tensoropt.sel.model.SearchHit', %(hit_ceiling)d)
+    on duplicate key update currentId = greatest(currentId, values(currentId));
 """

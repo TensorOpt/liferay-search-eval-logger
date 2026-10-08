@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness import checks  # noqa: E402
 from harness.portal import Portal  # noqa: E402
 from harness.results import Results  # noqa: E402
-from harness.stack import Stack  # noqa: E402
+from harness.stack import DATABASES, Stack  # noqa: E402
 from harness.util import HarnessError, log, run  # noqa: E402
 
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -71,9 +71,15 @@ def parse_arguments(argv):
         "--http-port", type=int, default=int(os.environ.get("SEL_E2E_HTTP_PORT", "18080"))
     )
     parser.add_argument(
-        "--postgres-port",
+        "--database",
+        choices=DATABASES,
+        default=os.environ.get("SEL_E2E_DATABASE", "postgres"),
+        help="postgres is the default; see e2e/README.md, \"Databases\"",
+    )
+    parser.add_argument(
+        "--database-port",
         type=int,
-        default=int(os.environ.get("SEL_E2E_POSTGRES_PORT", "15432")),
+        default=int(os.environ.get("SEL_E2E_DATABASE_PORT", "15432")),
     )
     parser.add_argument(
         "--scale",
@@ -203,7 +209,11 @@ def main(argv):
     os.makedirs(options.results_directory, exist_ok=True)
 
     stack = Stack(
-        DIRECTORY, options.project, options.http_port, options.postgres_port
+        DIRECTORY,
+        options.project,
+        options.http_port,
+        options.database_port,
+        database=options.database,
     )
 
     try:
@@ -454,9 +464,13 @@ def main(argv):
 
         if options.keep:
             log(
-                "Leaving the stack up. Portal at %s, PostgreSQL on %d. Tear it "
-                "down with: docker compose -p %s -f %s/docker-compose.yml down -v"
-                % (stack.base_url, options.postgres_port, options.project, DIRECTORY)
+                "Leaving the stack up. Portal at %s, %s on %d. Tear it down "
+                "with: docker compose -p %s -f %s/docker-compose.yml "
+                "-f %s/docker-compose.%s.yml down -v"
+                % (
+                    stack.base_url, options.database, options.database_port,
+                    options.project, DIRECTORY, DIRECTORY, options.database,
+                )
             )
         else:
             stack.down(volumes=True)

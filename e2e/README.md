@@ -1,7 +1,7 @@
 # End to end functional test (TO-84)
 
 An unattended, Docker Compose driven functional test of the whole plugin. It
-brings up PostgreSQL and Liferay DXP, installs the plugin onto the running
+brings up a database and Liferay DXP, installs the plugin onto the running
 portal, restarts it as DESIGN.md 3.1 requires, creates content, runs real
 searches, generates a scale corpus, then exercises and asserts on the retention
 purge, the export archive and the funnel integration of DESIGN.md 10.
@@ -17,6 +17,7 @@ e2e/run.sh                      # smoke tier, the default
 e2e/run.sh --scale full         # 1,000,000 events and 10,000,000 hits
 e2e/run.sh --keep               # leave the stack up afterwards for debugging
 e2e/run.sh --no-build           # use modules/*/build/libs as they are
+e2e/run.sh --database mysql     # MySQL instead of PostgreSQL; see "Databases"
 python3 e2e/selftest.py         # test the tests; no Docker, about a second
 ```
 
@@ -50,7 +51,9 @@ Results land in `e2e/results`:
 - `python3`. Standard library only: no `pip install` step, deliberately, so a
   runner needs nothing prepared.
 - Outbound network access to Docker Hub. On the first run that is about 2.4 GB
-  for `liferay/dxp` plus PostgreSQL.
+  for `liferay/dxp` plus the database image.
+- With `--database mysql` only, outbound access to `repo1.maven.org` for MySQL
+  Connector/J, once; see "Databases".
 - Outbound network access to `repository-cdn.liferay.com`, but only when the
   harness has to build the bundles. If `modules/*/build/libs` already holds the
   four jars it uses them.
@@ -268,6 +271,39 @@ through the same `PortletPreferencesLocalService` the plugin writes it with, and
 relies on the scale corpus for the event count. The comparison being exercised
 is then the one a real installation makes.
 
+### Databases
+
+`--database` chooses what the portal runs on. Each choice is one Compose file,
+`docker-compose.<database>.yml`, which adds the database service and the
+portal's JDBC settings to the neutral `docker-compose.yml`. Every case is the
+same on all of them; the harness speaks each dialect where its own SQL differs.
+
+| `--database` | Database | JDBC driver |
+|---|---|---|
+| `postgres` (default) | PostgreSQL 15.19 | PostgreSQL, shipped with DXP |
+| `mysql` | MySQL 8.4.11 | MySQL Connector/J 9.4.0, with `useCursorFetch=true` |
+| `mysql-mariadb-driver` | MySQL 8.4.11 | MariaDB, shipped with DXP |
+| `mariadb` | MariaDB 11.4.13 | MariaDB, shipped with DXP |
+
+The DXP image ships no Connector/J. For `mysql` the harness downloads the
+pinned version from Maven Central into `.work/`, once, and checks its SHA-256
+on every run before the stack starts.
+
+The two MySQL drivers are both here because they behave differently where the
+plugin depends on it. The export reads its rows through a cursor with a fetch
+size (DESIGN.md 6.1). Connector/J ignores the fetch size unless the URL carries
+`useCursorFetch=true`: without it the whole export is buffered in the portal's
+heap, which is why the root README tells MySQL users to set it. The MariaDB
+driver streams with no flag, against MariaDB and against MySQL alike. A green
+run without the flag would not show this, because the smoke tier's export fits
+in memory either way; it was established by reading the driver's result set
+class during an export, on each of the three MySQL family configurations.
+
+All four configurations pass every case. The harness's own SQL keeps
+Liferay's mixed case table names (`UserNotificationEvent`, not
+`usernotificationevent`): PostgreSQL folds an unquoted name to lower case and
+MySQL on Linux does not.
+
 ## What it asserts, case by case
 
 | Case | What it proves |
@@ -428,10 +464,11 @@ alongside the unit tests rather than only before a release.
 ## Not colliding with a developer's own instance
 
 The stack uses its own project name (`sel-e2e`), its own container names, its
-own volumes, and host ports 18080 and 15432 rather than 8080 and 5432. Before
+own volumes, and host ports 18080 and 15432 rather than 8080 and the
+database's own. Before
 anything starts, the harness checks that neither published port already belongs
 to a container it did not create, and stops with that container's name if it
-does. Ports are overridable with `--http-port` and `--postgres-port` or the
+does. Ports are overridable with `--http-port` and `--database-port` or the
 matching `SEL_E2E_*` variables.
 
 Teardown removes only what the project created. It never runs against a
@@ -470,8 +507,11 @@ around 10 GB free on the Docker filesystem:
 ```
 open http://localhost:18080                     # test@liferay.com / test
 docker logs -f sel-e2e-liferay
-docker exec -it sel-e2e-postgres psql -U lportal -d lportal
+docker exec -it sel-e2e-database psql -U lportal -d lportal    # PostgreSQL
+docker exec -it sel-e2e-database mysql -ulportal -plportal lportal  # MySQL
 ```
+
+On MariaDB the client is `mariadb`, with the same arguments as `mysql`.
 
 A failing run without `--keep` still writes the container logs to
 `e2e/results/logs`.
