@@ -54,13 +54,13 @@ import org.osgi.service.component.annotations.Component;
  * apart; see {@link SearchEvalLoggerConstants#DELIVERY_PREFERENCE_CLASS_NAME_ID}.
  * The tracker that resolves this at runtime,
  * <code>UserNotificationManagerUtil</code>, keys it by the
- * <code>javax.portlet.name</code> service property, exactly as Liferay's own
+ * <code>jakarta.portlet.name</code> service property, exactly as Liferay's own
  * <code>MBAddEntryUserNotificationDefinition</code> is keyed; omitting that
  * property leaves this definition registered but never found.
  * </p>
  */
 @Component(
-	property = "javax.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME,
+	property = "jakarta.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME,
 	service = UserNotificationDefinition.class
 )
 public class SearchEvalLoggerUserNotificationDefinition

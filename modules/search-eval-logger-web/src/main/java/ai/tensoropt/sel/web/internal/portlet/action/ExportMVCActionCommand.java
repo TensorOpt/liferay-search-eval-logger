@@ -32,8 +32,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.portlet.ActionRequest;
-import javax.portlet.ActionResponse;
+import jakarta.portlet.ActionRequest;
+import jakarta.portlet.ActionResponse;
 
 import org.osgi.service.component.annotations.Component;
 
@@ -49,7 +49,7 @@ import org.osgi.service.component.annotations.Component;
  */
 @Component(
 	property = {
-		"javax.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME,
+		"jakarta.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME,
 		"mvc.command.name=" + SearchEvalLoggerPortletKeys.MVC_COMMAND_NAME_EXPORT
 	},
 	service = MVCActionCommand.class

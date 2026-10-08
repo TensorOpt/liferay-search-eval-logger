@@ -33,7 +33,7 @@ import java.lang.reflect.Field;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import javax.mail.internet.InternetAddress;
+import jakarta.mail.internet.InternetAddress;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

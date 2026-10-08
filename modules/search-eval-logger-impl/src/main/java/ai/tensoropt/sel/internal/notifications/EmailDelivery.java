@@ -4,7 +4,7 @@
 
 package ai.tensoropt.sel.internal.notifications;
 
-import javax.mail.internet.InternetAddress;
+import jakarta.mail.internet.InternetAddress;
 
 /**
  * The email half of DESIGN.md 3.6's three notifications (TO-112, EC-15), kept

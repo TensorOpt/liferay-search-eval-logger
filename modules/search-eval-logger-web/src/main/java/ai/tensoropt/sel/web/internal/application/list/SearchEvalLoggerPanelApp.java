@@ -38,7 +38,7 @@ public class SearchEvalLoggerPanelApp extends BasePanelApp {
 	}
 
 	@Reference(
-		target = "(javax.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME + ")"
+		target = "(jakarta.portlet.name=" + SearchEvalLoggerPortletKeys.PORTLET_NAME + ")"
 	)
 	private Portlet _portlet;
 

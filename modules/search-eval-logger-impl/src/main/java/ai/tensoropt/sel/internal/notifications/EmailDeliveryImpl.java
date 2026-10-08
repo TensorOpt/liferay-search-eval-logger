@@ -15,7 +15,7 @@ import com.liferay.portal.kernel.util.PropsKeys;
 
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 
-import javax.mail.internet.InternetAddress;
+import jakarta.mail.internet.InternetAddress;
 
 import org.osgi.service.component.annotations.Component;
 
