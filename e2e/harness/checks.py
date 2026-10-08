@@ -268,7 +268,8 @@ def stack_up(context, case):
     case.note("license mode: %s" % (licences[-1].strip() if licences else "none logged"))
 
     assert_true(
-        "Liferay Digital Experience Platform 2025.Q1.27" in log_text,
+        "Liferay Digital Experience Platform %s" % stack.product_version()
+        in log_text,
         "The portal did not report the expected product version",
     )
 
@@ -2469,13 +2470,28 @@ def uninstall_and_reinstall(context, case):
     # the old instance until the next restart. Seen in about one uninstall in
     # five; the old instance stays fully wired and holds nothing of this
     # plugin's, and every portlet deployed before is deployed after.
+    #
+    # The second is Liferay's too, seen on 2026.Q1.13 in two uninstalls of
+    # three and not on 2026.Q1.12. When the plugin's service bundle stops,
+    # AopServiceManager re-registers the portal's AOP services, Objects
+    # redeploys its system object definitions, and one of the components it
+    # creates fails to activate, logged as a FrameworkEvent ERROR with
+    # ObjectDefinitionDeployerImpl in its trace. Liferay logs duplicate
+    # registrations of its own panel apps in the same second. Search keeps
+    # answering, and the reinstall and restart that follow pass.
 
     assert_log_clean(
         context.stack.liferay_log(
             since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
         ),
         "uninstalling",
-        tolerated=("[PortletTracker:", "is already in use"),
+        tolerated=(
+            (("[PortletTracker:", "is already in use"), ()),
+            (
+                ("FrameworkEvent ERROR",),
+                ("Failed activating component", "ObjectDefinitionDeployerImpl"),
+            ),
+        ),
     )
 
     assert_equal(
@@ -2574,16 +2590,41 @@ def _shifted(context, timestamp, sign, seconds):
     return "(timestamp '%s' %s interval %d second)" % (timestamp, sign, seconds)
 
 
-def assert_log_clean(log_text, while_doing, tolerated=None):
-    """No ERROR line in a stretch of the portal log, except one carrying every
-    substring in `tolerated`.
+_LOG_LINE_START = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
+
+
+def assert_log_clean(log_text, while_doing, tolerated=()):
+    """No ERROR entry in a stretch of the portal log, except ones a rule in
+    `tolerated` names.
+
+    A rule is (line parts, trace parts): every line part must be on the ERROR
+    line and every trace part in the lines that follow it up to the next
+    timestamped line, which is where Liferay writes the stack trace. Some
+    errors only identify themselves there.
     """
-    errors = [
-        line
-        for line in log_text.splitlines()
-        if " ERROR " in line
-        and not (tolerated and all(part in line for part in tolerated))
-    ]
+    lines = log_text.splitlines()
+    errors = []
+
+    for index, line in enumerate(lines):
+        if " ERROR " not in line:
+            continue
+
+        trace = []
+
+        for following in lines[index + 1:]:
+            if _LOG_LINE_START.match(following):
+                break
+
+            trace.append(following)
+
+        trace_text = "\n".join(trace)
+
+        if not any(
+            all(part in line for part in line_parts)
+            and all(part in trace_text for part in trace_parts)
+            for line_parts, trace_parts in tolerated
+        ):
+            errors.append(line)
 
     assert_equal(
         errors,
@@ -2741,7 +2782,7 @@ def export_permission_refused(context, case):
 
     action = (
         "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
-        "&p_p_state=maximized&%sjavax.portlet.action="
+        "&p_p_state=maximized&%sjakarta.portlet.action="
         "%%2Fsearch_eval_logger%%2Fexport&p_auth=%s"
         % (ADMIN_PORTLET_ID, namespace, viewer.auth_token())
     )
@@ -2787,7 +2828,7 @@ def export_permission_refused(context, case):
 
     control_action = (
         "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
-        "&p_p_state=maximized&%sjavax.portlet.action="
+        "&p_p_state=maximized&%sjakarta.portlet.action="
         "%%2Fsearch_eval_logger%%2Fexport&p_auth=%s"
         % (ADMIN_PORTLET_ID, namespace, administrator.auth_token())
     )

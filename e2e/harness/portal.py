@@ -170,7 +170,7 @@ class Portal:
 
         action = (
             "/home?p_p_id=%s&p_p_lifecycle=1&p_p_state=maximized"
-            "&_%s_javax.portlet.action=%%2Flogin%%2Flogin&p_auth=%s"
+            "&_%s_jakarta.portlet.action=%%2Flogin%%2Flogin&p_auth=%s"
             % (LOGIN_PORTLET_ID, LOGIN_PORTLET_ID, p_auth)
         )
 
@@ -193,7 +193,9 @@ class Portal:
 
         response = self.get("/group/control_panel")
 
-        matches = re.findall(r"Liferay\.authToken\s*=\s*'([^']+)'", response.text)
+        matches = re.findall(
+            r"(?:Liferay\.authToken\s*=|\bauthToken:)\s*'([^']+)'", response.text
+        )
 
         if not matches:
             return None
@@ -262,7 +264,7 @@ class Portal:
 
         action = (
             "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
-            "&p_p_state=maximized&%sjavax.portlet.action="
+            "&p_p_state=maximized&%sjakarta.portlet.action="
             "%%2Fserver_admin%%2Fedit_server&p_auth=%s"
             % (SERVER_ADMIN_PORTLET_ID, namespace, auth_token)
         )
@@ -475,7 +477,7 @@ class Portal:
 
         match = re.search(
             r'<form[^>]*action="([^"]*p_p_id=%s[^"]*'
-            r'javax\.portlet\.action=%%2Fsearch_eval_logger%%2Fexport[^"]*)"'
+            r'jakarta\.portlet\.action=%%2Fsearch_eval_logger%%2Fexport[^"]*)"'
             % re.escape(ADMIN_PORTLET_ID),
             text,
         )

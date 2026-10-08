@@ -939,6 +939,56 @@ def check_log_clean():
     )
 
 
+    objects_error = (
+        "2026-10-08 12:02:05.252 ERROR [Framework Event Dispatcher: Equinox "
+        "Container: bf9f][Framework:47] FrameworkEvent ERROR\n"
+        "org.osgi.service.component.ComponentException: Failed activating "
+        "component\n"
+        "\tat com.liferay.object.rest.internal.deployer."
+        "ObjectDefinitionDeployerImpl.lambda$_initSystemObjectDefinition$8"
+        "(ObjectDefinitionDeployerImpl.java:843)\n"
+        "2026-10-08 12:02:05.322 INFO  [x][PanelAppRegistry:61] duplicate\n"
+    )
+    tolerated = (
+        (
+            ("FrameworkEvent ERROR",),
+            ("Failed activating component", "ObjectDefinitionDeployerImpl"),
+        ),
+    )
+
+    expect_accepted(
+        "Liferay's Objects redeploy error, which the rule names by its trace",
+        lambda: checks.assert_log_clean(
+            clean + objects_error, "uninstalling", tolerated=tolerated
+        ),
+    )
+
+    expect_rejected(
+        "a FrameworkEvent ERROR whose trace is something else",
+        lambda: checks.assert_log_clean(
+            clean + objects_error.replace(
+                "ObjectDefinitionDeployerImpl", "SomethingElseImpl"
+            ),
+            "uninstalling",
+            tolerated=tolerated,
+        ),
+    )
+
+    expect_rejected(
+        "the deployer named only by a later entry, not this error's trace",
+        lambda: checks.assert_log_clean(
+            clean
+            + "2026-10-08 12:02:05.000 ERROR [x][Framework:47] FrameworkEvent "
+            "ERROR\n"
+            "org.osgi.service.component.ComponentException: Failed activating "
+            "component\n"
+            "2026-10-08 12:02:05.100 INFO  [x][Y:1] "
+            "ObjectDefinitionDeployerImpl redeployed\n",
+            "uninstalling",
+            tolerated=tolerated,
+        ),
+    )
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1257,7 +1307,7 @@ def check_export_form_anchor():
     real = (
         '<form action="http://localhost:18080/group/control_panel/manage'
         '?p_p_id=%s&amp;p_p_lifecycle=1&amp;p_p_state=maximized'
-        '&amp;_%s_javax.portlet.action=%%2Fsearch_eval_logger%%2Fexport'
+        '&amp;_%s_jakarta.portlet.action=%%2Fsearch_eval_logger%%2Fexport'
         '&amp;p_auth=abc" method="post"></form>' % (ADMIN_PORTLET_ID, ADMIN_PORTLET_ID)
     )
 

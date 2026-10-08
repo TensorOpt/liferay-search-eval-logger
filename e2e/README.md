@@ -65,7 +65,7 @@ bundle archive under `~/.liferay/bundles` is not used and is not needed.
 
 ### The Liferay image comes from Docker Hub
 
-`liferay/dxp:2025.q1.27-lts` is pullable anonymously, and the image is
+`liferay/dxp:2026.q1.13-lts` is pullable anonymously, and the image is
 published for both `linux/amd64` and `linux/arm64`. It is pinned here by digest
 as well as by tag, because a tag on Docker Hub is mutable and a CI run whose
 target platform changes underneath it is not a regression test.

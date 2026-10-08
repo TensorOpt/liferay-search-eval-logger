@@ -25,7 +25,7 @@ services:
 
   liferay:
     container_name: ${SEL_E2E_PROJECT:-sel-e2e}-liferay
-    image: liferay/dxp:2025.q1.27-lts@sha256:c17554d5d1a42cbf0ec0ee38dbb0c658754ae965483ea582ce9000c16b15fdba
+    image: liferay/dxp:2026.q1.13-lts@sha256:466399dd430edcf5a51c66c597a57c30260d89f3efc46476abb598af192665de
     depends_on:
       database:
         condition: service_healthy

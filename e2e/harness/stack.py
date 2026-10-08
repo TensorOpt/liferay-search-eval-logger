@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -50,6 +51,18 @@ class Stack:
         self.base_url = "http://localhost:%d" % http_port
         self.liferay_container = "%s-liferay" % project
         self.database_container = "%s-database" % project
+
+    def product_version(self):
+        """The DXP version the stack runs, as the portal logs it: 2026.Q1.12."""
+        with open(os.path.join(self.directory, "docker-compose.yml")) as file_:
+            match = re.search(
+                r"image: liferay/dxp:(\d{4})\.q(\d)\.(\d+)", file_.read()
+            )
+
+        if match is None:
+            raise HarnessError("docker-compose.yml names no liferay/dxp image")
+
+        return "%s.Q%s.%s" % match.groups()
 
     # Compose
 
