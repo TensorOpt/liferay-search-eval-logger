@@ -21,10 +21,24 @@ What is *not* done: every empirical check in DESIGN.md §7 is still open except 
 
 ### First things to know
 
-- **Build**: `./gradlew build` from the root, on **JDK 17 or 21**. JDK 11 cannot build this: DXP 2025.Q1 LTS ships Java 17 bytecode (class file major 61), and an 11 compiler rejects the target platform jars outright with "class file has wrong version 61.0". Modules compile to Java 17, pinned in the root `build.gradle`, so the bundles advertise `osgi.ee=JavaSE 17`. Needs network access to `repository-cdn.liferay.com`. Root `./gradlew clean` fails without Docker (the workspace plugin's `:stopDockerContainer`); clean per module instead.
-- **Target platform**: `liferay.workspace.product=dxp-2025.q1.27-lts` in `gradle.properties` is the single source — the target platform version, bundle URL and Docker image all derive from it, so nothing else is pinned. Two moves so far, both forced rather than cosmetic: u92 to u112, because Service Builder 1.0.510 generates `Snapshot`-based `*Util` classes that u92's portal-kernel lacks; then u112 to 2025.Q1.27 LTS, which brought the Java 17 floor above. 2025.Q1 is still Tomcat 9 and `javax.*`, so it needed no namespace work — 2026.Q1 and later would. If the product key moves again, re-run a full build before assuming the generated code still compiles, and re-check the bytecode level of the new artifacts before assuming the build JDK still works.
+- **Build**: `./gradlew build` from the root, on **JDK 17 or 21**. DXP 2026.Q1 LTS ships Java 17 bytecode (class file major 61), so a JDK 11 compiler rejects the target platform jars outright with "class file has wrong version 61.0". Modules compile to Java 17, pinned in the root `build.gradle`, so the bundles advertise `osgi.ee=JavaSE 17`; the official DXP images run them on Java 21. Needs network access to `repository-cdn.liferay.com`. Root `./gradlew clean` fails without Docker (the workspace plugin's `:stopDockerContainer`); clean per module instead.
+- **Target platform**: `liferay.workspace.product=dxp-2026.q1.13-lts` in `gradle.properties` is the single source — the target platform version, bundle URL and Docker image all derive from it. 2026.Q1 is Jakarta EE: the code imports `jakarta.portlet`, `jakarta.servlet` and `jakarta.mail`, and its component properties and language keys use the `jakarta.portlet.` prefix. That port was produced by Liferay's own `./gradlew upgradeJakarta` (TO-85) and is kept as its own commit, so it can be told apart from everything else. From 2025.Q3 the unit tests also need log4j and commons-configuration on the test runtime classpath, at the versions the platform ships, and a test `portal.properties` that sets `liferay.home`, because `PropsUtil` now initialises itself. If the product key moves again, re-run a full build and the e2e suite before assuming anything still works, and re-check the bytecode level of the new artifacts before assuming the build JDK still works.
 - **Naming collision**: the generated model type `ai.tensoropt.sel.model.SearchHit` collides by simple name with Liferay's `com.liferay.portal.search.hits.SearchHit`. Any code touching both must fully qualify one; the impl and web modules both do.
 - **Generated code**: `service.xml` and `portlet-model-hints.xml` are the hand-authored source of truth. Everything Service Builder emits (model, `*LocalService`, persistence, `META-INF/sql/*.sql`) is committed and must never be hand-edited — re-run `./gradlew :modules:search-eval-logger-service:buildService` after changing either file. `buildService` rewrites `portlet-model-hints.xml` and strips its XML comments, so comments belong in `service.xml`, which it preserves.
+
+### Branches
+
+One branch per supported DXP LTS line, the newest on `main`:
+
+| Branch | DXP | Java EE flavour |
+|---|---|---|
+| `main` | 2026.Q1 LTS | Jakarta EE |
+| `dxp-2025.q1` | 2025.Q1 LTS | Java EE (`javax`) |
+
+- **Work lands on `main`.** Fixes, and anything affecting security or the collected data, are then backported to the older branches by cherry-pick. New features are backported only when asked for.
+- **A backport rarely conflicts.** The code differs between the two branches only where `upgradeJakarta` rewrote it (`javax` and `jakarta` imports, component properties, one JSP taglib URI) and in the e2e harness's handling of portal markup. A conflict means one of those lines; resolve it in the older branch's own form.
+- **Each new LTS repeats TO-85.** Deploy `main`'s current JARs onto the new LTS unchanged. If they resolve and the e2e suite passes, no new branch is needed. If not, branch the outgoing LTS off `main` first, then upgrade `main`.
+- **A branch is retired** when its LTS loses Premium Support; for 2025.Q1, February 2028.
 
 ### Module boundaries
 
@@ -49,7 +63,7 @@ Two things a change elsewhere could silently break: nothing in the export path m
 
 ## What this project is
 
-A Liferay DXP OSGi plugin (currently targeting DXP 2025.Q1 LTS; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
+A Liferay DXP OSGi plugin (currently targeting DXP 2026.Q1 LTS on `main`, and 2025.Q1 LTS on the `dxp-2025.q1` branch; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
 
 ## Architecture (from DESIGN.md §3.5)
 

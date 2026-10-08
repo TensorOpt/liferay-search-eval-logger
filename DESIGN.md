@@ -2,7 +2,7 @@
 
 **Status:** Implemented and partly validated against a running instance. Section 7 carries the empirical results; EC-5, EC-6, EC-9, EC-13 and the runtime half of EC-14 remain unmeasured on a live portal. The design below is unchanged except where an empirical check contradicted it, which is called out in place (see 3.1). Sections 3.6 and 10 (collection-start tracking, local notifications, funnel integration) are implemented, and the e2e suite exercises them on a running instance. TO-112 (the collection-started notification, the signup banner, the stall grace period, and email delivery per EC-15) builds, is covered by unit tests, and its e2e cases pass on a running instance, including the email preference gate; actual email delivery remains unobserved, since the e2e stack has no SMTP sink (see EC-15).
 **Date:** 2026-09-17, results appended 2026-09-21, funnel integration specified and implemented 2026-09-22, notification-flow fixes (TO-112) added 2026-10-05
-**Target:** Designed against Liferay DXP 7.4; currently built and run against DXP 2025.Q1.27 LTS
+**Target:** Designed against Liferay DXP 7.4; currently built and run against DXP 2026.Q1.13 LTS (Jakarta EE) on `main`, and DXP 2025.Q1.27 LTS on the `dxp-2025.q1` branch (TO-85)
 **License:** Apache 2.0
 **Distribution:** Public GitHub repository
 
