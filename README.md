@@ -97,7 +97,7 @@ The outcomes:
 ## Requirements
 
 - **Liferay DXP 2025.Q1 LTS on Java 17.** Built and tested on 2025.Q1.27 LTS.
-- **Not built for DXP 2025.Q3 or later.** Those releases [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq) and need a port.
+- **This is the `dxp-2025.q1` maintenance branch.** DXP 2025.Q3 and later [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq) and cannot load this build; for DXP 2026.Q1 LTS use [`main`](https://github.com/TensorOpt/liferay-search-eval-logger) and its releases.
 - **Database.** Tested end to end on PostgreSQL 15, MySQL 8.4 and MariaDB 11.4.
   - **MySQL with MySQL Connector/J:** add `useCursorFetch=true` to the JDBC URL. Without it, Connector/J loads an entire export into memory. The DXP image does not include Connector/J; copy it to `[Liferay Home]/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib`.
   - **MariaDB, or MySQL with the MariaDB driver the DXP image ships:** no extra setting is needed.
