@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# GitLab is where this project's code and pipelines live; GitHub is a
+# distribution channel. Every job runs a make target, so anything the pipeline
+# does can be reproduced on a workstation with the same command.
+#
+# Branch and merge request pipelines: build (compile, unit tests, package),
+# then the e2e suite on all four databases in parallel, against the build
+# job's jars, ending with an install of the same jars as an .lpkg.
+#
+# Release: a manual job on main and on dxp-* branches. Run it with a VERSION
+# variable; it is `make release VERSION=...`, which re-checks, rebuilds, runs
+# the whole e2e matrix, and publishes to GitLab and GitHub. It needs GITHUB_TOKEN
+# as a masked, protected CI/CD variable; GitLab uploads with the job token.
+#
+# The e2e jobs run the portal under Docker-in-Docker, which needs the memory of
+# a medium runner. SEL_RUNNER_TAG picks the runner; override it per project if
+# your plan offers a different size.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+variables:
+  SEL_RUNNER_TAG: saas-linux-medium-amd64
+  GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle-home
+  # The harness talks to the dind service, which is where published ports
+  # live, and the stack has to listen beyond its loopback for that.
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  SEL_E2E_HOST: docker
+  SEL_E2E_BIND: 0.0.0.0
+
+default:
+  image: eclipse-temurin:21-jdk-jammy
+  tags:
+    - $SEL_RUNNER_TAG
+  before_script:
+    - ci/install-tools.sh
+  cache:
+    key: gradle-$CI_COMMIT_REF_SLUG
+    paths:
+      - .gradle-home/caches/
+      - .gradle-home/wrapper/
+
+stages:
+  - build
+  - e2e
+  - release
+
+build:
+  stage: build
+  script:
+    - make package
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - modules/*/build/libs/
+      - build/dist/
+      - build/e2e/
+    reports:
+      junit: modules/*/build/test-results/test/*.xml
+
+e2e:
+  stage: e2e
+  needs: [build]
+  services:
+    - docker:27.3.1-dind
+  timeout: 1h
+  parallel:
+    matrix:
+      - DB: [postgres, mysql, mysql-mariadb-driver, mariadb]
+  script:
+    # The build job's jars and .lpkg, not a rebuild: the suite tests exactly
+    # what the build stage produced.
+    - e2e/run.sh --no-build --database "$DB" --lpkg build/e2e/liferay-search-eval-logger.lpkg --results "e2e/results/$DB"
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    paths:
+      - e2e/results/
+    reports:
+      junit: e2e/results/$DB/junit.xml
+
+release:
+  stage: release
+  needs: []
+  services:
+    - docker:27.3.1-dind
+  timeout: 4h
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH =~ /^dxp-/
+      when: manual
+  script:
+    - make release VERSION="$VERSION"
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths:
+      - build/dist/
+      - e2e/results/
