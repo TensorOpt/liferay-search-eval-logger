@@ -17,16 +17,11 @@ import static org.mockito.Mockito.when;
 
 import com.liferay.portal.configuration.module.configuration.ConfigurationProvider;
 import com.liferay.portal.kernel.module.configuration.ConfigurationException;
-import com.liferay.portal.kernel.util.Props;
-import com.liferay.portal.kernel.util.PropsUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 
 import java.lang.reflect.Field;
 
-import java.util.Properties;
-
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,24 +32,6 @@ import org.junit.jupiter.api.Test;
  * deliberate edit here too.
  */
 public class SearchEvalLoggerConfigurationRegistryTest {
-
-	/**
-	 * ConfigurableUtil reads configuration overrides from portal properties,
-	 * which a unit test has none of. An empty set is what a portal with no
-	 * overrides gives it.
-	 */
-	@BeforeAll
-	public static void setUpClass() {
-		Props props = mock(Props.class);
-
-		when(
-			props.getProperties(anyString(), anyBoolean())
-		).thenReturn(
-			new Properties()
-		);
-
-		PropsUtil.setProps(props);
-	}
 
 	@BeforeEach
 	public void setUp() throws Exception {

@@ -11,4 +11,15 @@ dependencies {
 	// provides at runtime but release.dxp.api does not carry. Same version as
 	// the target platform ships.
 	testRuntimeOnly group: "org.ow2.asm", name: "asm", version: "9.7"
+
+	// From 2025.Q3, LogFactoryUtil logs through log4j directly, which the
+	// portal provides at runtime but release.dxp.api does not carry. Same
+	// version as the target platform ships.
+	testRuntimeOnly group: "org.apache.logging.log4j", name: "log4j-api", version: "2.17.1"
+	testRuntimeOnly group: "org.apache.logging.log4j", name: "log4j-core", version: "2.17.1"
+
+	// From 2025.Q3 PropsUtil initialises the portal's own properties, through
+	// commons-configuration, the first time ConfigurableUtil reads overrides.
+	// The portal ships a patched 1.10; the stock one loads the same API.
+	testRuntimeOnly group: "commons-configuration", name: "commons-configuration", version: "1.10"
 }
