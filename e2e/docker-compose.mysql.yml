@@ -2,7 +2,8 @@
 #
 # MySQL 8.4 with MySQL Connector/J, the setup Liferay documents for MySQL. The
 # DXP image does not ship Connector/J; the harness downloads a pinned version
-# into .work/ and checks its SHA-256 before the stack starts (stack.py).
+# into .work/, checks its SHA-256, and bakes it into the portal image through
+# liferay/drivers/ (stack.py, liferay/Dockerfile).
 #
 # The URL is Liferay's MySQL template plus useCursorFetch=true. Without that
 # flag Connector/J buffers a whole result set in the portal's heap, export
@@ -19,7 +20,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
     command: ["--max-connections=200"]
     ports:
-      - "127.0.0.1:${SEL_E2E_DATABASE_PORT:-15432}:3306"
+      - "${SEL_E2E_BIND:-127.0.0.1}:${SEL_E2E_DATABASE_PORT:-15432}:3306"
     volumes:
       - database-data:/var/lib/mysql
     healthcheck:
@@ -34,5 +35,3 @@ services:
     environment:
       LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_DRIVER_UPPERCASEC_LASS_UPPERCASEN_AME: com.mysql.cj.jdbc.Driver
       LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: jdbc:mysql://database/lportal?characterEncoding=UTF-8&dontTrackOpenResources=true&holdResultsOpenOverStatementClose=true&serverTimezone=GMT&useFastDateParsing=false&useUnicode=true&useCursorFetch=true
-    volumes:
-      - ./.work/mysql-connector-j.jar:/opt/liferay/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib/mysql-connector-j.jar:ro

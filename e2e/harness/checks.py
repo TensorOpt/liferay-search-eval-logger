@@ -299,25 +299,17 @@ def install_onto_running_portal(context, case):
     on purpose rather than avoiding it: the next step asserts that the plugin
     notices.
     """
-    deploy_directory = os.path.join(context.options.directory, ".work", "deploy")
-
-    os.makedirs(deploy_directory, exist_ok=True)
-
     # One anchor for every bundle, taken before the first jar lands. See
     # Stack.wait_for_bundle_started.
 
     deployed_at = time.monotonic()
 
     for jar in context.options.jars:
-        target = os.path.join(deploy_directory, os.path.basename(jar))
+        context.stack.deploy(jar)
 
-        with open(jar, "rb") as source:
-            payload = source.read()
-
-        with open(target, "wb") as destination:
-            destination.write(payload)
-
-        case.note("deployed %s (%d bytes)" % (os.path.basename(jar), len(payload)))
+        case.note(
+            "deployed %s (%d bytes)" % (os.path.basename(jar), os.path.getsize(jar))
+        )
 
     for symbolic_name in BUNDLE_SYMBOLIC_NAMES:
         context.stack.wait_for_bundle_started(
@@ -2486,13 +2478,8 @@ def uninstall_and_reinstall(context, case):
 
     reinstalled_at = time.monotonic()
 
-    deploy_directory = os.path.join(context.options.directory, ".work", "deploy")
-
     for jar in context.options.jars:
-        with open(jar, "rb") as source, open(
-            os.path.join(deploy_directory, os.path.basename(jar)), "wb"
-        ) as target:
-            target.write(source.read())
+        context.stack.deploy(jar)
 
     for symbolic_name in BUNDLE_SYMBOLIC_NAMES:
         context.stack.wait_for_bundle_started(
@@ -2540,6 +2527,102 @@ def uninstall_and_reinstall(context, case):
         cycle_before.get("collectionStartDate"),
         "Reinstalling reset the collection start date",
     )
+
+
+def lpkg_install(context, case):
+    """TO-116: the release's .lpkg installs the plugin the way an administrator
+    installs it.
+
+    Runs last, after uninstall-and-reinstall has left the jars installed and
+    the portal restarted. Takes the jars out, drops the .lpkg into the deploy
+    folder, restarts as Liferay asks, and then asks the framework where the
+    plugin's bundles came from: every one has to be Active and loaded from
+    inside the .lpkg, and searches have to be recorded again.
+    """
+    lpkg = context.options.lpkg
+
+    removed_at = time.monotonic()
+
+    context.stack.liferay_exec(
+        "sh", "-c", "rm -f /opt/liferay/osgi/modules/ai.tensoropt.sel.*.jar"
+    )
+
+    def stopped():
+        log_text = context.stack.liferay_log(
+            since="%ds" % (int(time.monotonic() - removed_at) + 2)
+        )
+
+        return all(
+            ("STOPPED %s_" % name) in log_text for name in BUNDLE_SYMBOLIC_NAMES
+        )
+
+    wait_for("the jar bundles to stop", stopped, timeout=300, interval=3.0)
+
+    deployed_at = time.monotonic()
+
+    context.stack.deploy(lpkg)
+
+    case.note("deployed %s (%d bytes)" % (os.path.basename(lpkg), os.path.getsize(lpkg)))
+
+    def accepted():
+        return "needs to be restarted to complete the installation" in (
+            context.stack.liferay_log(
+                since="%ds" % (int(time.monotonic() - deployed_at) + 2)
+            )
+        )
+
+    wait_for(
+        "Liferay to accept the .lpkg", accepted,
+        timeout=context.options.deploy_timeout, interval=3.0,
+    )
+
+    context.stack.restart_liferay()
+
+    context.portal.wait_until_serving(timeout=context.options.boot_timeout)
+
+    bundles = json.loads(context.portal.run_script(scripts.PLUGIN_BUNDLES))
+
+    for bundle in bundles:
+        case.note("%(name)s state %(state)s from %(location)s" % bundle)
+
+    assert_equal(
+        sorted(bundle["name"] for bundle in bundles),
+        sorted(BUNDLE_SYMBOLIC_NAMES),
+        "The .lpkg did not install exactly the plugin's four bundles",
+    )
+
+    for bundle in bundles:
+        assert_equal(bundle["state"], 32, "%s is not Active" % bundle["name"])
+        assert_true(
+            os.path.basename(lpkg) in bundle["location"],
+            "%s was not loaded from the .lpkg: %s"
+            % (bundle["name"], bundle["location"]),
+        )
+
+    assert_equal(
+        context.portal.run_script(scripts.INTERCEPTION_STATUS),
+        "true",
+        "Interception is not active after installing the .lpkg and restarting",
+    )
+
+    events_before = context.stack.sql_long("select count(*) from SEL_SearchEvent")
+
+    for _ in range(3):
+        context.portal.search_result_count(MARKER_TERM)
+
+    def recorded():
+        events = context.stack.sql_long("select count(*) from SEL_SearchEvent")
+
+        return events if events >= events_before + 3 else None
+
+    events_after = wait_for(
+        "searches to be recorded after the .lpkg install",
+        recorded,
+        timeout=300,
+        interval=3.0,
+    )
+
+    case.note("recorded %d searches after the restart" % (events_after - events_before))
 
 
 def _search_widgets_deployed(context):

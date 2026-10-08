@@ -25,7 +25,13 @@ services:
 
   liferay:
     container_name: ${SEL_E2E_PROJECT:-sel-e2e}-liferay
-    image: liferay/dxp:2025.q1.27-lts@sha256:c17554d5d1a42cbf0ec0ee38dbb0c658754ae965483ea582ce9000c16b15fdba
+    # Built from the pinned Liferay image with the harness's files baked in;
+    # see liferay/Dockerfile for why nothing is bind mounted.
+    build:
+      context: ./liferay
+      args:
+        LIFERAY_IMAGE: liferay/dxp:2025.q1.27-lts@sha256:c17554d5d1a42cbf0ec0ee38dbb0c658754ae965483ea582ce9000c16b15fdba
+    image: ${SEL_E2E_PROJECT:-sel-e2e}-liferay:local
     depends_on:
       database:
         condition: service_healthy
@@ -64,17 +70,12 @@ services:
       LIFERAY_JVM_OPTS: ${SEL_E2E_LIFERAY_JVM_OPTS:--Xms2g -Xmx2g}
 
     ports:
-      - "127.0.0.1:${SEL_E2E_HTTP_PORT:-18080}:8080"
-      - "127.0.0.1:${SEL_E2E_GOGO_PORT:-18311}:11311"
+      # SEL_E2E_BIND is 127.0.0.1 on a workstation, so nothing listens beyond
+      # it, and 0.0.0.0 under Docker-in-Docker, where the harness reaches the
+      # portal through the dind service rather than through localhost.
+      - "${SEL_E2E_BIND:-127.0.0.1}:${SEL_E2E_HTTP_PORT:-18080}:8080"
+      - "${SEL_E2E_BIND:-127.0.0.1}:${SEL_E2E_GOGO_PORT:-18311}:11311"
     volumes:
-      # Copied into Liferay Home before the portal starts: the collector's
-      # configuration and anything else the harness needs in place from the
-      # first boot rather than applied afterwards.
-      - ./liferay/files:/mnt/liferay/files:ro
-      # The entrypoint replaces /opt/liferay/deploy with a symlink to this, so
-      # bundles dropped here before the first boot are installed during startup
-      # and bundles dropped here later are hot deployed.
-      - ./.work/deploy:/mnt/liferay/deploy
       - liferay-data:/opt/liferay/data
       - liferay-osgi-state:/opt/liferay/osgi/state
     healthcheck:
@@ -86,7 +87,10 @@ services:
       timeout: 10s
       retries: 90
       start_period: 60s
-    mem_limit: ${SEL_E2E_LIFERAY_MEM_LIMIT:-5g}
+    # Liferay's 2 GB heap, the Elasticsearch sidecar's own heap, and the
+    # metaspace and off-heap memory of both. 5 GB was exhausted on 2026.Q1.13
+    # under the queue overflow case, and the kernel killed the portal.
+    mem_limit: ${SEL_E2E_LIFERAY_MEM_LIMIT:-6g}
 
 volumes:
   database-data:

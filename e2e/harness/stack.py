@@ -47,7 +47,10 @@ class Stack:
         self.database = database
         self.dialect = "postgres" if database == "postgres" else "mysql"
         self.image = image
-        self.base_url = "http://localhost:%d" % http_port
+        # localhost on a workstation; the dind service's host name under
+        # Docker-in-Docker, where published ports live on that service.
+        self.host = os.environ.get("SEL_E2E_HOST", "localhost")
+        self.base_url = "http://%s:%d" % (self.host, http_port)
         self.liferay_container = "%s-liferay" % project
         self.database_container = "%s-database" % project
 
@@ -169,16 +172,55 @@ class Stack:
         # sits silent for minutes with nothing to distinguish a slow pull from
         # a hung one.
 
-        if self.database == "mysql":
-            self.fetch_connector_j()
+        self._stage_drivers()
 
         log("Pulling images for %s (about 2.4 GB on a cold cache)" % self.project)
 
-        self._compose("pull", capture=False, check=False, timeout=3600)
+        self._compose("pull", "database", capture=False, check=False, timeout=3600)
+        self._compose("build", "liferay", capture=False, timeout=3600)
 
         log("Starting stack %s on %s" % (self.project, self.database))
 
         self._compose("up", "-d", timeout=1800)
+
+    def _stage_drivers(self):
+        """Fills liferay/drivers/, which liferay/Dockerfile bakes into the
+        portal image: Connector/J for mysql, nothing for any other database.
+        Emptied first, so a jar staged for one run never reaches the next."""
+        drivers = os.path.join(self.directory, "liferay", "drivers")
+
+        shutil.rmtree(drivers, ignore_errors=True)
+        os.makedirs(drivers)
+
+        if self.database == "mysql":
+            shutil.copy(
+                self.fetch_connector_j(),
+                os.path.join(drivers, "mysql-connector-j.jar"),
+            )
+
+    def deploy(self, path):
+        """Hot deploys a jar or an .lpkg into the running portal.
+
+        Copied over the Docker API rather than dropped into a mounted folder,
+        then handed to the portal's own user: docker cp keeps the host's owner,
+        and Liferay's auto deployer cannot move a file it does not own, which
+        it reports only as "Unable to write". The file is staged outside the
+        deploy folder and renamed into it, because the deployer polls every
+        three seconds and would otherwise catch it before the chown.
+        """
+        name = os.path.basename(path)
+        staged = "/tmp/%s" % name
+
+        self.copy_to_liferay(path, staged)
+
+        run(
+            [
+                "docker", "exec", "-u", "root", self.liferay_container, "sh", "-c",
+                'chown liferay:liferay "$1" && mv "$1" "/opt/liferay/deploy/$2"',
+                "deploy", staged, name,
+            ],
+            timeout=120,
+        )
 
     def restart_liferay(self):
         log("Restarting Liferay")
@@ -314,7 +356,7 @@ class Stack:
         wait_for("%s to accept connections" % self.database, ready, timeout=timeout)
 
     def fetch_connector_j(self):
-        """Puts MySQL Connector/J where docker-compose.mysql.yml mounts it.
+        """Returns MySQL Connector/J's path, downloading it the first time.
 
         Downloaded once and kept in .work/, and checked against a pinned
         SHA-256 every run, so a corrupted or substituted jar never reaches the
@@ -341,6 +383,8 @@ class Stack:
                 "%s has SHA-256 %s, expected %s. Delete it to download it again."
                 % (path, digest, CONNECTOR_J_SHA256)
             )
+
+        return path
 
     def wait_for_bundle_started(self, symbolic_name, since, timeout=600):
         """Waits for Liferay to report a bundle as started, now rather than ever.
