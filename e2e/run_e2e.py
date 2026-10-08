@@ -14,7 +14,6 @@ could not run at all.
 import argparse
 import glob
 import os
-import shutil
 import sys
 import time
 
@@ -121,6 +120,11 @@ def parse_arguments(argv):
         dest="build",
         action="store_false",
         help="fail rather than build; use the jars already in modules/*/build/libs",
+    )
+    parser.add_argument(
+        "--lpkg",
+        default=os.environ.get("SEL_E2E_LPKG"),
+        help="also install this .lpkg as the last case (make package builds one)",
     )
     parser.add_argument("--boot-timeout", type=int, default=900)
     parser.add_argument("--deploy-timeout", type=int, default=600)
@@ -247,8 +251,6 @@ def main(argv):
 
     options.jars = jars
 
-    deploy_directory = os.path.join(DIRECTORY, ".work", "deploy")
-
     # Always from a destroyed stack. There is deliberately no flag to reuse
     # one: a reused stack has the plugin installed, its counters moved and its
     # generated rows already at the primary keys the generator starts from, so
@@ -258,15 +260,6 @@ def main(argv):
     # inspecting a stack after a run.
 
     stack.down(volumes=True)
-
-    # The deploy directory is bind mounted, so it outlives the containers.
-    # Clearing it is what makes a second run start from the same state as the
-    # first, including after a run that failed halfway.
-
-    if os.path.isdir(deploy_directory):
-        shutil.rmtree(deploy_directory)
-
-    os.makedirs(deploy_directory, exist_ok=True)
 
     portal = Portal(stack)
 
@@ -427,6 +420,13 @@ def main(argv):
             lambda case: checks.uninstall_and_reinstall(context, case),
             requires=["export", "capture"],
         )
+
+        if options.lpkg:
+            results.run(
+                "lpkg-install",
+                lambda case: checks.lpkg_install(context, case),
+                requires=["uninstall-and-reinstall"],
+            )
     finally:
         junit_path = os.path.join(options.results_directory, "junit.xml")
         report_path = os.path.join(options.results_directory, "report.txt")

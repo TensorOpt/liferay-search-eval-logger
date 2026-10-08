@@ -31,7 +31,7 @@ services:
       - -c
       - max_connections=200
     ports:
-      - "127.0.0.1:${SEL_E2E_DATABASE_PORT:-15432}:5432"
+      - "${SEL_E2E_BIND:-127.0.0.1}:${SEL_E2E_DATABASE_PORT:-15432}:5432"
     volumes:
       - database-data:/var/lib/postgresql/data
     healthcheck:

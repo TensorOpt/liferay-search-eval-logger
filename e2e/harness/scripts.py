@@ -114,6 +114,17 @@ def deployed = com.liferay.portal.kernel.service.PortletLocalServiceUtil.
 result = JsonOutput.toJson(deployed*.getPortletId().sort())
 """
 
+# The plugin's bundles as the framework sees them: state (32 is ACTIVE) and
+# location, which says whether a bundle came from a jar or from inside an .lpkg.
+PLUGIN_BUNDLES = """
+def bundles = com.liferay.portal.kernel.module.util.SystemBundleUtil.getBundleContext().getBundles()
+
+result = JsonOutput.toJson(
+    bundles.findAll { it.getSymbolicName()?.startsWith("ai.tensoropt.sel.") }.collect {
+        [name: it.getSymbolicName(), state: it.getState(), location: it.getLocation()]
+    })
+"""
+
 # Which Searcher services are registered, and which bundles are using each.
 # This is the raw evidence behind EC-3: a non-wrapper Searcher with a consumer
 # bundle other than the plugin's own is a consumer that will never rebind.
