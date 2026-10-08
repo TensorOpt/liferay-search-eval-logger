@@ -193,7 +193,7 @@ select
     case
         when (((e.searchEventId - %(event_id_base)d) * %(hits_per_event)d + r)
             %% %(snippet_modulus)d) = 0
-        then 'a fragment mentioning <liferay-hl>generated</liferay-hl> text'
+        then '{"en_US":{"content":["a fragment mentioning <liferay-hl>generated</liferay-hl> text"]}}'
         else null
     end,
     null
@@ -290,7 +290,7 @@ select
     case
         when (((e.searchEventId - %(event_id_base)d) * %(hits_per_event)d + r)
             %% %(snippet_modulus)d) = 0
-        then 'a fragment mentioning <liferay-hl>generated</liferay-hl> text'
+        then '{"en_US":{"content":["a fragment mentioning <liferay-hl>generated</liferay-hl> text"]}}'
         else null
     end,
     null

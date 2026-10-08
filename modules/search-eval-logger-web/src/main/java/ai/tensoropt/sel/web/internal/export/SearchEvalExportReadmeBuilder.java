@@ -202,18 +202,23 @@ public class SearchEvalExportReadmeBuilder {
 											"nondeterministic. Segregate or " +
 												"discard those rows.\n\n";
 
+	private static final String _SNIPPET_SHAPE =
+		"`snippet` is an object keyed by locale, or `_default` for a " +
+			"field whose name carries no locale this installation " +
+				"recognises, then by field, each field's fragments an " +
+					"array. ";
+
 	private static final String _FIELD_COVERAGE =
 		"**Field coverage is a property of this installation, not of the " +
 			"collector.** Titles and snippets were recorded only where the " +
 				"search response already contained them, and snippets " +
 					"generally appear only where the search UI had " +
-						"highlighting switched on. Check " +
-							"`field_coverage_rates` in `manifest.json` " +
-								"before designing a judging pass. Thin " +
-									"coverage is fixed by changing that " +
-										"installation's search " +
-											"configuration, not the " +
-												"export.\n\n";
+						"highlighting switched on. " +
+							_SNIPPET_SHAPE +
+								"Check `field_coverage_rates` in `manifest.json` before " +
+									"designing a judging pass. Thin coverage is fixed by " +
+										"changing that installation's search configuration, not " +
+											"the export.\n\n";
 
 	private static final String _HANDLING =
 		"## Handling\n\nThese rows are user-submitted text from a production " +

@@ -382,6 +382,74 @@ def check_events_jsonl():
     expect_rejected("hits replaced with a string", stream(no_hits_array))
 
 
+def check_snippet_shape():
+    """TO-115: `snippet` is a JSON object keyed by locale then field.
+
+    Each mutation below is one way the pre-TO-115 column, or a half-migrated
+    one, would still look plausible to a check that only confirmed the key
+    was present.
+    """
+    good = [event_line(index) for index in range(3)]
+
+    good[0]["hits"][0]["snippet"] = {
+        "en_US": {"content": ["a <liferay-hl>fragment</liferay-hl>"]},
+        "_default": {"assetTagNames": ["generated"]},
+    }
+
+    expect_accepted("a well-shaped snippet object is accepted", stream(good))
+
+    joined_string = [event_line(index) for index in range(3)]
+
+    joined_string[0]["hits"][0]["snippet"] = (
+        "a <liferay-hl>fragment</liferay-hl> joined into one string"
+    )
+
+    expect_rejected(
+        "a snippet that is still a joined string, not an object",
+        stream(joined_string),
+    )
+
+    fragment_not_wrapped = [event_line(index) for index in range(3)]
+
+    fragment_not_wrapped[0]["hits"][0]["snippet"] = {
+        "en_US": {"content": "a fragment, not wrapped in an array"}
+    }
+
+    expect_rejected(
+        "a snippet field whose fragments are not wrapped in an array",
+        stream(fragment_not_wrapped),
+    )
+
+    bad_locale_key = [event_line(index) for index in range(3)]
+
+    bad_locale_key[0]["hits"][0]["snippet"] = {
+        "not a locale at all": {"content": ["fragment"]}
+    }
+
+    expect_rejected(
+        "a snippet locale key that is neither a locale nor _default",
+        stream(bad_locale_key),
+    )
+
+    empty_fragments = [event_line(index) for index in range(3)]
+
+    empty_fragments[0]["hits"][0]["snippet"] = {"_default": {"content": []}}
+
+    expect_rejected(
+        "a snippet field whose fragment array is empty",
+        stream(empty_fragments),
+    )
+
+    null_snippet = [event_line(index) for index in range(3)]
+
+    null_snippet[0]["hits"][0]["snippet"] = None
+
+    expect_accepted(
+        "a null snippet (no highlights captured) is still accepted",
+        stream(null_snippet),
+    )
+
+
 def check_vendor_neutrality(tmp_directory):
     good = write_archive(
         [event_line(index) for index in range(5)],
@@ -1337,6 +1405,7 @@ def main():
         check_search_probe()
         check_headline_matching()
         check_events_jsonl()
+        check_snippet_shape()
         check_vendor_neutrality(tmp)
         check_zero_egress()
         check_funnel_links()

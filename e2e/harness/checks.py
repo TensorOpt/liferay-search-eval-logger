@@ -101,6 +101,14 @@ HIT_KEYS = {
     "extra_fields",
 }
 
+# TO-115: a snippet locale key is either "_default" or something that looks
+# like a Liferay language id. This cannot tell a real id from a coincidental
+# look-alike (that is exactly the ambiguity the production code resolves
+# against the company's own available locales, which this harness does not
+# have), so it only catches a key that could not be a locale at all, such as
+# a raw field name left unsplit or the joined string the column held before.
+SNIPPET_LOCALE_KEY_PATTERN = re.compile(r"^[a-z]{2,3}_[A-Z]{2,3}(_[A-Za-z]+)?$")
+
 # SearchEvalLogDestinationConfigurator's _MAXIMUM_QUEUE_SIZE: how many events
 # the destination holds before its rejection handler drops them.
 QUEUE_SIZE = 2000
@@ -772,6 +780,37 @@ def capture(context, case):
     )
 
     case.note("EC-4: %d of %d captured hits carry a title" % (titles, hits))
+
+    # TO-115: wherever a real, widget-captured hit carries a snippet, it is
+    # the new JSON shape, not the joined string the column held before.
+    # Checked straight from the table rather than through an export, so this
+    # exercises SearchEventCaptor's own locale detection end to end, not just
+    # the export writer re-embedding whatever it was given.
+
+    snippet_rows = context.stack.sql(
+        "select h.snippet from SEL_SearchHit h join SEL_SearchEvent e "
+        "on h.searchEventUuid = e.uuid_ where e.queryText like '%%%s%%' "
+        "and h.snippet is not null" % MARKER_TERM
+    )
+
+    case.note(
+        "EC-4: %d of %d captured hits carry a snippet" % (len(snippet_rows), hits)
+    )
+
+    # Not just "the shape is right whenever there is one": a regression to
+    # always-null would leave this loop with nothing to check and pass
+    # silently. The marker content's headline and body both repeat the
+    # marker term the searches use, so the widget's highlighting reliably
+    # produces a snippet for at least one of them.
+
+    assert_true(
+        snippet_rows,
+        "no captured hit carries a snippet; the widget's highlighting was "
+        "expected to produce one for the marker searches",
+    )
+
+    for (snippet,) in snippet_rows:
+        _assert_snippet_shape(json.loads(snippet), "a captured SEL_SearchHit row")
 
     orphans = context.stack.sql_long(
         "select count(*) from SEL_SearchHit h left join SEL_SearchEvent e "
@@ -3023,6 +3062,45 @@ def _count_newer_than(context, table, cutoff, band_seconds):
     )
 
 
+def _assert_snippet_shape(snippet, where):
+    """TO-115: `snippet` is a JSON object keyed by locale then field, each
+    field holding its fragments as a non-empty array of strings, never a
+    joined string. `_default` stands in for a field whose name carries no
+    locale Liferay recognises.
+    """
+    assert_true(
+        isinstance(snippet, dict),
+        "%s: snippet is %r, not a JSON object keyed by locale"
+        % (where, snippet),
+    )
+
+    for locale, fields in snippet.items():
+        assert_true(
+            locale == "_default" or SNIPPET_LOCALE_KEY_PATTERN.match(locale),
+            "%s: snippet locale key %r does not look like a locale or "
+            "_default" % (where, locale),
+        )
+
+        assert_true(
+            isinstance(fields, dict),
+            "%s: snippet.%s is %r, not an object of fields"
+            % (where, locale, fields),
+        )
+
+        for field_name, fragments in fields.items():
+            assert_true(
+                isinstance(fragments, list) and fragments,
+                "%s: snippet.%s.%s is %r, not a non-empty array"
+                % (where, locale, field_name, fragments),
+            )
+
+            assert_true(
+                all(isinstance(fragment, str) for fragment in fragments),
+                "%s: snippet.%s.%s holds a non-string fragment: %r"
+                % (where, locale, field_name, fragments),
+            )
+
+
 def _stream_events(archive, case=None):
     """Reads events.jsonl a line at a time, checking every line.
 
@@ -3095,6 +3173,11 @@ def _stream_events(archive, case=None):
                     missing_hit_keys.setdefault(key, events)
 
                 extra_hit_keys |= hit_keys - HIT_KEYS
+
+                if hit.get("snippet") is not None:
+                    _assert_snippet_shape(
+                        hit["snippet"], "events.jsonl line %d" % events
+                    )
 
             created_at = record.get("created_at")
 

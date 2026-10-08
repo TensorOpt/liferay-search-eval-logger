@@ -361,7 +361,19 @@ public class SearchEvalExportWriter {
 		jsonObject.put(
 			"entry_class_pk", Long.valueOf(resultSet.getLong("entryClassPK")));
 		_put(jsonObject, "title", resultSet.getString("title"));
-		_put(jsonObject, "snippet", resultSet.getString("snippet"));
+
+		// Stored as JSON (TO-115: an object keyed by locale then field, each
+		// field's fragments an array), so it is re-embedded the same way
+		// applied_facets and extra_fields are, rather than put as a string.
+		// Parsed once and the parsed object handed to both the put below and
+		// _countCoverage, so a value that fails to parse is counted the same
+		// way it is exported (null), rather than counted as covered from the
+		// raw column while the exported value is null.
+
+		JSONObject snippetJSONObject = _toJSONObject(
+			resultSet.getString("snippet"));
+
+		_put(jsonObject, "snippet", snippetJSONObject);
 
 		JSONObject extraFieldsJSONObject = _toJSONObject(
 			resultSet.getString("extraFields"));
@@ -373,7 +385,8 @@ public class SearchEvalExportWriter {
 		jsonObject.put("extra_fields", extraFieldsJSONObject);
 
 		_countCoverage(
-			searchEvalExportResult, resultSet, extraFieldsJSONObject);
+			searchEvalExportResult, resultSet, snippetJSONObject,
+			extraFieldsJSONObject);
 
 		return jsonObject;
 	}
@@ -381,7 +394,8 @@ public class SearchEvalExportWriter {
 
 	private void _countCoverage(
 			SearchEvalExportResult searchEvalExportResult,
-			ResultSet resultSet, JSONObject extraFieldsJSONObject)
+			ResultSet resultSet, JSONObject snippetJSONObject,
+			JSONObject extraFieldsJSONObject)
 		throws Exception {
 
 		searchEvalExportResult.incrementHitCount();
@@ -391,7 +405,7 @@ public class SearchEvalExportWriter {
 				SearchEvalLoggerConstants.FIELD_TITLE);
 		}
 
-		if (Validator.isNotNull(resultSet.getString("snippet"))) {
+		if (snippetJSONObject != null) {
 			searchEvalExportResult.incrementFieldCount(
 				SearchEvalLoggerConstants.FIELD_SNIPPET);
 		}

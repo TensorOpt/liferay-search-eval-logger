@@ -64,7 +64,7 @@ For each recorded search:
 
 - the query text, locale, site scope and requested asset types;
 - applied facet selections, where the search path exposes them;
-- each result shown: rank, score, document ID, asset type, and the title and snippet when the response already contains them;
+- each result shown: rank, score, document ID, asset type, and the title and snippet when the response already contains them. The snippet is recorded as an object keyed by locale then field, each field's highlighted fragments an array, so which field and language a fragment came from is never lost to a join;
 - page size, offset and total hit count, so a capped result list is never mistaken for a short one;
 - whether the user was a guest or signed in, plus a salted hash of the user ID. The salt rotates weekly by default and is never exported.
 

@@ -260,7 +260,7 @@ Two tables. One row per admitted search event, one row per captured hit.
 | `entryClassName` | String (200) | |
 | `entryClassPK` | long | Subject to EC-8 |
 | `title` | String (1000) | Captured if present in the response and in the configured field list |
-| `snippet` | Clob | Best-effort, see 4.4 |
+| `snippet` | Clob | Best-effort, see 4.4. JSON, not free text: an object keyed first by locale then by field, each field's fragments an array, in the order Liferay returned them. `null` when nothing was captured. |
 | `extraFields` | Clob | Whitelisted additional fields, JSON-encoded |
 
 ### 4.3 Evaluation cohorts
@@ -286,7 +286,7 @@ Session-ID hashing was considered as an alternative and rejected: session contex
 
 Per D8, the plugin captures only what the caller already requested. Elasticsearch returns only the fields named in the request (via `_source` filtering or selected field names), and Liferay's search widgets frequently do not request full document content, instead resolving result summaries through the Indexer. Consequently:
 
-- **Snippets** are captured only when the calling code already enabled highlighting. Where it did not, `snippet` is null. How often that holds is an installation property and is not assumed here; see the measured result below.
+- **Snippets** are captured only when the calling code already enabled highlighting. Where it did not, `snippet` is null. How often that holds is an installation property and is not assumed here; see the measured result below. What is captured is stored as JSON, not a joined string: every fragment grouped first by the locale its field name carries, then by that field, so a consumer can tell which field and which locale each fragment came from (TO-115). The locale is recognized against the company's available locales; `_default` stands in for a field whose name carries no locale among them, including a field whose locale is not currently available to the company, which stays under `_default` with its suffix kept rather than stripped (`content_de_DE`, for a company without German enabled). Fragments are always arrays, even a single one, and highlight markup (`<liferay-hl>`) is kept exactly as returned.
 - **Titles and whitelisted extra fields** are captured only when present in the returned `Document`. A configured field that the caller did not request is simply absent.
 
 There is no fallback. An earlier draft proposed excerpting from a stored content or description field inside the async listener; that is not possible, because such a field is only in the response if the caller requested it, and causing it to be requested would violate D2.
@@ -393,7 +393,13 @@ Nesting also eliminates the join. Each line is exactly the `(query, result[])` r
       "entry_class_name": "com.liferay.journal.model.JournalArticle",
       "entry_class_pk": 38291,
       "title": "Annual Leave Policy 2026",
-      "snippet": "... employees accrue <liferay-hl>annual leave</liferay-hl> at ...",
+      "snippet": {
+        "en_US": {
+          "content": [
+            "... employees accrue <liferay-hl>annual leave</liferay-hl> at ..."
+          ]
+        }
+      },
       "extra_fields": {}
     }
   ]

@@ -101,7 +101,9 @@ never silent — `DESIGN.md` §4.5), locale, scope, requested asset types,
 applied facets, an audience type, a cohort hash, and pagination context.
 `SEL_SearchHit` holds rank, score, document UID, entry class, and whatever
 fields from the configured whitelist (`title` and `snippet` by default,
-`DESIGN.md` §5) were already present in the response.
+`DESIGN.md` §5) were already present in the response. `snippet` is stored as
+a JSON object keyed by locale then field, each field's highlighted fragments
+an array, not a single string joined across fields (`DESIGN.md` §4.4).
 
 **No raw user identifiers (D3).** The only per-user signal stored is
 `cohortHash`, a salted hash of the user ID read directly from the search
