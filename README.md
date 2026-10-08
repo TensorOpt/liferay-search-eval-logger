@@ -6,7 +6,7 @@ It never changes a search, never contacts anything outside your instance, and ex
 
 - Approving it for production? Start with [SECURITY-REVIEW.md](SECURITY-REVIEW.md). It is written to be forwarded unedited.
 - Design, decisions, empirical checks and measurements: [DESIGN.md](DESIGN.md)
-- Download: [v1.0.0 release](https://github.com/TensorOpt/liferay-search-eval-logger/releases/tag/v1.0.0)
+- Download: [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), one per DXP LTS line
 
 ## Why measure search
 
@@ -96,8 +96,15 @@ The outcomes:
 
 ## Requirements
 
-- **Liferay DXP 2025.Q1 LTS on Java 17.** Built and tested on 2025.Q1.27 LTS.
-- **This is the `dxp-2025.q1` maintenance branch.** DXP 2025.Q3 and later [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq) and cannot load this build; for DXP 2026.Q1 LTS use [`main`](https://github.com/TensorOpt/liferay-search-eval-logger) and its releases.
+- **Liferay DXP 2025.Q1 LTS and 2025.Q2.** This is the `dxp-2025.q1` maintenance branch, built for 2025.Q1 LTS: Java EE (`javax`), compiled to Java 17 bytecode.
+
+  | DXP | This build | Checked by |
+  |---|---|---|
+  | 2025.Q1 LTS | Yes | the full end-to-end suite on 2025.Q1.27, on all four databases; deploying it on 2025.Q1.28 |
+  | 2025.Q2 | Yes | deploying it on 2025.Q2.12 |
+  | 2025.Q3 and later | No: those releases [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq); use [`main`](https://github.com/TensorOpt/liferay-search-eval-logger) and its releases | deploying it on 2025.Q3.10, which leaves two of the four bundles unresolved |
+
+  "Deploying it" means on a clean portal, as JARs and as an `.lpkg`: all four bundles Active, every component of the plugin up, and no error from the plugin in the log. It does not exercise searching or exporting; the end-to-end suite does.
 - **Database.** Tested end to end on PostgreSQL 15, MySQL 8.4 and MariaDB 11.4.
   - **MySQL with MySQL Connector/J:** add `useCursorFetch=true` to the JDBC URL. Without it, Connector/J loads an entire export into memory. The DXP image does not include Connector/J; copy it to `[Liferay Home]/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib`.
   - **MariaDB, or MySQL with the MariaDB driver the DXP image ships:** no extra setting is needed.
@@ -105,13 +112,15 @@ The outcomes:
 
 ## Install
 
-1. Download the four bundle JARs and `SHA256SUMS` from the [v1.0.0 release](https://github.com/TensorOpt/liferay-search-eval-logger/releases/tag/v1.0.0).
-2. Verify the checksums. `SHA256SUMS` also lists the release zip, so `--ignore-missing` skips the files you did not download. On Linux, `sha256sum -c --ignore-missing SHA256SUMS` does the same.
+1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download the four `ai.tensoropt.sel.*.jar` files and `SHA256SUMS`.
+2. Verify the download (on Linux, `sha256sum -c SHA256SUMS`):
    ```
-   shasum -a 256 -c --ignore-missing SHA256SUMS
+   shasum -a 256 -c SHA256SUMS
    ```
 3. Copy the four JARs to `[Liferay Home]/deploy`.
 4. **Restart the portal.**
+
+Installed from Liferay Marketplace instead, the plugin arrives as an `.lpkg` that Marketplace builds from the same four JARs; the restart is needed either way.
 
 The restart is required. Liferay's search components bind the search service once, at startup. A plugin installed onto a running portal is registered but never called, so it records nothing and logs no error. The same applies after every redeploy of `search-eval-logger-impl`.
 
@@ -221,16 +230,22 @@ Do not skip step 3. With the record left in place, a later reinstall never recre
 | Export exhausts memory on MySQL | MySQL Connector/J loads the whole result set unless told otherwise | Add `useCursorFetch=true` to the JDBC URL, or use the MariaDB driver the DXP image ships |
 | "You do not have permission to export search evaluation data." instead of the export form | You lack the export permission | Grant Export Search Evaluation Data to your role |
 
-## Build from source
+## Build, run and test from source
 
-Needs JDK 17 or 21 and network access to `repository-cdn.liferay.com`.
+Needs JDK 17 or 21 (`JAVA_HOME`), Docker with Compose v2, `python3` and `make`, and network access to `repository-cdn.liferay.com` and Docker Hub.
 
 ```
-./gradlew build     # build all four modules
-./gradlew deploy    # copy them to the bundle's deploy folder
+make build                      # compile, unit tests, e2e selftest
+make package                    # release jars and SHA256SUMS in build/dist/<version>-<line>/
+make run DB=mysql FRESH=1       # a portal on http://localhost:8080 with the plugin installed
+make stop                       # stop it; VOLUMES=1 also deletes its data
+make test                       # unit tests, then the e2e suite on all four databases
+make release VERSION=1.0.0      # what the GitLab release job runs; see CLAUDE.md
 ```
 
-The target DXP version is `liferay.workspace.product` in `gradle.properties`. The end-to-end suite is described in [e2e/README.md](e2e/README.md).
+`DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Without `FRESH=1`, `make run` keeps the database from the last run.
+
+Each branch builds for one DXP line, set by `liferay.workspace.product` in `gradle.properties`: `main` for DXP 2026.Q1, `dxp-2025.q1` for DXP 2025.Q1. The end-to-end suite is described in [e2e/README.md](e2e/README.md).
 
 ## License
 
