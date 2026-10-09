@@ -144,7 +144,8 @@ def release_notes(version, line, sums):
 Records what people search for on a Liferay DXP site and the results they were
 shown, so search quality can be measured on your own content.
 
-This build is for **%(dxp)s LTS** only. Each DXP LTS line has its own release.
+Built for **%(dxp)s LTS**; each DXP LTS line has its own release. The
+README's Requirements section lists the other DXP releases these jars run on.
 
 ## Install
 
@@ -154,7 +155,8 @@ This build is for **%(dxp)s LTS** only. Each DXP LTS line has its own release.
 3. **Restart the portal.** The plugin only receives searches made after a
    restart.
 
-The same version is also on Liferay Marketplace, which delivers it as an .lpkg.
+Installed from Liferay Marketplace instead, the same jars arrive as an .lpkg;
+the restart is needed either way.
 
 The README covers enabling collection, exporting, and what is and is not
 verified; SECURITY-REVIEW.md is written to be forwarded to a reviewer.
