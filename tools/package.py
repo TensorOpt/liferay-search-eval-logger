@@ -36,12 +36,9 @@ import zipfile
 
 REPOSITORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MODULES = (
-    "search-eval-logger-api",
-    "search-eval-logger-service",
-    "search-eval-logger-impl",
-    "search-eval-logger-web",
-)
+sys.path.insert(0, os.path.join(REPOSITORY, "e2e"))
+
+from run_e2e import MODULES  # noqa: E402 - the one list of the four modules
 
 LPKG_NAME = "liferay-search-eval-logger.lpkg"
 
@@ -69,6 +66,11 @@ def dxp_line():
         sys.exit("gradle.properties names no dxp-YYYY.qN.P product")
 
     return match.group(1)
+
+
+def dxp_title(line):
+    """DXP 2026.Q1 for dxp-2026.q1. Shared with tools/publish.py's release title."""
+    return line.replace("dxp-", "DXP ").replace(".q", ".Q")
 
 
 def built_jars():
@@ -134,7 +136,7 @@ def sha256(path):
 
 
 def release_notes(version, line, sums):
-    dxp = line.replace("dxp-", "DXP ").replace(".q", ".Q")
+    dxp = dxp_title(line)
     checksums = "\n".join("%s  %s" % (digest, name) for name, digest in sums)
 
     return """# Liferay Search Eval Logger %(version)s for %(dxp)s LTS

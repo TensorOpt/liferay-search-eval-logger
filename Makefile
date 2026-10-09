@@ -16,21 +16,24 @@ LINE := $(shell sed -nE 's/^liferay\.workspace\.product=(dxp-[0-9]{4}\.q[0-9])\.
 BUNDLE_VERSION := $(shell sed -nE 's/^Bundle-Version: *//p' modules/search-eval-logger-api/bnd.bnd)
 
 VERSION ?= $(BUNDLE_VERSION)
-DIST := build/dist/$(VERSION)-$(LINE)
 LPKG := build/e2e/liferay-search-eval-logger.lpkg
 
 DB ?= postgres
 DBS ?= postgres mysql mysql-mariadb-driver mariadb
 FRESH ?= 0
 VOLUMES ?= 0
+PORT ?= 8080
 
-.PHONY: help build package run stop e2e test release
+.PHONY: help build package run stop e2e e2e-run test release
 
 help: ## List the targets
-	@grep -E '^[a-z0-9]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
 	@echo
-	@echo "  DB=postgres|mysql|mysql-mariadb-driver|mariadb   FRESH=1   VOLUMES=1"
+	@echo "  DB=postgres|mysql|mysql-mariadb-driver|mariadb   FRESH=1   VOLUMES=1   PORT=8080"
 	@echo "  DBS=\"$(DBS)\"   VERSION=$(VERSION)   (line $(LINE))"
+	@echo
+	@echo "  each DB gets its own dev stack (project sel-dev-<db>). make stop DB=<db>"
+	@echo "  stops just that one; make stop with no DB stops every sel-dev-* stack found."
 
 build: ## Compile all four bundles, run the unit tests and the e2e selftest
 	./gradlew build
@@ -39,26 +42,36 @@ build: ## Compile all four bundles, run the unit tests and the e2e selftest
 package: build ## Release jars and SHA256SUMS into build/dist/<version>-<line>/, and the test .lpkg
 	python3 tools/package.py --version $(VERSION)
 
-run: build ## Start a portal with the plugin on DB (FRESH=1 empties the database first)
-	python3 tools/portal.py up --database $(DB) $(if $(filter 1,$(FRESH)),--fresh)
+run: build ## Start a portal with the plugin on DB, on PORT (FRESH=1 empties the database first)
+	python3 tools/portal.py up --database $(DB) --http-port $(PORT) $(if $(filter 1,$(FRESH)),--fresh)
 
-stop: ## Stop the portal started by make run (VOLUMES=1 also deletes its data)
-	python3 tools/portal.py down $(if $(filter 1,$(VOLUMES)),--volumes)
+stop: ## Stop the portal started by make run. DB=<db> stops just that one; omitted stops every sel-dev-* stack found
+	@if [ "$(origin DB)" = "command line" ]; then \
+		python3 tools/portal.py down --database $(DB) $(if $(filter 1,$(VOLUMES)),--volumes); \
+	else \
+		python3 tools/portal.py down --all $(if $(filter 1,$(VOLUMES)),--volumes); \
+	fi
 
-e2e: package ## Run the e2e suite on DB, ending with an .lpkg install
+e2e-run: ## Run the e2e suite on DB against jars/.lpkg already built (no rebuild)
+	rm -rf "e2e/results/$(DB)"
 	e2e/run.sh --no-build --database $(DB) --lpkg $(LPKG) --results e2e/results/$(DB)
+
+e2e: package ## Build and package, then run the e2e suite on DB, ending with an .lpkg install
+	$(MAKE) e2e-run DB=$(DB)
 
 test: package ## Unit tests, then the e2e suite on every database in DBS
 	@failed=""; \
 	for db in $(DBS); do \
 		echo "== e2e on $$db"; \
-		e2e/run.sh --no-build --database $$db --lpkg $(LPKG) --results e2e/results/$$db \
+		$(MAKE) e2e-run DB=$$db \
 			|| failed="$$failed $$db"; \
 	done; \
 	for db in $(DBS); do echo "$$db: $$(grep -h 'cases,' e2e/results/$$db/report.txt || echo 'no report')"; done; \
 	if [ -n "$$failed" ]; then echo "e2e failed on:$$failed"; exit 1; fi
 
 release: ## Release VERSION for this DXP line: checks, clean build, make test, publish
+	@[ -n "$(VERSION)" ] \
+		|| { echo "VERSION is empty. Set VERSION, e.g. make release VERSION=$(BUNDLE_VERSION)"; exit 1; }
 	@[ "$(origin VERSION)" = "command line" ] || [ "$(origin VERSION)" = "environment" ] \
 		|| { echo "Set VERSION, e.g. make release VERSION=$(BUNDLE_VERSION)"; exit 1; }
 	@[ "$(VERSION)" = "$(BUNDLE_VERSION)" ] \

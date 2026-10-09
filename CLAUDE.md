@@ -60,8 +60,20 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
   stand-in for Marketplace's; it is never published. Its name carries no
   version, because Liferay identifies an installed `.lpkg` by its file name.
 - **`make release` fails fast.** `tools/publish.py preflight` runs before the
-  build: tokens, the tag being free on GitLab and GitHub, the commit being on
-  GitHub, and both evaluation service pages answering 200.
+  build: tokens, the tag not already fully released on both GitLab and
+  GitHub, that tag not already pinned to some other commit on either side,
+  the commit being on GitHub, and both evaluation service pages answering
+  200. `publish` itself is retry-safe: a side already holding a complete
+  release is skipped rather than redone, so a run that failed halfway can be
+  re-run unchanged.
+- **`main` and every `dxp-*` branch must be protected in GitLab.** `GITHUB_TOKEN`
+  is a protected CI/CD variable, which GitLab only exposes to a pipeline
+  running on a protected branch; the release job is `rules`-gated to exactly
+  those branches in `.gitlab-ci.yml`, but that gate does nothing to protect
+  the token itself, so an unprotected `dxp-*` branch would run the job with
+  the token simply absent, and `preflight`'s own token check refuses the
+  release before the build even starts, rather than leaving a half-published
+  release to clean up after a full test run.
 - **The e2e stack has no bind mounts**, so it runs the same under GitLab's
   Docker-in-Docker as on a workstation; see "Running it in CI" in
   `e2e/README.md`. Keep it that way: a new file the portal needs goes into
