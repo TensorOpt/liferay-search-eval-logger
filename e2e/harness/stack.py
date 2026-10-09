@@ -12,6 +12,7 @@ import math
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 import urllib.request
@@ -32,6 +33,18 @@ CONNECTOR_J_SHA256 = (
     "49ed93c8b2bea9cb0929b85a8a28837b191d0f8eac6919fdcef16e36e2cd53b3"
 )
 
+# Printed in both port-conflict messages below. The two callers move a port
+# differently: tools/portal.py (make run/make stop) takes an explicit
+# --http-port/--database-port, which _compose() always writes into the
+# environment it hands to Compose, so the SEL_E2E_* variables below have no
+# effect on it; run_e2e.py (e2e/run.sh, the CI e2e job) reads those same
+# SEL_E2E_* variables as its own argument defaults instead.
+_PORT_MOVE_HINT = (
+    "tools/portal.py's --http-port/--database-port (`make run PORT=...`), "
+    "or run_e2e.py's SEL_E2E_HTTP_PORT/SEL_E2E_DATABASE_PORT (what "
+    "e2e/run.sh and the e2e job read)."
+)
+
 
 class Stack:
     def __init__(
@@ -48,9 +61,13 @@ class Stack:
         self.database = database
         self.dialect = "postgres" if database == "postgres" else "mysql"
         self.image = image
-        # localhost on a workstation; the dind service's host name under
-        # Docker-in-Docker, where published ports live on that service.
-        self.host = os.environ.get("SEL_E2E_HOST", "localhost")
+        # 127.0.0.1 on a workstation, matching SEL_E2E_BIND's own default
+        # below, so the harness and the browser always reach the same socket
+        # the stack actually published; "localhost" can resolve to ::1 first,
+        # which is a different address than an IPv4-only bind. Under
+        # Docker-in-Docker SEL_E2E_HOST is set to the dind service's name,
+        # where published ports live on that service.
+        self.host = os.environ.get("SEL_E2E_HOST", "127.0.0.1")
         self.base_url = "http://%s:%d" % (self.host, http_port)
         self.liferay_container = "%s-liferay" % project
         self.database_container = "%s-database" % project
@@ -112,6 +129,23 @@ class Stack:
             owner, project = self._port_owner(port)
 
             if owner is None:
+                # Nothing Docker-published owns it, but that is not the same
+                # as the port being free: Docker Desktop on macOS can publish
+                # a container's port on 127.0.0.1 while a plain host process
+                # (a local Tomcat, say) already listens on *:<port>, and
+                # whichever one actually answers a request then depends on
+                # bind order rather than on anything this harness controls.
+                # A real connection attempt catches that case; a container
+                # listing never would.
+                if self._port_in_use(port):
+                    raise HarnessError(
+                        "Host port %d already has something listening on it "
+                        "that is not one of this harness's own containers "
+                        "(no Docker-published port owns it). Stop whatever "
+                        "is using it, or move this stack off it: %s"
+                        % (port, _PORT_MOVE_HINT)
+                    )
+
                 continue
 
             # Ownership is decided by Compose's own project label, not by the
@@ -123,12 +157,27 @@ class Stack:
             if project != self.project:
                 raise HarnessError(
                     "Host port %d is already published by container %r "
-                    "(compose project %r, this run is %r). Set "
-                    "SEL_E2E_HTTP_PORT or SEL_E2E_DATABASE_PORT to move out "
-                    "of its way; this harness will not touch a container it "
-                    "did not create."
-                    % (port, owner, project or "none", self.project)
+                    "(compose project %r, this run is %r). This harness will "
+                    "not touch a container it did not create; move this "
+                    "stack off the port instead: %s"
+                    % (port, owner, project or "none", self.project, _PORT_MOVE_HINT)
                 )
+
+    def _port_in_use(self, port):
+        """True if something accepts a TCP connection on this host's port.
+
+        Tried on both the loopback address and "localhost" literally, since
+        the two can resolve differently (IPv4 versus IPv6), and either one
+        answering means the port is not free.
+        """
+        for host in ("127.0.0.1", "localhost"):
+            try:
+                with socket.create_connection((host, port), timeout=1):
+                    return True
+            except OSError:
+                continue
+
+        return False
 
     def _port_owner(self, port):
         """Returns (container name, compose project) publishing `port`."""
@@ -199,7 +248,15 @@ class Stack:
     def _stage_drivers(self):
         """Fills liferay/drivers/, which liferay/Dockerfile bakes into the
         portal image: Connector/J for mysql, nothing for any other database.
-        Emptied first, so a jar staged for one run never reaches the next."""
+        Emptied first, so a jar staged for one run never reaches the next.
+
+        This path is under self.directory (e2e/), not under self.project, so
+        any two Stacks built concurrently from the same checkout share it and
+        can race - two `make run` dev stacks are not such a pair, since they
+        default to the same database port and cannot usefully run side by
+        side in the first place; the real case is two harness runs (e2e or
+        dev) sharing one checkout, e.g. by hand against a workstation clone
+        used for nothing else at the time."""
         drivers = os.path.join(self.directory, "liferay", "drivers")
 
         shutil.rmtree(drivers, ignore_errors=True)

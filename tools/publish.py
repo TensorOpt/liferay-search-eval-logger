@@ -12,9 +12,29 @@ build/dist/<version>-<line>/ attached to both.
 
 preflight runs before the build, so a release that cannot be published fails
 in seconds rather than after the e2e suite. It checks everything that could
-stop a release halfway: the tokens, the tag being free on both, the commit being on
-GitHub already (GitLab's push mirror puts it there), and both evaluation
-service pages answering, since every installed copy links to them.
+stop a release halfway: the tokens, the tag not already fully released on
+both GitLab and GitHub, that tag not already pointing somewhere other than
+HEAD on either side, the commit being on GitHub already (GitLab's push
+mirror puts it there), and both evaluation service pages answering, since
+every installed copy links to them.
+
+publish is retry-safe: each side skips itself once its own release already
+exists and is complete (see publish_gitlab/publish_github), so a run that
+failed partway - say, GitLab succeeded and GitHub did not - can be run again
+unchanged rather than requiring a new version or manual cleanup. Because
+jars are not byte-reproducible (bnd stamps a build time into each one), a
+retry's rebuild cannot be assumed to match what an earlier, already-published
+side holds: when GitLab's release already exists, publish_github fetches
+*its* files back from GitLab's generic package registry and uploads those,
+rather than whatever this retry's build/dist happens to contain, so both
+sides always ship byte-identical jars under one tag. The GitHub side itself
+is created as a draft, filled with its assets, and only then published,
+because a GitHub release (unlike GitLab's) is visible before its assets are
+attached; a draft found on a later run is a previous run's unfinished side
+and is deleted and rebuilt rather than resumed, since there is no reliable
+way to tell which of its assets, if any, already uploaded. (GitHub's
+/releases/tags/{tag} endpoint never returns a draft, so finding one to
+delete is a separate, paged /releases listing.)
 
 Environment:
     GITLAB_TOKEN or CI_JOB_TOKEN   GitLab API access (CI provides the latter)
@@ -38,7 +58,7 @@ REPOSITORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.insert(0, os.path.join(REPOSITORY, "tools"))
 
-from package import dxp_line  # noqa: E402
+from package import dxp_line, dxp_title  # noqa: E402
 
 PACKAGE = "liferay-search-eval-logger"
 
@@ -68,16 +88,15 @@ class Release:
 
     @property
     def title(self):
-        return "%s for %s LTS" % (
-            self.version, self.line.replace("dxp-", "DXP ").replace(".q", ".Q")
-        )
+        return "%s for %s LTS" % (self.version, dxp_title(self.line))
 
-    def files(self):
-        names = sorted(
+    def _asset_names(self):
+        return sorted(
             name for name in os.listdir(self.directory) if name.endswith(".jar")
         ) + ["SHA256SUMS"]
 
-        return [os.path.join(self.directory, name) for name in names]
+    def files(self):
+        return [os.path.join(self.directory, name) for name in self._asset_names()]
 
     def notes(self):
         with open(os.path.join(self.directory, "release-notes.md")) as file_:
@@ -108,7 +127,27 @@ class Release:
             self.gitlab_api, self.gitlab_project, PACKAGE, self.version, self.line, name,
         )
 
+    def _gitlab_release(self):
+        return self._gitlab(
+            "GET", "/releases/%s" % urllib.parse.quote(self.tag, safe=""), allow=(404,)
+        )
+
+    def _download_gitlab_asset(self, name):
+        return _download(self._package_url(name), self._gitlab_headers())
+
     def publish_gitlab(self):
+        # A GitLab release is created in one call, after every asset is
+        # uploaded, so its existence already means this side is done: a retry
+        # after a failure that happened later (on GitHub) must not re-upload
+        # assets or fail on a release that is already there. Skipped outright
+        # under --dry-run: the existence check is a real, authenticated GET,
+        # which would otherwise make "print what a run would do" depend on
+        # having working credentials and network access.
+        if not self.dry_run and self._gitlab_release() is not None:
+            print("GitLab already has a release %s; skipping" % self.tag)
+
+            return
+
         links = []
 
         for path in self.files():
@@ -153,7 +192,72 @@ class Release:
             allow=allow,
         )
 
+    def _github_release(self):
+        """The published release for this tag, if any. GitHub's own
+        /releases/tags/{tag} resolves a tag to its release but never returns
+        a draft (a draft has no tag ref yet), so a hit here is always a
+        complete, already-published release - never the other run's
+        half-built state _github_draft looks for below."""
+        return self._github(
+            "GET", "/repos/%s/releases/tags/%s" % (self.github_repository, self.tag),
+            allow=(404,),
+        )
+
+    def _github_draft(self):
+        """A previous run's unfinished draft for this tag. Has to be found
+        by listing (see _github_release) and filtering, since GitHub does
+        not offer a "give me the draft for this tag" lookup. Capped at the
+        newest 100 releases, comfortably more than this repository will ever
+        have sitting unpublished at once."""
+        releases = self._github(
+            "GET", "/repos/%s/releases?per_page=100" % self.github_repository
+        ) or []
+
+        return next(
+            (r for r in releases if r.get("draft") and r.get("tag_name") == self.tag), None
+        )
+
+    def _github_tag_commit(self):
+        """The commit this tag currently resolves to on GitHub, if it exists
+        there at all - via /commits/{ref}, which resolves any ref (a tag
+        included) to its commit regardless of whether a release was ever
+        made from it."""
+        resolved = self._github(
+            "GET", "/repos/%s/commits/%s" % (self.github_repository, self.tag),
+            allow=(404, 422),
+        )
+
+        return (resolved or {}).get("sha")
+
     def publish_github(self):
+        # Unlike GitLab's, a GitHub release exists (and is visible to anyone
+        # watching the repo) before its assets are attached, so a retry needs
+        # to tell a finished release from one a previous run left half built.
+        # It is created as a draft, filled, and only then flipped to
+        # published. A found draft is the other run's half-built state:
+        # there is no reliable way to tell which assets it already has, so
+        # it is deleted and rebuilt rather than patched, which also means
+        # every upload below always starts from an empty release and can
+        # never collide with a stale asset of the same name. Both existence
+        # checks are skipped outright under --dry-run, for the same offline
+        # reason publish_gitlab skips its own.
+        if not self.dry_run and self._github_release() is not None:
+            print("GitHub already has a release %s; skipping" % self.tag)
+
+            return
+
+        draft = None if self.dry_run else self._github_draft()
+
+        if draft is not None:
+            self._github("DELETE", "/repos/%s/releases/%s" % (self.github_repository, draft["id"]))
+
+        # Jars are not byte-reproducible across builds (bnd stamps a build
+        # time into each one), so a retry's local build/dist cannot be
+        # assumed to match what GitLab already published under this tag.
+        # When GitLab's side is already done, its notes and exact bytes are
+        # used rather than the local, possibly different, rebuild's.
+        gitlab_release = None if self.dry_run else self._gitlab_release()
+
         created = self._github(
             "POST",
             "/repos/%s/releases" % self.github_repository,
@@ -161,7 +265,8 @@ class Release:
                 "tag_name": self.tag,
                 "target_commitish": self.commit,
                 "name": self.title,
-                "body": self.notes(),
+                "body": self.notes() if gitlab_release is None else gitlab_release["description"],
+                "draft": True,
             },
         )
 
@@ -170,14 +275,25 @@ class Release:
             % self.github_repository,
         ).split("{")[0]
 
-        for path in self.files():
-            with open(path, "rb") as file_:
-                self._github(
-                    "POST",
-                    "%s?name=%s" % (upload_url, urllib.parse.quote(os.path.basename(path))),
-                    data=file_.read(),
-                    content_type="application/octet-stream",
-                )
+        for name in self._asset_names():
+            if gitlab_release is not None:
+                data = self._download_gitlab_asset(name)
+            else:
+                with open(os.path.join(self.directory, name), "rb") as file_:
+                    data = file_.read()
+
+            self._github(
+                "POST",
+                "%s?name=%s" % (upload_url, urllib.parse.quote(name)),
+                data=data,
+                content_type="application/octet-stream",
+            )
+
+        self._github(
+            "PATCH",
+            "/repos/%s/releases/%s" % (self.github_repository, (created or {}).get("id", 0)),
+            body={"draft": False},
+        )
 
     # Preflight
 
@@ -196,13 +312,47 @@ class Release:
         if problems:
             return problems
 
-        if self._gitlab("GET", "/releases/%s" % urllib.parse.quote(self.tag, safe=""),
-                        allow=(404,)) is not None:
-            problems.append("GitLab already has a release %s" % self.tag)
+        # Each side is skipped by publish() once it already has a complete
+        # release (see publish_gitlab/publish_github), so only refuse here
+        # when BOTH are already done - there is then truly nothing left for
+        # a run to do, which is the one case worth stopping before the build.
+        # A lone GitLab release, or a GitHub release still in draft (a
+        # previous run's unfinished side), is left for publish() to finish.
+        # _github_release() never returns a draft (see its docstring), so a
+        # hit there is always the complete, done state.
+        gitlab_release = self._gitlab_release()
+        github_release = self._github_release()
 
-        if self._github("GET", "/repos/%s/releases/tags/%s" % (self.github_repository, self.tag),
-                        allow=(404,)) is not None:
-            problems.append("GitHub already has a release %s" % self.tag)
+        if gitlab_release is not None and github_release is not None:
+            problems.append("GitLab and GitHub already have a release %s" % self.tag)
+
+        # A release that exists for the wrong commit is worse than a missing
+        # one: publish() would skip the existing side and ship this run's
+        # freshly built jars under a tag already pinned elsewhere, silently
+        # mixing two commits' artifacts under one version. Checked for both
+        # sides, and independent of whether a release was ever made from the
+        # tag on GitHub - GitLab's push mirror pushes tags on their own, so
+        # the tag itself can exist there with no release yet.
+
+        gitlab_commit = ((gitlab_release or {}).get("commit") or {}).get("id")
+
+        if gitlab_release is not None and not gitlab_commit:
+            problems.append("GitLab's release %s does not say which commit it is for" % self.tag)
+        elif gitlab_commit and gitlab_commit != self.commit:
+            problems.append(
+                "GitLab's release %s is for commit %s, not HEAD %s. Bump "
+                "the version instead of retrying."
+                % (self.tag, gitlab_commit[:12], self.commit[:12])
+            )
+
+        github_tag_commit = self._github_tag_commit()
+
+        if github_tag_commit and github_tag_commit != self.commit:
+            problems.append(
+                "GitHub's tag %s already points at commit %s, not HEAD %s. "
+                "Bump the version instead of retrying."
+                % (self.tag, github_tag_commit[:12], self.commit[:12])
+            )
 
         if self._github("GET", "/repos/%s/commits/%s" % (self.github_repository, self.commit),
                         allow=(404, 422)) is None:
@@ -229,6 +379,18 @@ def _git(*args):
     return subprocess.run(
         ["git", "-C", REPOSITORY] + list(args), check=True, capture_output=True, text=True
     ).stdout.strip()
+
+
+def _download(url, headers):
+    """Raw bytes from an authenticated GET, for re-uploading an asset GitLab
+    already holds rather than re-reading _request's JSON-decoded result."""
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(url, headers=dict(headers)), timeout=600
+        ) as response:
+            return response.read()
+    except urllib.error.HTTPError as error:
+        sys.exit("GET %s failed: HTTP %d %s" % (url, error.code, error.read()[:500]))
 
 
 def _status(url):

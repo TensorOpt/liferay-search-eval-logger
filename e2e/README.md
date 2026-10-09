@@ -482,9 +482,12 @@ container by name.
 ## Running it in CI
 
 The pipeline is `.gitlab-ci.yml` at the root: a build job (`make package`),
-then this suite on all four databases as parallel jobs against the build job's
-jars and test `.lpkg`, then a manual release job (`make release`). JUnit XML from both the
-unit tests and this suite reaches GitLab's test report.
+then this suite on all four databases as parallel jobs (`make e2e-run DB=...`)
+against the build job's jars and test `.lpkg`, then a manual release job
+(`make release`). `make e2e-run` is the same target `make e2e` and `make test`
+use once their own `package` build is done, so the exact command a job ran is
+always reproducible by hand with `make`. JUnit XML from both the unit tests
+and this suite reaches GitLab's test report.
 
 The jobs run on GitLab.com's shared runners, where the stack runs under
 Docker-in-Docker. Three things make that work, and all three also hold on a
