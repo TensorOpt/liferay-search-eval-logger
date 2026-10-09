@@ -513,9 +513,9 @@ def check_zero_egress():
 
     # The reviewer's finding: with the signup anchor gone, a plain substring
     # search for the signup URL would still be "found" inside any longer URL
-    # it prefixes (the pair once was .../search-log and .../search-log/evaluate),
-    # and the "must appear" assertion would pass vacuously. The signup anchor
-    # is swapped for one to such a longer URL, so this fixture only proves
+    # it prefixes (say, a page nested under the signup address), and the
+    # "must appear" assertion would pass vacuously. The signup anchor is
+    # swapped for one to such a longer URL, so this fixture only proves
     # anything if matching stops at a URL boundary.
     signup_link_removed = ADMIN_SCREEN.replace(
         '<a href="https://tensoropt.ai/dxp-sel-signup?started=2026-09-15'

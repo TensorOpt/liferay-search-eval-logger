@@ -146,9 +146,9 @@ REQUIRED_NON_NULL_EVENT_KEYS = ("event_id", "query", "source_type")
 # these. Whoever changes a URL updates it here too.
 #
 # A plain substring search for one of these would be satisfied by any longer
-# URL it prefixes (the pair once was .../search-log and .../search-log/evaluate),
-# so matching stops at a URL boundary, not a word boundary, since '/' and '-'
-# are both valid in a path segment. See zero_egress below.
+# URL it prefixes (say, a page nested under the signup address), so matching
+# stops at a URL boundary, not a word boundary, since '/' and '-' are both
+# valid in a path segment. See zero_egress below.
 #
 # The bare word "tensoropt" is deliberately not in this set. It is the
 # plugin's own package name, so it appears in the portlet id, in every
@@ -2127,11 +2127,11 @@ def zero_egress(context, case):
 
     A FUNNEL_URLS entry is matched at a URL boundary, not as a bare
     substring: a plain substring search would let any longer URL the token
-    prefixes (as .../search-log once prefixed .../search-log/evaluate)
-    satisfy the "must appear" assertion for the signup link even with the
-    signup anchor missing entirely. The bare hosts in VENDOR_HOSTS keep
-    plain substring matching, deliberately: those need to be caught even
-    mid-path, in loose text outside any anchor.
+    prefixes (say, a page nested under the signup address) satisfy the
+    "must appear" assertion for the signup link even with the signup anchor
+    missing entirely. The bare hosts in VENDOR_HOSTS keep plain substring
+    matching, deliberately: those need to be caught even mid-path, in loose
+    text outside any anchor.
 
     What this still cannot prove is the absence of a request made from
     somewhere the page does not mention. That stays a reading exercise, and
