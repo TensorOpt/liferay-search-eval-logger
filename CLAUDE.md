@@ -46,12 +46,12 @@ Every workflow is a `make` target (`make` lists them), and the GitLab pipeline
 (`.gitlab-ci.yml`) only ever runs those targets, so a pipeline failure can be
 reproduced locally with the same command. GitLab holds the code and pipelines;
 GitHub is a distribution channel, reached by GitLab's push mirror and by
-`tools/publish.py`.
+`scripts/publish.py`.
 
 - **Releases are per DXP line.** Each branch releases its own line from
   `gradle.properties`: tag `v<version>-<line>`, e.g. `v1.0.0-dxp-2026.q1`.
   The version is the bundles' own `Bundle-Version`; bump it in all four
-  `bnd.bnd` files first, or `make release` and `tools/package.py` refuse.
+  `bnd.bnd` files first, or `make release` and `scripts/package.py` refuse.
 - **A release is the four jars.** Liferay's own quarterly releases dropped
   `.lpkg` packaging, and Liferay Marketplace takes the jars and builds the
   `.lpkg` its customers download. Upload the same four jars there, per DXP
@@ -59,7 +59,7 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
   an `.lpkg` of the jars into `build/e2e/`, which the e2e suite installs as a
   stand-in for Marketplace's; it is never published. Its name carries no
   version, because Liferay identifies an installed `.lpkg` by its file name.
-- **`make release` fails fast.** `tools/publish.py preflight` runs before the
+- **`make release` fails fast.** `scripts/publish.py preflight` runs before the
   build: tokens, the tag not already fully released on both GitLab and
   GitHub, that tag not already pinned to some other commit on either side,
   the commit being on GitHub, and both evaluation service pages answering

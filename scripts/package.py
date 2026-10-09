@@ -69,7 +69,7 @@ def dxp_line():
 
 
 def dxp_title(line):
-    """DXP 2026.Q1 for dxp-2026.q1. Shared with tools/publish.py's release title."""
+    """DXP 2026.Q1 for dxp-2026.q1. Shared with scripts/publish.py's release title."""
     return line.replace("dxp-", "DXP ").replace(".q", ".Q")
 
 
