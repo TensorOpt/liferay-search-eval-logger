@@ -63,6 +63,11 @@ services:
       # script console".
       LIFERAY_CAPTCHA_PERIOD_ENFORCE_PERIOD_DISABLED: "true"
 
+      # Liferay answers 500 "Invalid host name" to any Host header outside this
+      # list. Its default covers loopback only; under Docker-in-Docker the
+      # harness reaches the portal as SEL_E2E_HOST ("docker"), so that is added.
+      LIFERAY_VIRTUAL_PERIOD_HOSTS_PERIOD_VALID_PERIOD_HOSTS: "localhost,127.0.0.1,[::1],[0:0:0:0:0:0:0:1],${SEL_E2E_HOST:-127.0.0.1}"
+
       # The Gogo shell is already bound to 0.0.0.0:11311 by the image. Naming it
       # here keeps that visible rather than inherited.
       LIFERAY_MODULE_PERIOD_FRAMEWORK_PERIOD_PROPERTIES_PERIOD_OSGI_PERIOD_CONSOLE: "0.0.0.0:11311"
