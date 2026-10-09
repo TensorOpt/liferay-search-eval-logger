@@ -8,8 +8,8 @@
 # then the e2e suite on all four databases in parallel, against the build
 # job's jars, ending with an install of the same jars as an .lpkg.
 #
-# Release: a manual job on main and on dxp-* branches. Run it with a VERSION
-# variable; it is `make release VERSION=...`, which re-checks, rebuilds, runs
+# Release: a manual job on main and on dxp-* branches. It is `make release`,
+# which releases the bundles' own Bundle-Version: it re-checks, rebuilds, runs
 # the whole e2e matrix, and publishes to GitLab and GitHub. It needs GITHUB_TOKEN
 # as a masked, protected CI/CD variable; GitLab uploads with the job token.
 # A protected variable is only ever exposed to a pipeline on a protected
@@ -117,7 +117,7 @@ release:
       when: manual
       allow_failure: true
   script:
-    - make release VERSION="$VERSION"
+    - make release
   artifacts:
     when: always
     expire_in: 1 month

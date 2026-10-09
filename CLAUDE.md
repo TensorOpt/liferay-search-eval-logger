@@ -50,8 +50,10 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
 
 - **Releases are per DXP line.** Each branch releases its own line from
   `gradle.properties`: tag `v<version>-<line>`, e.g. `v1.0.0-dxp-2026.q1`.
-  The version is the bundles' own `Bundle-Version`; bump it in all four
-  `bnd.bnd` files first, or `make release` and `scripts/package.py` refuse.
+  The version is the bundles' own `Bundle-Version`, never a parameter: to
+  release a new one, bump it in all four `bnd.bnd` files, push, and run the
+  pipeline's manual release job. `scripts/package.py` refuses if the four
+  disagree.
 - **A release is the four jars.** Liferay's own quarterly releases dropped
   `.lpkg` packaging, and Liferay Marketplace takes the jars and builds the
   `.lpkg` its customers download. Upload the same four jars there, per DXP

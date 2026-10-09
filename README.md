@@ -240,7 +240,7 @@ make package                    # release jars and SHA256SUMS in build/dist/<ver
 make run DB=mysql FRESH=1       # a portal on http://127.0.0.1:8080 with the plugin installed
 make stop DB=mysql              # stop it; VOLUMES=1 also deletes its data
 make test                       # unit tests, then the e2e suite on all four databases
-make release VERSION=1.0.0      # what the GitLab release job runs; see CLAUDE.md
+make release                    # releases the bundles' Bundle-Version; what the GitLab release job runs
 ```
 
 `DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Without `FRESH=1`, `make run` keeps the database from the last run. Each database gets its own dev stack (project `sel-dev-<db>`, since every database's Compose override mounts the same named volume), so `make stop` must be given the same `DB` as the `make run` it is stopping, and switching `DB` does not need `FRESH=1` to avoid one engine's data directory being reused by another engine. `PORT=8081` moves the portal off 8080; `make run` refuses to start, before touching Docker, if anything else is already listening on the port it was asked to use.
