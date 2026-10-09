@@ -984,6 +984,65 @@ def check_log_clean():
         ),
     )
 
+    # The real rules, against the three victims of the AopServiceManager
+    # cascade seen so far, their traces trimmed to the frames that matter.
+    def cascade_error(first_frame, extra_frame=""):
+        return (
+            "2026-10-09 08:28:02.305 ERROR [Framework Event Dispatcher: "
+            "Equinox Container: d1e4][Framework:47] FrameworkEvent ERROR\n"
+            "java.lang.NullPointerException\n"
+            "\tat %s\n%s"
+            "\tat com.liferay.portal.aop.internal.AopServiceRegistrar.register"
+            "(AopServiceRegistrar.java:78)\n"
+            "\tat com.liferay.portal.aop.internal.AopServiceManager$"
+            "AopServiceServiceTrackerCustomizer.lambda$addingService$0"
+            "(AopServiceManager.java:275)\n"
+            "2026-10-09 08:28:02.400 INFO  [x][Y:1] next\n"
+        ) % (first_frame, extra_frame)
+
+    for victim in (
+        "com.liferay.object.rest.internal.deployer.ObjectDefinitionDeployerImpl"
+        "._initSystemObjectDefinition(ObjectDefinitionDeployerImpl.java:840)",
+        "com.liferay.portal.vulcan.internal.fields.NestedFieldsSetterUtil$"
+        "NestedFieldServiceTrackerCustomizer.addingService"
+        "(NestedFieldsSetterUtil.java:335)",
+        "com.liferay.exportimport.internal.data.handler."
+        "BatchEnginePortletDataHandlerRegistrar$"
+        "VulcanBatchEngineTaskItemDelegateServiceTrackerCustomizer.addingService"
+        "(BatchEnginePortletDataHandlerRegistrar.java:120)",
+    ):
+        expect_accepted(
+            "Liferay's AOP re-registration cascade: %s" % victim.split("(")[0],
+            lambda victim=victim: checks.assert_log_clean(
+                clean + cascade_error(victim),
+                "uninstalling",
+                tolerated=checks.UNINSTALL_TOLERATED,
+            ),
+        )
+
+    expect_rejected(
+        "the same cascade with this plugin's code in the trace",
+        lambda: checks.assert_log_clean(
+            clean + cascade_error(
+                "com.liferay.portal.vulcan.internal.fields.NestedFieldsSetterUtil"
+                ".addingService(NestedFieldsSetterUtil.java:335)",
+                "\tat ai.tensoropt.sel.internal.SearcherWrapper.search"
+                "(SearcherWrapper.java:90)\n",
+            ),
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
+    expect_rejected(
+        "a FrameworkEvent ERROR outside the AOP re-registration cascade",
+        lambda: checks.assert_log_clean(
+            clean + objects_error,
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]

@@ -2454,42 +2454,12 @@ def uninstall_and_reinstall(context, case):
         "Search stopped answering when the plugin was uninstalled",
     )
 
-    # One ERROR is Liferay's own and is tolerated here only. Every component
-    # holding a static reference down to Searcher is restarted, Commerce's
-    # included, and when the new portlet registers before the old one is gone
-    # PortletTracker logs "Portlet id ... is already in use" and keeps serving
-    # the old instance until the next restart. Seen in about one uninstall in
-    # five; the old instance stays fully wired and holds nothing of this
-    # plugin's, and every portlet deployed before is deployed after.
-    #
-    # The second is Liferay's too, seen on 2026.Q1.13 in two uninstalls of
-    # three and not on 2026.Q1.12. When the plugin's service bundle stops,
-    # AopServiceManager re-registers the portal's AOP services, Objects
-    # redeploys its system object definitions, and one of the components it
-    # creates fails to activate, logged as a FrameworkEvent ERROR with
-    # ObjectDefinitionDeployerImpl in its trace. Liferay logs duplicate
-    # registrations of its own panel apps in the same second. Search keeps
-    # answering, and the reinstall and restart that follow pass. The same
-    # cascade, seen once on a GitLab runner, can also hand Headless's
-    # NestedFieldsSetterUtil a REST resource that is already gone, logged as
-    # a FrameworkEvent ERROR NullPointerException with that class in its trace.
-
     assert_log_clean(
         context.stack.liferay_log(
             since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
         ),
         "uninstalling",
-        tolerated=(
-            (("[PortletTracker:", "is already in use"), ()),
-            (
-                ("FrameworkEvent ERROR",),
-                ("Failed activating component", "ObjectDefinitionDeployerImpl"),
-            ),
-            (
-                ("FrameworkEvent ERROR",),
-                ("NullPointerException", "NestedFieldsSetterUtil"),
-            ),
-        ),
+        tolerated=UNINSTALL_TOLERATED,
     )
 
     assert_equal(
@@ -2681,6 +2651,32 @@ def _shifted(context, timestamp, sign, seconds):
 
 _LOG_LINE_START = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
 
+# Liferay's own errors that uninstalling the plugin can set off, and the only
+# ones uninstall_and_reinstall lets pass.
+#
+# Every component holding a static reference down to Searcher is restarted,
+# Commerce's included, and when the new portlet registers before the old one
+# is gone PortletTracker logs "Portlet id ... is already in use" and keeps
+# serving the old instance until the next restart. Seen in about one uninstall
+# in five; the old instance stays fully wired and holds nothing of this
+# plugin's, and every portlet deployed before is deployed after.
+#
+# On 2026.Q1, when the plugin's service bundle stops, AopServiceManager
+# re-registers the portal's AOP services and Liferay re-runs every tracker
+# downstream of them. Some of those fail on a service that is already gone,
+# each logged as a FrameworkEvent ERROR with AopServiceManager in its trace:
+# Objects' ObjectDefinitionDeployerImpl failing to activate a component (two
+# uninstalls in three locally), and on GitLab runners NullPointerExceptions in
+# Headless's NestedFieldsSetterUtil and Export/Import's
+# BatchEnginePortletDataHandlerRegistrar. Which ones fire varies run to run,
+# so the rule names the cascade rather than each victim. Search keeps
+# answering, and the reinstall and restart that follow pass. assert_log_clean
+# never lets a rule cover an error whose trace runs through this plugin.
+UNINSTALL_TOLERATED = (
+    (("[PortletTracker:", "is already in use"), ()),
+    (("FrameworkEvent ERROR",), ("com.liferay.portal.aop.internal.AopServiceManager",)),
+)
+
 
 def assert_log_clean(log_text, while_doing, tolerated=()):
     """No ERROR entry in a stretch of the portal log, except ones a rule in
@@ -2689,7 +2685,8 @@ def assert_log_clean(log_text, while_doing, tolerated=()):
     A rule is (line parts, trace parts): every line part must be on the ERROR
     line and every trace part in the lines that follow it up to the next
     timestamped line, which is where Liferay writes the stack trace. Some
-    errors only identify themselves there.
+    errors only identify themselves there. No rule covers an error whose trace
+    runs through this plugin's own code: a tolerance is for Liferay's errors.
     """
     lines = log_text.splitlines()
     errors = []
@@ -2708,7 +2705,7 @@ def assert_log_clean(log_text, while_doing, tolerated=()):
 
         trace_text = "\n".join(trace)
 
-        if not any(
+        if "at ai.tensoropt.sel." in trace_text or not any(
             all(part in line for part in line_parts)
             and all(part in trace_text for part in trace_parts)
             for line_parts, trace_parts in tolerated
