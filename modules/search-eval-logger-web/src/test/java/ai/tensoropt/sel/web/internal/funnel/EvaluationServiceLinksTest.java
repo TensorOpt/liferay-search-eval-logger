@@ -107,7 +107,7 @@ public class EvaluationServiceLinksTest {
 	@Test
 	public void theCollectionStartURLCarriesTheDateAndTheUTMTagsOnly() {
 		assertEquals(
-			"https://tensoropt.ai/search-log?started=2026-03-01" +
+			"https://tensoropt.ai/dxp-sel-signup?started=2026-03-01" +
 				"&utm_source=liferay-plugin&utm_medium=admin-screen",
 			EvaluationServiceLinks.getCollectionStartURL(
 				_COLLECTION_START_DATE));
@@ -121,7 +121,7 @@ public class EvaluationServiceLinksTest {
 	@Test
 	public void theExportCompleteURLCarriesTheUTMTagsOnly() {
 		assertEquals(
-			"https://tensoropt.ai/search-log/evaluate?utm_source=liferay-plugin" +
+			"https://tensoropt.ai/dxp-sel-booking?utm_source=liferay-plugin" +
 				"&utm_medium=export-complete",
 			EvaluationServiceLinks.getExportCompleteURL());
 	}
@@ -149,9 +149,9 @@ public class EvaluationServiceLinksTest {
 		}
 
 		assertEquals(
-			"https://tensoropt.ai/search-log", EvaluationServiceLinks.SIGNUP_URL);
+			"https://tensoropt.ai/dxp-sel-signup", EvaluationServiceLinks.SIGNUP_URL);
 		assertEquals(
-			"https://tensoropt.ai/search-log/evaluate",
+			"https://tensoropt.ai/dxp-sel-booking",
 			EvaluationServiceLinks.BOOKING_URL);
 	}
 

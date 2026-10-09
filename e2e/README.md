@@ -260,7 +260,7 @@ exporter to.
 
 `EvaluationServiceLinks` held `{{SIGNUP_URL}}` and `{{BOOKING_URL}}` as literal
 placeholder tokens until the TO-113 release cut over to the real addresses
-(`https://tensoropt.ai/search-log` and `https://tensoropt.ai/search-log/evaluate`).
+(`https://tensoropt.ai/dxp-sel-signup` and `https://tensoropt.ai/dxp-sel-booking`).
 The test asserts what DESIGN.md 10 specifies around them, by structure rather
 than by address, which is exactly what let it keep working across that cutover
 without a rewrite: the collection start link carries `started` at day

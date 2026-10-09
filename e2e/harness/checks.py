@@ -145,11 +145,10 @@ REQUIRED_NON_NULL_EVENT_KEYS = ("event_id", "query", "source_type")
 # more, so the hosts below are listed separately rather than derived from
 # these. Whoever changes a URL updates it here too.
 #
-# One of these is a URL-path prefix of the other (.../search-log is a prefix
-# of .../search-log/evaluate), so a plain substring search for the first would
-# be satisfied by the second alone - matching must stop at a URL boundary, not
-# a word boundary, since '/' and '-' are both valid in a path segment. See
-# zero_egress below.
+# A plain substring search for one of these would be satisfied by any longer
+# URL it prefixes (the pair once was .../search-log and .../search-log/evaluate),
+# so matching stops at a URL boundary, not a word boundary, since '/' and '-'
+# are both valid in a path segment. See zero_egress below.
 #
 # The bare word "tensoropt" is deliberately not in this set. It is the
 # plugin's own package name, so it appears in the portlet id, in every
@@ -157,8 +156,8 @@ REQUIRED_NON_NULL_EVENT_KEYS = ("event_id", "query", "source_type")
 # it as a vendor address on a page would fail on the plugin simply being
 # installed.
 FUNNEL_URLS = (
-    "https://tensoropt.ai/search-log",
-    "https://tensoropt.ai/search-log/evaluate",
+    "https://tensoropt.ai/dxp-sel-signup",
+    "https://tensoropt.ai/dxp-sel-booking",
 )
 
 VENDOR_HOSTS = ("tensoropt.ai", "tensoropt.com", "tensoropt.io")
@@ -2128,12 +2127,12 @@ def zero_egress(context, case):
     an image pointing at a real vendor host would have passed it.
 
     A FUNNEL_URLS entry is matched at a URL boundary, not as a bare
-    substring: https://tensoropt.ai/search-log is a path prefix of
-    https://tensoropt.ai/search-log/evaluate, so a plain substring search
-    would let the booking link alone satisfy the "must appear" assertion for
-    the signup link even with the signup anchor missing entirely. The bare
-    hosts in VENDOR_HOSTS keep plain substring matching, deliberately: those
-    need to be caught even mid-path, in loose text outside any anchor.
+    substring: a plain substring search would let any longer URL the token
+    prefixes (as .../search-log once prefixed .../search-log/evaluate)
+    satisfy the "must appear" assertion for the signup link even with the
+    signup anchor missing entirely. The bare hosts in VENDOR_HOSTS keep
+    plain substring matching, deliberately: those need to be caught even
+    mid-path, in loose text outside any anchor.
 
     What this still cannot prove is the absence of a request made from
     somewhere the page does not mention. That stays a reading exercise, and
