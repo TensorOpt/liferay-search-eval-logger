@@ -2469,7 +2469,10 @@ def uninstall_and_reinstall(context, case):
     # creates fails to activate, logged as a FrameworkEvent ERROR with
     # ObjectDefinitionDeployerImpl in its trace. Liferay logs duplicate
     # registrations of its own panel apps in the same second. Search keeps
-    # answering, and the reinstall and restart that follow pass.
+    # answering, and the reinstall and restart that follow pass. The same
+    # cascade, seen once on a GitLab runner, can also hand Headless's
+    # NestedFieldsSetterUtil a REST resource that is already gone, logged as
+    # a FrameworkEvent ERROR NullPointerException with that class in its trace.
 
     assert_log_clean(
         context.stack.liferay_log(
@@ -2481,6 +2484,10 @@ def uninstall_and_reinstall(context, case):
             (
                 ("FrameworkEvent ERROR",),
                 ("Failed activating component", "ObjectDefinitionDeployerImpl"),
+            ),
+            (
+                ("FrameworkEvent ERROR",),
+                ("NullPointerException", "NestedFieldsSetterUtil"),
             ),
         ),
     )
