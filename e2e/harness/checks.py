@@ -2436,12 +2436,14 @@ def uninstall_and_reinstall(context, case):
     # STOPPED is not yet the end of it: the search widgets are still being
     # redeployed against the portal's own Searcher, and a search rendered
     # before they are back fails for reasons that are not the plugin's. See
-    # scripts.SEARCH_WIDGETS_DEPLOYED.
+    # scripts.SEARCH_WIDGETS_DEPLOYED. As long as the bundles' stop is allowed:
+    # on a GitLab runner Liferay re-ran its AOP re-registration three times
+    # over 85s, the last 15s after STOPPED, and 60s ran out.
 
     wait_for(
         "the search widgets to be redeployed",
         lambda: _search_widgets_deployed(context) == widgets_before,
-        timeout=60,
+        timeout=300,
         interval=0.5,
     )
 
