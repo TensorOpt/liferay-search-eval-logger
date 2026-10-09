@@ -243,7 +243,7 @@ make test                       # unit tests, then the e2e suite on all four dat
 make release                    # releases the bundles' Bundle-Version; what the GitLab release job runs
 ```
 
-`DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Without `FRESH=1`, `make run` keeps the database from the last run. Each database gets its own dev stack (project `sel-dev-<db>`, since every database's Compose override mounts the same named volume), so `make stop` must be given the same `DB` as the `make run` it is stopping, and switching `DB` does not need `FRESH=1` to avoid one engine's data directory being reused by another engine. `PORT=8081` moves the portal off 8080; `make run` refuses to start, before touching Docker, if anything else is already listening on the port it was asked to use.
+`DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Each gets its own dev stack, so switching `DB` never reuses another engine's data. Without `FRESH=1`, `make run` keeps the database from that `DB`'s last run. `make stop DB=mysql` stops that stack; a bare `make stop` stops every one. `PORT=8081` moves the portal off 8080; `make run` refuses to start, before touching Docker, if anything else already listens on that port.
 
 Each branch builds for one DXP line, set by `liferay.workspace.product` in `gradle.properties`: `main` for DXP 2026.Q1, `dxp-2025.q1` for DXP 2025.Q1. The end-to-end suite is described in [e2e/README.md](e2e/README.md).
 
