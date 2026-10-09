@@ -280,9 +280,21 @@ class Stack:
         )
 
     def restart_liferay(self):
+        """Stops Tomcat cleanly, then starts the container again.
+
+        `docker restart` kills the JVM outright: Liferay's entrypoint is a bash
+        script running Tomcat as a background job, tini signals only that
+        script, and when it dies the container goes with the JVM still inside.
+        The OSGi state is then never written back, the next boot redeploys
+        every theme, and on a GitLab runner one hung for good waiting on
+        classic-theme and cms-theme. So Tomcat is told to stop itself, the
+        container exits once it has, and only then is it started.
+        """
         log("Restarting Liferay")
 
-        self._compose("restart", "liferay", timeout=600)
+        self.liferay_exec("sh", "-c", 'kill -TERM "$(cat "$LIFERAY_PID")"', timeout=60)
+        run(["docker", "wait", self.liferay_container], timeout=600)
+        self._compose("start", "liferay", timeout=600)
 
     def container_running(self, container):
         code, stdout, _ = run(
