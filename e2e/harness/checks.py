@@ -2480,11 +2480,16 @@ def uninstall_and_reinstall(context, case):
             symbolic_name, reinstalled_at, timeout=context.options.deploy_timeout
         )
 
+    # The uninstall's own errors can still be arriving: on a GitLab runner
+    # PortletTracker's "already in use" landed 4s after STOPPED, past the
+    # uninstall's look at the log and inside this window's 2s of slack.
+
     assert_log_clean(
         context.stack.liferay_log(
             since="%ds" % (int(time.monotonic() - reinstalled_at) + 2)
         ),
         "reinstalling",
+        tolerated=UNINSTALL_TOLERATED,
     )
 
     context.stack.restart_liferay()
