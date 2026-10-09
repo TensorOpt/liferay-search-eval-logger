@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """A local portal with the plugin installed, for trying things by hand.
 
-    tools/portal.py up [--database postgres] [--fresh]
-    tools/portal.py down [--database postgres | --all] [--volumes]
+    scripts/portal.py up [--database postgres] [--fresh]
+    scripts/portal.py down [--database postgres | --all] [--volumes]
 
 It runs the e2e suite's own Compose files under a project of its own
 (sel-dev-<database>) and its own ports, so it never touches an e2e run and

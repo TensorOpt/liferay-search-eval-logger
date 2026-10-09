@@ -33,13 +33,13 @@ CONNECTOR_J_SHA256 = (
 )
 
 # Printed in both port-conflict messages below. The two callers move a port
-# differently: tools/portal.py (make run/make stop) takes an explicit
+# differently: scripts/portal.py (make run/make stop) takes an explicit
 # --http-port/--database-port, which _compose() always writes into the
 # environment it hands to Compose, so the SEL_E2E_* variables below have no
 # effect on it; run_e2e.py (e2e/run.sh, the CI e2e job) reads those same
 # SEL_E2E_* variables as its own argument defaults instead.
 _PORT_MOVE_HINT = (
-    "tools/portal.py's --http-port/--database-port (`make run PORT=...`), "
+    "scripts/portal.py's --http-port/--database-port (`make run PORT=...`), "
     "or run_e2e.py's SEL_E2E_HTTP_PORT/SEL_E2E_DATABASE_PORT (what "
     "e2e/run.sh and the e2e job read)."
 )

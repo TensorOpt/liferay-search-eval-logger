@@ -43,6 +43,6 @@ replay_pid*
 # GitLab CI keeps Gradle's cache inside the project directory (GRADLE_USER_HOME).
 .gradle-home/
 
-# Python bytecode from tools/ and e2e/.
+# Python bytecode from scripts/ and e2e/.
 __pycache__/
 *.pyc

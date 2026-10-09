@@ -40,16 +40,16 @@ build: ## Compile all four bundles, run the unit tests and the e2e selftest
 	python3 e2e/selftest.py
 
 package: build ## Release jars and SHA256SUMS into build/dist/<version>-<line>/, and the test .lpkg
-	python3 tools/package.py --version $(VERSION)
+	python3 scripts/package.py --version $(VERSION)
 
 run: build ## Start a portal with the plugin on DB, on PORT (FRESH=1 empties the database first)
-	python3 tools/portal.py up --database $(DB) --http-port $(PORT) $(if $(filter 1,$(FRESH)),--fresh)
+	python3 scripts/portal.py up --database $(DB) --http-port $(PORT) $(if $(filter 1,$(FRESH)),--fresh)
 
 stop: ## Stop the portal started by make run. DB=<db> stops just that one; omitted stops every sel-dev-* stack found
 	@if [ "$(origin DB)" = "command line" ]; then \
-		python3 tools/portal.py down --database $(DB) $(if $(filter 1,$(VOLUMES)),--volumes); \
+		python3 scripts/portal.py down --database $(DB) $(if $(filter 1,$(VOLUMES)),--volumes); \
 	else \
-		python3 tools/portal.py down --all $(if $(filter 1,$(VOLUMES)),--volumes); \
+		python3 scripts/portal.py down --all $(if $(filter 1,$(VOLUMES)),--volumes); \
 	fi
 
 e2e-run: ## Run the e2e suite on DB against jars/.lpkg already built (no rebuild)
@@ -80,7 +80,7 @@ release: ## Release VERSION for this DXP line: checks, clean build, make test, p
 	@branch="$${CI_COMMIT_BRANCH:-$$(git rev-parse --abbrev-ref HEAD)}"; \
 		[[ "$$branch" == main || "$$branch" == dxp-* ]] \
 		|| { echo "Release from main or a dxp-* branch, not $$branch"; exit 1; }
-	python3 tools/publish.py preflight --version $(VERSION)
+	python3 scripts/publish.py preflight --version $(VERSION)
 	./gradlew $(foreach module,$(MODULES),:modules:$(module):clean)
 	$(MAKE) test VERSION=$(VERSION)
-	python3 tools/publish.py publish --version $(VERSION)
+	python3 scripts/publish.py publish --version $(VERSION)

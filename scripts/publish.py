@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Publishes a packaged release to GitLab and to GitHub.
 
-    tools/publish.py preflight --version 1.0.0
-    tools/publish.py publish   --version 1.0.0 [--dry-run]
+    scripts/publish.py preflight --version 1.0.0
+    scripts/publish.py publish   --version 1.0.0 [--dry-run]
 
 GitLab is where the code and the pipelines live; GitHub is a distribution
 channel. Each release is one DXP line: tag v<version>-<line>, for example
-v1.0.0-dxp-2026.q1, with the files tools/package.py wrote to
+v1.0.0-dxp-2026.q1, with the files scripts/package.py wrote to
 build/dist/<version>-<line>/ attached to both.
 
 preflight runs before the build, so a release that cannot be published fails
@@ -56,7 +56,7 @@ import urllib.request
 
 REPOSITORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-sys.path.insert(0, os.path.join(REPOSITORY, "tools"))
+sys.path.insert(0, os.path.join(REPOSITORY, "scripts"))
 
 from package import dxp_line, dxp_title  # noqa: E402
 

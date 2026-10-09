@@ -18,8 +18,9 @@
 #
 # The e2e jobs run the portal under Docker-in-Docker, which needs the memory of
 # a medium runner. SEL_RUNNER_TAG picks the runner; override it per project if
-# your plan offers a different size, but note that ci/install-tools.sh fetches
-# amd64 binaries only, so a different runner needs its own tools step too.
+# your plan offers a different size, but note that scripts/install-tools.sh
+# fetches amd64 binaries only, so a different runner needs its own tools step
+# too.
 
 workflow:
   rules:
@@ -39,7 +40,7 @@ default:
   tags:
     - $SEL_RUNNER_TAG
   before_script:
-    - ci/install-tools.sh
+    - scripts/install-tools.sh
   cache:
     key: gradle-$CI_COMMIT_REF_SLUG
     paths:
