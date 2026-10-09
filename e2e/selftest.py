@@ -194,13 +194,13 @@ ADMIN_SCREEN = """
 <div class="alert alert-info">Collection settings live in Configuration.
 <p class="mb-0">Collecting since 2026-09-15, the day the first search was recorded.</p></div>
 <p>
-<a href="https://tensoropt.ai/search-log?started=2026-09-15&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" rel="noopener noreferrer" target="_blank">
+<a href="https://tensoropt.ai/dxp-sel-signup?started=2026-09-15&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" rel="noopener noreferrer" target="_blank">
 What to look for in your search log (free guide, optional reminder)
 </a>
 </p>
 <h3>Run an Export</h3>
 <p>
-<a href="https://tensoropt.ai/search-log/evaluate?utm_source=liferay-plugin&amp;utm_medium=export-complete" rel="noopener noreferrer" target="_blank">
+<a href="https://tensoropt.ai/dxp-sel-booking?utm_source=liferay-plugin&amp;utm_medium=export-complete" rel="noopener noreferrer" target="_blank">
 Want this dataset evaluated? Book a call to scope the analysis.
 </a>
 </p>
@@ -511,20 +511,16 @@ def check_zero_egress():
         lambda: checks.zero_egress(FakeContext(), FakeCase()),
     )
 
-    # The reviewer's finding: https://tensoropt.ai/search-log is a URL-path
-    # prefix of https://tensoropt.ai/search-log/evaluate, so with the signup
-    # anchor removed entirely, a plain substring search for the signup URL
-    # would still be "found" inside the booking URL alone, and the "must
-    # appear" assertion would pass vacuously. The booking anchor (and its
-    # longer URL) is left in place on purpose, so this fixture only proves
+    # The reviewer's finding: with the signup anchor gone, a plain substring
+    # search for the signup URL would still be "found" inside any longer URL
+    # it prefixes (the pair once was .../search-log and .../search-log/evaluate),
+    # and the "must appear" assertion would pass vacuously. The signup anchor
+    # is swapped for one to such a longer URL, so this fixture only proves
     # anything if matching stops at a URL boundary.
     signup_link_removed = ADMIN_SCREEN.replace(
-        '<p>\n<a href="https://tensoropt.ai/search-log?started=2026-09-15'
-        '&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" '
-        'rel="noopener noreferrer" target="_blank">\n'
-        'What to look for in your search log (free guide, optional reminder)'
-        '\n</a>\n</p>\n',
-        "",
+        '<a href="https://tensoropt.ai/dxp-sel-signup?started=2026-09-15'
+        '&amp;utm_source=liferay-plugin&amp;utm_medium=admin-screen" ',
+        '<a href="https://tensoropt.ai/dxp-sel-signup/archive" ',
     )
 
     _assert(
@@ -533,8 +529,7 @@ def check_zero_egress():
     )
 
     expect_rejected(
-        "the signup link removed entirely, with the booking link (a longer "
-        "URL sharing the same prefix) still present",
+        "the signup link replaced by a longer URL sharing its prefix",
         lambda: checks.zero_egress(
             FakeContext(screen=signup_link_removed), FakeCase()
         ),
@@ -572,7 +567,7 @@ def check_zero_egress():
 
     loose = ADMIN_SCREEN.replace(
         "<h3>Admission Counters</h3>",
-        "<h3>Admission Counters</h3><p>Visit https://tensoropt.ai/search-log "
+        "<h3>Admission Counters</h3><p>Visit https://tensoropt.ai/dxp-sel-signup "
         "to sign up.</p>",
     )
 
@@ -627,8 +622,8 @@ def check_funnel_links():
     )
 
     identifying_path = ADMIN_SCREEN.replace(
-        "https://tensoropt.ai/search-log?started=",
-        "https://tensoropt.ai/search-log/92102577642293/signup?started=",
+        "https://tensoropt.ai/dxp-sel-signup?started=",
+        "https://tensoropt.ai/dxp-sel-signup/92102577642293/signup?started=",
     )
 
     expect_rejected(

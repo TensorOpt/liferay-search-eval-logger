@@ -44,13 +44,13 @@ public final class EvaluationServiceLinks {
 	 * comment.
 	 */
 	public static final String BOOKING_URL =
-		"https://tensoropt.ai/search-log/evaluate";
+		"https://tensoropt.ai/dxp-sel-booking";
 
 	/**
 	 * The signup/guide page (10.1). Released with v1.0.0 (TO-113); see the
 	 * class comment.
 	 */
-	public static final String SIGNUP_URL = "https://tensoropt.ai/search-log";
+	public static final String SIGNUP_URL = "https://tensoropt.ai/dxp-sel-signup";
 
 	/**
 	 * The collection-start link of 10.1. <code>started</code> is the date
