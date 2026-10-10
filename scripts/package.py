@@ -166,7 +166,13 @@ def jars_zip_name(version, line):
 
 
 def write_jars_zip(path, files):
-    entries = [(os.path.basename(file_), open(file_, "rb").read()) for file_ in files]
+    """Everything under one folder named after the zip, so unzipping it in a
+    downloads folder does not scatter the files among everything else."""
+    folder = os.path.basename(path)[: -len(".zip")]
+    entries = [
+        ("%s/%s" % (folder, os.path.basename(file_)), open(file_, "rb").read())
+        for file_ in files
+    ]
 
     write_deterministic_zip(path, entries)
 
@@ -239,9 +245,9 @@ README's Requirements section lists the other DXP releases these jars run on.
 ## Install
 
 1. Download the zip and unzip it; the four jars and `SHA256SUMS` come out
-   together:
+   together, in a folder named after it:
    `%(zip)s`
-2. Verify them: `shasum -a 256 -c SHA256SUMS`
+2. In that folder, verify them: `shasum -a 256 -c SHA256SUMS`
 3. Copy the four jars to `[Liferay Home]/deploy`.
 4. **Restart the portal.** The plugin only receives searches made after a
    restart.

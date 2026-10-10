@@ -114,8 +114,8 @@ The outcomes:
 
 ## Install
 
-1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download `liferay-search-eval-logger-*-jars.zip` and unzip it: the four JARs and `SHA256SUMS` come out together.
-2. Verify them (on Linux, `sha256sum -c SHA256SUMS`):
+1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download `liferay-search-eval-logger-*-jars.zip` and unzip it: the four JARs and `SHA256SUMS` come out together, in a folder named after the zip.
+2. In that folder, verify them (on Linux, `sha256sum -c SHA256SUMS`):
    ```
    shasum -a 256 -c SHA256SUMS
    ```
