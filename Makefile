@@ -24,7 +24,7 @@ FRESH ?= 0
 VOLUMES ?= 0
 PORT ?= 8080
 
-.PHONY: help build package run stop e2e e2e-run test release
+.PHONY: help build package run stop e2e e2e-run test preflight publish release
 
 help: ## List the targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
@@ -69,13 +69,22 @@ test: package ## Unit tests, then the e2e suite on every database in DBS
 	for db in $(DBS); do echo "$$db: $$(grep -h 'cases,' e2e/results/$$db/report.txt || echo 'no report')"; done; \
 	if [ -n "$$failed" ]; then echo "e2e failed on:$$failed"; exit 1; fi
 
-release: ## Release the bundles' Bundle-Version for this DXP line: checks, clean build, make test, publish
+# preflight is internal: no '## ' marker, so it stays out of `make help`.
+# Both publish and release depend on it, but release never recurses through
+# $(MAKE) publish for its own final step, so a single `make release` run
+# only ever preflights once.
+preflight:
 	@[ -n "$(VERSION)" ] || { echo "No Bundle-Version in modules/search-eval-logger-api/bnd.bnd"; exit 1; }
 	@[ -z "$$(git status --porcelain)" ] || { echo "The working tree is not clean"; exit 1; }
 	@branch="$${CI_COMMIT_BRANCH:-$$(git rev-parse --abbrev-ref HEAD)}"; \
 		[[ "$$branch" == main || "$$branch" == dxp-* ]] \
 		|| { echo "Release from main or a dxp-* branch, not $$branch"; exit 1; }
 	python3 scripts/publish.py preflight --version $(VERSION)
+
+publish: preflight ## Publish the jars already built in build/dist (no build, no tests): what the CI release job runs after build and e2e passed
+	python3 scripts/publish.py publish --version $(VERSION)
+
+release: preflight ## Release the bundles' Bundle-Version for this DXP line: checks, clean build, make test, publish
 	./gradlew $(foreach module,$(MODULES),:modules:$(module):clean)
 	$(MAKE) test
 	python3 scripts/publish.py publish --version $(VERSION)
