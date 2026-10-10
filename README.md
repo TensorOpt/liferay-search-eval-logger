@@ -112,8 +112,8 @@ The outcomes:
 
 ## Install
 
-1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download the four `ai.tensoropt.sel.*.jar` files and `SHA256SUMS`.
-2. Verify the download (on Linux, `sha256sum -c SHA256SUMS`):
+1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download `liferay-search-eval-logger-*-jars.zip` and unzip it: the four JARs and `SHA256SUMS` come out together.
+2. Verify them (on Linux, `sha256sum -c SHA256SUMS`):
    ```
    shasum -a 256 -c SHA256SUMS
    ```
@@ -121,6 +121,8 @@ The outcomes:
 4. **Restart the portal.**
 
 Installed from Liferay Marketplace instead, the plugin arrives as an `.lpkg` that Marketplace builds from the same four JARs; the restart is needed either way.
+
+Upgrading, or switching which DXP line you run: delete the previous `ai.tensoropt.sel.*.jar` files from `[Liferay Home]/osgi/modules` first, since the new release's jars are named for their own DXP line and do not overwrite the old ones.
 
 The restart is required. Liferay's search components bind the search service once, at startup. A plugin installed onto a running portal is registered but never called, so it records nothing and logs no error. The same applies after every redeploy of `search-eval-logger-impl`.
 
@@ -236,11 +238,12 @@ Needs JDK 17 or 21 (`JAVA_HOME`), Docker with Compose v2, `python3` and `make`, 
 
 ```
 make build                      # compile, unit tests, e2e selftest
-make package                    # release jars and SHA256SUMS in build/dist/<version>-<line>/
+make package                    # release jars, SHA256SUMS and a jars.zip in build/dist/<version>-<line>/
 make run DB=mysql FRESH=1       # a portal on http://127.0.0.1:8080 with the plugin installed
 make stop DB=mysql              # stop it; VOLUMES=1 also deletes its data
 make test                       # unit tests, then the e2e suite on all four databases
-make release                    # releases the bundles' Bundle-Version; what the GitLab release job runs
+make release                    # releases the bundles' Bundle-Version: checks, clean build, make test, publish
+make publish                    # publishes the jars already in build/dist, untested here; what the GitLab release job runs
 ```
 
 `DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Each gets its own dev stack, so switching `DB` never reuses another engine's data. Without `FRESH=1`, `make run` keeps the database from that `DB`'s last run. `make stop DB=mysql` stops that stack; a bare `make stop` stops every one. `PORT=8081` moves the portal off 8080; `make run` refuses to start, before touching Docker, if anything else already listens on that port.

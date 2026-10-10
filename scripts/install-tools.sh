@@ -33,8 +33,8 @@ fetch https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.
 
 chmod +x /usr/local/lib/docker/cli-plugins/*
 
-# Client only: this job has no Docker daemon to talk to (only the e2e and
-# release jobs run a dind service), and `docker version`/`docker info` dial
+# Client only: this job has no Docker daemon to talk to (only the e2e job
+# runs a dind service), and `docker version`/`docker info` dial
 # the daemon and exit non-zero without one, failing every build under `set
 # -e`. These three print the client's own version and touch nothing else.
 docker --version

@@ -54,28 +54,36 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
   release a new one, bump it in all four `bnd.bnd` files, push, and run the
   pipeline's manual release job. `scripts/package.py` refuses if the four
   disagree.
-- **A release is the four jars.** Liferay's own quarterly releases dropped
-  `.lpkg` packaging, and Liferay Marketplace takes the jars and builds the
-  `.lpkg` its customers download. Upload the same four jars there, per DXP
-  line, by hand: Marketplace has no publishing API. `make package` also builds
+- **A release is one zip of the four jars.** `make package` names each jar
+  `<symbolic-name>-<version>-<line>.jar` and zips them with `SHA256SUMS` into
+  `liferay-search-eval-logger-<version>-<line>-jars.zip`, the release's only
+  asset. Liferay's own quarterly releases dropped `.lpkg` packaging, and
+  Liferay Marketplace takes the jars and builds the `.lpkg` its customers
+  download. Upload the same four jars there, per DXP line, by hand:
+  Marketplace has no publishing API. `make package` also builds
   an `.lpkg` of the jars into `build/e2e/`, which the e2e suite installs as a
   stand-in for Marketplace's; it is never published. Its name carries no
   version, because Liferay identifies an installed `.lpkg` by its file name.
-- **`make release` fails fast.** `scripts/publish.py preflight` runs before the
-  build: tokens, the tag not already fully released on both GitLab and
+- **`make release` is the workstation path; CI runs `make publish`.**
+  `make release` does everything: checks, `scripts/publish.py preflight`, a
+  clean rebuild, `make test`, then publish. The CI release job runs
+  `make publish` instead, once the build job and every e2e job have passed:
+  the same checks and preflight, then publish straight from the build job's
+  own, already tested, `build/dist`; it never rebuilds or retests. Preflight
+  covers the tokens, the tag not already fully released on both GitLab and
   GitHub, that tag not already pinned to some other commit on either side,
   the commit being on GitHub, and both evaluation service pages answering
-  200. `publish` itself is retry-safe: a side already holding a complete
-  release is skipped rather than redone, so a run that failed halfway can be
-  re-run unchanged.
+  200. `publish.py` refuses a `build/dist` whose `package-commit.json` marker
+  is missing, dirty, or not for HEAD. `publish` itself is retry-safe: a side
+  already holding a complete release is skipped rather than redone, so a run
+  that failed halfway can be re-run unchanged.
 - **`main` and every `dxp-*` branch must be protected in GitLab.** `GITHUB_TOKEN`
   is a protected CI/CD variable, which GitLab only exposes to a pipeline
   running on a protected branch; the release job is `rules`-gated to exactly
   those branches in `.gitlab-ci.yml`, but that gate does nothing to protect
   the token itself, so an unprotected `dxp-*` branch would run the job with
   the token simply absent, and `preflight`'s own token check refuses the
-  release before the build even starts, rather than leaving a half-published
-  release to clean up after a full test run.
+  release before anything is uploaded.
 - **The e2e stack has no bind mounts**, so it runs the same under GitLab's
   Docker-in-Docker as on a workstation; see "Running it in CI" in
   `e2e/README.md`. Keep it that way: a new file the portal needs goes into

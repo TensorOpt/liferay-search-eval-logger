@@ -7,8 +7,10 @@
 
 GitLab is where the code and the pipelines live; GitHub is a distribution
 channel. Each release is one DXP line: tag v<version>-<line>, for example
-v1.0.0-dxp-2026.q1, with the files scripts/package.py wrote to
-build/dist/<version>-<line>/ attached to both.
+v1.0.0-dxp-2026.q1, with a single asset attached to both: the
+<package>-<version>-<line>-jars.zip scripts/package.py wrote to
+build/dist/<version>-<line>/ (the four jars and SHA256SUMS it also wrote
+there are the zip's own inputs, not published separately).
 
 preflight runs before the build, so a release that cannot be published fails
 in seconds rather than after the e2e suite. It checks everything that could
@@ -27,7 +29,7 @@ retry's rebuild cannot be assumed to match what an earlier, already-published
 side holds: when GitLab's release already exists, publish_github fetches
 *its* files back from GitLab's generic package registry and uploads those,
 rather than whatever this retry's build/dist happens to contain, so both
-sides always ship byte-identical jars under one tag. The GitHub side itself
+sides always ship the same zip bytes under one tag. The GitHub side itself
 is created as a draft, filled with its assets, and only then published,
 because a GitHub release (unlike GitLab's) is visible before its assets are
 attached; a draft found on a later run is a previous run's unfinished side
@@ -48,7 +50,6 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -58,15 +59,19 @@ REPOSITORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.insert(0, os.path.join(REPOSITORY, "scripts"))
 
-from package import dxp_line, dxp_title  # noqa: E402
-
-PACKAGE = "liferay-search-eval-logger"
+from package import (  # noqa: E402
+    PACKAGE_NAME, dxp_line, dxp_title, git_commit, jars_zip_name, read_marker,
+)
 
 LINKS_SOURCE = os.path.join(
     REPOSITORY,
     "modules/search-eval-logger-web/src/main/java/ai/tensoropt/sel/web/internal/"
     "funnel/EvaluationServiceLinks.java",
 )
+
+# "run make package" only helps on a workstation; in CI, build/dist comes
+# from the build job's artifacts, which only a new pipeline can regenerate.
+REPACKAGE = "run make package again (in CI: run a new pipeline)"
 
 
 class Release:
@@ -75,7 +80,7 @@ class Release:
         self.line = dxp_line()
         self.tag = "v%s-%s" % (version, self.line)
         self.directory = os.path.join(REPOSITORY, "build", "dist", "%s-%s" % (version, self.line))
-        self.commit = _git("rev-parse", "HEAD")
+        self.commit = git_commit()
         self.dry_run = dry_run
 
         self.gitlab_api = os.environ.get("CI_API_V4_URL", "https://gitlab.com/api/v4")
@@ -91,9 +96,33 @@ class Release:
         return "%s for %s LTS" % (self.version, dxp_title(self.line))
 
     def _asset_names(self):
-        return sorted(
-            name for name in os.listdir(self.directory) if name.endswith(".jar")
-        ) + ["SHA256SUMS"]
+        """The release's one published asset: the jars-and-SHA256SUMS zip.
+        The jars and SHA256SUMS beside it are its inputs, not published."""
+        return [jars_zip_name(self.version, self.line)]
+
+    def verify_packaged(self):
+        """Refuses to publish build/dist's current contents unless
+        scripts/package.py recorded them as built from this exact commit,
+        with a clean tree. Without this, a stale dist from an earlier commit,
+        or one packaged from uncommitted changes (as `make e2e` and `make
+        test` do routinely during development), could be published under a
+        tag that claims to be this commit."""
+        marker = read_marker(self.directory)
+
+        if marker is None:
+            sys.exit("%s has no package marker; %s" % (self.directory, REPACKAGE))
+
+        if marker["dirty"]:
+            sys.exit(
+                "%s was packaged from a dirty working tree; commit, then %s"
+                % (self.directory, REPACKAGE)
+            )
+
+        if marker["commit"] != self.commit:
+            sys.exit(
+                "%s was packaged from commit %s, not HEAD %s; %s"
+                % (self.directory, marker["commit"][:12], self.commit[:12], REPACKAGE)
+            )
 
     def files(self):
         return [os.path.join(self.directory, name) for name in self._asset_names()]
@@ -124,7 +153,7 @@ class Release:
 
     def _package_url(self, name):
         return "%s/projects/%s/packages/generic/%s/%s-%s/%s" % (
-            self.gitlab_api, self.gitlab_project, PACKAGE, self.version, self.line, name,
+            self.gitlab_api, self.gitlab_project, PACKAGE_NAME, self.version, self.line, name,
         )
 
     def _gitlab_release(self):
@@ -375,12 +404,6 @@ def evaluation_service_urls():
         return re.findall(r'_URL\s*=\s*"(https://[^"]+)"', file_.read())
 
 
-def _git(*args):
-    return subprocess.run(
-        ["git", "-C", REPOSITORY] + list(args), check=True, capture_output=True, text=True
-    ).stdout.strip()
-
-
 def _download(url, headers):
     """Raw bytes from an authenticated GET, for re-uploading an asset GitLab
     already holds rather than re-reading _request's JSON-decoded result."""
@@ -452,7 +475,14 @@ def main(argv):
         return
 
     if not os.path.isdir(release.directory):
-        sys.exit("%s does not exist; run make package" % release.directory)
+        sys.exit("%s does not exist; %s" % (release.directory, REPACKAGE))
+
+    # Skipped under --dry-run, like the existence checks publish_gitlab and
+    # publish_github each skip for the same reason: a dry run is a preview
+    # that works offline, on any checkout, and must not depend on the tree
+    # being clean and committed - only a real publish ships bytes anywhere.
+    if not release.dry_run:
+        release.verify_packaged()
 
     release.publish_gitlab()
     release.publish_github()
