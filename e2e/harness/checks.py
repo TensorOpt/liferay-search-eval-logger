@@ -1406,6 +1406,7 @@ def validate_archive(context, case):
             "exported_at",
             "export_range",
             "counts",
+            "format_version",
             "plugin_version",
             "liferay_version",
             "configuration",
@@ -1413,6 +1414,8 @@ def validate_archive(context, case):
             "field_coverage_rates",
         ):
             assert_true(key in manifest, "manifest.json has no %r" % key)
+
+        assert_format_version(manifest)
 
         for key in ("events", "hits"):
             assert_true(key in manifest["counts"], "counts has no %r" % key)
@@ -2682,6 +2685,16 @@ UNINSTALL_TOLERATED = (
     (("[PortletTracker:", "is already in use"), ()),
     (("FrameworkEvent ERROR",), ("com.liferay.portal.aop.internal.AopServiceManager",)),
 )
+
+
+def assert_format_version(manifest):
+    """TO-122: format_version is the plugin version's major.minor, so every
+    patch release of one minor writes the same format."""
+    assert_equal(
+        manifest.get("format_version"),
+        ".".join(str(manifest.get("plugin_version", "")).split(".")[:2]),
+        "manifest.json's format_version is not plugin_version's major.minor",
+    )
 
 
 def assert_log_clean(log_text, while_doing, tolerated=()):

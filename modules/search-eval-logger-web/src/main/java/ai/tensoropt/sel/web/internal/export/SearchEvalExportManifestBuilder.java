@@ -61,7 +61,11 @@ public class SearchEvalExportManifestBuilder {
 			).put(
 				"hits", Long.valueOf(searchEvalExportResult.getHitCount())
 			));
-		jsonObject.put("plugin_version", _getPluginVersion());
+		Version version = _getBundleVersion();
+
+		jsonObject.put("format_version", formatVersion(version));
+		jsonObject.put(
+			"plugin_version", (version == null) ? null : version.toString());
 		jsonObject.put("liferay_version", ReleaseInfo.getReleaseInfo());
 		jsonObject.put(
 			"configuration", _getConfiguration(searchEvalLoggerConfiguration));
@@ -215,7 +219,20 @@ public class SearchEvalExportManifestBuilder {
 		return jsonObject;
 	}
 
-	private String _getPluginVersion() {
+	/**
+	 * The archive format's version (TO-122): the plugin's major.minor, so
+	 * every 1.0.x writes format 1.0. A patch release never changes what an
+	 * export holds; a change to the format takes at least a minor release.
+	 */
+	static String formatVersion(Version version) {
+		if (version == null) {
+			return null;
+		}
+
+		return version.getMajor() + "." + version.getMinor();
+	}
+
+	private Version _getBundleVersion() {
 		Bundle bundle = FrameworkUtil.getBundle(
 			SearchEvalExportManifestBuilder.class);
 
@@ -223,9 +240,7 @@ public class SearchEvalExportManifestBuilder {
 			return null;
 		}
 
-		Version version = bundle.getVersion();
-
-		return version.toString();
+		return bundle.getVersion();
 	}
 
 	private JSONArray _toJSONArray(String[] values) {

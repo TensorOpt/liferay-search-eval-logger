@@ -159,11 +159,14 @@ public class SearchEvalExportReadmeBuilder {
 	private static final String _CONTENTS =
 		"## Contents\n\n- `events.jsonl` - one JSON object per line: a " +
 			"search event with its hits nested, so each line is a complete " +
-				"(query, result[]) record.\n- `manifest.json` - range, " +
-					"counts, plugin and Liferay versions, the collector's " +
-						"configuration at export time, admission counters " +
-							"and per-field coverage rates.\n- `README.md` - " +
-								"this file.\n\n";
+				"(query, result[]) record.\n- `manifest.json` - the " +
+					"archive's `format_version` (the plugin's major.minor: " +
+						"exports with the same value share one layout), " +
+							"range, counts, plugin and Liferay versions, the " +
+								"collector's configuration at export time, " +
+									"admission counters and per-field " +
+										"coverage rates.\n- `README.md` - " +
+											"this file.\n\n";
 
 	private static final String _ADMISSION_COUNTERS =
 		"**The admission funnel is in the manifest.** Reading down " +

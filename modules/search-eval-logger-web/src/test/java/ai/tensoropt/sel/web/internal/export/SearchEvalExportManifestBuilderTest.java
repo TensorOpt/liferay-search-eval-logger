@@ -26,9 +26,11 @@ import java.time.ZoneOffset;
 
 import java.util.Date;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.osgi.framework.Version;
 
 /**
  * The manifest is the only place an evaluator can see how narrow a slice of
@@ -62,6 +64,20 @@ public class SearchEvalExportManifestBuilderTest {
 		_searchEvalExportManifestBuilder.setJSONFactory(_jsonFactory);
 		_searchEvalExportManifestBuilder.setSearchEvalLoggerStatistics(
 			_searchEvalLoggerStatistics);
+	}
+
+	@Test
+	public void formatVersionIsTheMajorMinorAPatchLeavesAlone() {
+		Assertions.assertEquals(
+			"1.0",
+			SearchEvalExportManifestBuilder.formatVersion(new Version(1, 0, 0)));
+		Assertions.assertEquals(
+			"1.0",
+			SearchEvalExportManifestBuilder.formatVersion(new Version(1, 0, 1)));
+		Assertions.assertEquals(
+			"1.1",
+			SearchEvalExportManifestBuilder.formatVersion(new Version(1, 1, 0)));
+		Assertions.assertNull(SearchEvalExportManifestBuilder.formatVersion(null));
 	}
 
 	@Test
