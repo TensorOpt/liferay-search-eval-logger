@@ -109,6 +109,8 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
 
 Two things a change elsewhere could silently break: nothing in the export path may collect rows into a list (a full-window export is millions of hits, and §6.1 calls streaming a hard requirement), and per-field coverage must be counted while streaming rather than re-queried.
 
+The manifest's `format_version` is the plugin's major.minor (TO-122), derived from `Bundle-Version`, and consumers key their readers on it. So any change to the archive's layout, `events.jsonl` fields or manifest keys needs at least a minor version bump; a patch release must leave the export format exactly as it was.
+
 `DESIGN.md` is the source of truth for this project. Read it in full before implementing anything — it is long but every section is load-bearing (numbered design decisions D1–D8, architecture, data model, configuration, export format, and a table of open empirical checks EC-1–EC-13 that must be validated against a running Liferay instance). Do not summarize or work from partial recall of it; re-read the relevant section when in doubt, since decisions reference each other (e.g., 3.2 references D2, 4.3 references D3).
 
 ## What this project is

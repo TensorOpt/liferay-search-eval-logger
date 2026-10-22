@@ -1043,6 +1043,32 @@ def check_log_clean():
         ),
     )
 
+def check_format_version():
+    """TO-122: the archive format is named by the plugin's major.minor."""
+    expect_accepted(
+        "format 1.0 from plugin 1.0.1",
+        lambda: checks.assert_format_version(
+            {"format_version": "1.0", "plugin_version": "1.0.1"}
+        ),
+    )
+
+    for description, manifest in (
+        ("format_version missing", {"plugin_version": "1.0.1"}),
+        (
+            "the full plugin version used as the format",
+            {"format_version": "1.0.1", "plugin_version": "1.0.1"},
+        ),
+        (
+            "a format that is not this plugin version's",
+            {"format_version": "1.0", "plugin_version": "1.1.0"},
+        ),
+    ):
+        expect_rejected(
+            description,
+            lambda manifest=manifest: checks.assert_format_version(manifest),
+        )
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -1515,6 +1541,7 @@ def main():
         check_funnel_links()
         check_archive_name()
         check_number_types()
+        check_format_version()
         check_funnel_counters()
         check_notification_listed()
         check_daily_schedule()
