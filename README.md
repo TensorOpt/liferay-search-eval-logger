@@ -198,6 +198,10 @@ TensorOpt, the plugin's author, offers search evaluation as a service. The plugi
 
 Neither link is fetched until someone clicks it. The plugin sends no install pings, usage counts or update checks. Switch off **Show Evaluation Service Links** to hide both. Details: [SECURITY-REVIEW.md, section 2](SECURITY-REVIEW.md#2-network-behaviour).
 
+## Who maintains this
+
+Search Eval Logger is written and maintained by TensorOpt (Crafting Software Development and Consulting LLC), which offers independent search evaluation. The plugin works fully without TensorOpt and sends it nothing. To see what you can do with an export, or to have one evaluated: https://tensoropt.ai/liferay?utm_source=github&utm_medium=readme
+
 ## Disable and uninstall
 
 **Disable.**
