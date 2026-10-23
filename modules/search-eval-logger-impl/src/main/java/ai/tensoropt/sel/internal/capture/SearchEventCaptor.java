@@ -143,7 +143,7 @@ public class SearchEventCaptor {
 			}
 
 			capturedSearchEvent.addHit(
-				_captureHit(hit, requestedFrom + i, languageId,
+				_captureHit(hit, requestedFrom + i + 1, languageId,
 					capturedFieldNames, languageIds));
 		}
 	}

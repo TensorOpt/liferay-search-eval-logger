@@ -3305,6 +3305,13 @@ def _stream_events(archive, case=None):
                 "events.jsonl line %d has no hits array" % events,
             )
 
+            requested_from = record.get("requested_from")
+
+            if not isinstance(requested_from, int):
+                requested_from = 0
+
+            expected_rank = requested_from + 1
+
             for hit in record_hits:
                 hits += 1
 
@@ -3320,6 +3327,24 @@ def _stream_events(archive, case=None):
                     missing_hit_keys.setdefault(key, events)
 
                 extra_hit_keys |= hit_keys - HIT_KEYS
+
+                # TO-133: ranks are absolute across pages and 1-based, so they
+                # run requested_from + 1, + 2, ... with no gaps. Checked by
+                # expecting the exact next value rather than only increasing,
+                # which also catches hits out of rank order (DESIGN.md 4.2,
+                # 6.2): ordering is never re-sorted here, so an exporter that
+                # emitted them out of sequence would fail this instead of
+                # silently passing.
+
+                assert_true(
+                    hit.get("rank") == expected_rank,
+                    "events.jsonl line %d: hit rank is %r, expected %d; "
+                    "ranks must run requested_from + 1, + 2, ... with no "
+                    "gaps and in order"
+                    % (events, hit.get("rank"), expected_rank),
+                )
+
+                expected_rank += 1
 
                 if hit.get("snippet") is not None:
                     _assert_snippet_shape(

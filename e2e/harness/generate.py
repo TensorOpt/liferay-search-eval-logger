@@ -177,7 +177,7 @@ select
     e.uuid_,
     e.companyId,
     e.createDate,
-    r - 1,
+    r,
     10.0 - (r * 0.1),
     'com.liferay.journal.model.JournalArticle_PORTLET_' ||
         ((e.searchEventId - %(event_id_base)d) * 100 + r),
@@ -274,7 +274,7 @@ select
     e.uuid_,
     e.companyId,
     e.createDate,
-    r - 1,
+    r,
     10.0 - (r * 0.1),
     concat('com.liferay.journal.model.JournalArticle_PORTLET_',
         (e.searchEventId - %(event_id_base)d) * 100 + r),
