@@ -254,7 +254,7 @@ Two tables. One row per admitted search event, one row per captured hit.
 | `searchEventUuid` | String | FK to the event. Indexed. |
 | `companyId` | long | Duplicated from the event so the purge can delete hits independently. See 3.4. |
 | `createDate` | Date | Duplicated from the event, written in the same transaction and never updated. Indexed with `companyId`. |
-| `rank` | int | Absolute rank: `requestedFrom + position` |
+| `rank` | int | Absolute rank from 1: `requestedFrom + position + 1`, so the top result is 1 and a page starting at 20 starts at 21. Rank metrics need it: reciprocal rank and the nDCG discount both divide by the rank (TO-133). Exported as stored. |
 | `score` | double | From `SearchHit.getScore()` |
 | `docUid` | String (500) | From `document.getString(Field.UID)` |
 | `entryClassName` | String (200) | |
@@ -387,7 +387,7 @@ Nesting also eliminates the join. Each line is exactly the `(query, result[])` r
   "source_type": "WIDGET",
   "hits": [
     {
-      "rank": 0,
+      "rank": 1,
       "score": 8.42,
       "doc_uid": "com.liferay.journal.model.JournalArticle_PORTLET_38291",
       "entry_class_name": "com.liferay.journal.model.JournalArticle",

@@ -57,6 +57,7 @@ public class SearchEvalExportReadmeBuilder {
 		sb.append(_CONTENTS);
 		sb.append(_WHAT_THESE_ROWS_ARE);
 		sb.append("## Caveats that change how to read the data\n\n");
+		sb.append(_RANK_NUMBERING);
 		sb.append(_CAPTURE_DEPTH_PREFIX);
 		sb.append(searchEvalLoggerConfiguration.captureDepth());
 		sb.append(_CAPTURE_DEPTH_SUFFIX);
@@ -236,6 +237,13 @@ public class SearchEvalExportReadmeBuilder {
 				"searches carrying user keywords were recorded. The " +
 					"admission rules in force are recorded in " +
 						"`manifest.json`.\n\n";
+
+	private static final String _RANK_NUMBERING =
+		"**Ranks start at 1.** `rank` on each hit is the absolute rank " +
+			"across pages, not a page-local position: " +
+				"`requested_from + position + 1`. A page 2 search with " +
+					"`requested_from` 20 therefore runs 21, 22, 23, and so " +
+						"on.\n\n";
 
 	private static final String _PERMISSION_FILTERED =
 		"**Results are permission filtered.** Liferay filters results by the " +

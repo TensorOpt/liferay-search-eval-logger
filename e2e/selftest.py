@@ -96,7 +96,7 @@ def event_line(index, **overrides):
         "total_hits": 249,
         "logged_hit_count": 2,
         "source_type": "WIDGET",
-        "hits": [hit_object(index, rank) for rank in range(2)],
+        "hits": [hit_object(index, rank) for rank in range(1, 3)],
     }
 
     record.update(overrides)
@@ -105,6 +105,8 @@ def event_line(index, **overrides):
 
 
 def hit_object(index, rank):
+    """One hit, 1-based rank per TO-133: the caller passes the
+    exported value directly, counting from requested_from + 1."""
     return {
         "rank": rank,
         "score": 10.0 - rank,
@@ -380,6 +382,66 @@ def check_events_jsonl():
     no_hits_array[1]["hits"] = "not an array"
 
     expect_rejected("hits replaced with a string", stream(no_hits_array))
+
+
+def check_hit_ranks():
+    """TO-133: ranks are 1-based and absolute across pages, with no gaps and
+    in order.
+
+    A 0-based numbering must be actively caught rather than merely not
+    required: a reader given 0-based ranks would silently mis-score every
+    reciprocal-rank and nDCG computation.
+    """
+    good = [event_line(index) for index in range(3)]
+
+    expect_accepted(
+        "ranks run 1, 2 with requested_from 0", stream(good)
+    )
+
+    page_two = [
+        event_line(
+            0,
+            requested_from=20,
+            hits=[hit_object(0, rank) for rank in range(21, 23)],
+        )
+    ]
+
+    expect_accepted(
+        "a page 2 event with requested_from 20 starts its ranks at 21",
+        stream(page_two),
+    )
+
+    zero_hits = [event_line(index, requested_from=0, hits=[]) for index in range(2)]
+
+    expect_accepted(
+        "an event with zero hits carries no rank sequence to break",
+        stream(zero_hits),
+    )
+
+    zero_based = [event_line(index) for index in range(3)]
+
+    for record in zero_based:
+        for hit, rank in zip(record["hits"], range(2)):
+            hit["rank"] = rank
+
+    expect_rejected(
+        "ranks numbered from 0",
+        stream(zero_based),
+    )
+
+    gapped = [event_line(index) for index in range(3)]
+
+    gapped[1]["hits"][1]["rank"] = 3
+
+    expect_rejected("a gap in the rank sequence", stream(gapped))
+
+    out_of_order = [event_line(index) for index in range(3)]
+
+    out_of_order[2]["hits"].reverse()
+
+    expect_rejected(
+        "hits present but not ordered by rank", stream(out_of_order)
+    )
 
 
 def check_snippet_shape():
@@ -1535,6 +1597,7 @@ def main():
         check_search_probe()
         check_headline_matching()
         check_events_jsonl()
+        check_hit_ranks()
         check_snippet_shape()
         check_vendor_neutrality(tmp)
         check_zero_egress()

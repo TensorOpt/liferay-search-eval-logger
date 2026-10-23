@@ -123,6 +123,29 @@ public class SearchEventCaptorTest {
 	}
 
 	/**
+	 * TO-133: ranks are stored from 1 and absolute across pages, so the top
+	 * result of page 1 is 1 and the top result of a page that starts at 20
+	 * is 21.
+	 */
+	@Test
+	public void ranksAreStoredFromOneAndAbsoluteAcrossPages() {
+		CapturedSearchEvent firstPage = _capture(
+			"Title", new SearchContext(), mock(SearchRequest.class));
+
+		assertEquals(1, _firstHit(firstPage).getRank());
+
+		SearchRequest secondPageRequest = mock(SearchRequest.class);
+
+		when(secondPageRequest.getFrom()).thenReturn(20);
+
+		CapturedSearchEvent secondPage = _capture(
+			"Title", new SearchContext(), secondPageRequest);
+
+		assertEquals(20, secondPage.getRequestedFrom());
+		assertEquals(21, _firstHit(secondPage).getRank());
+	}
+
+	/**
 	 * A title over the 1,000 character column with a comma near the start.
 	 * The pre-TO-94 cut kept "Annual leave" and dropped the rest.
 	 */
@@ -655,6 +678,13 @@ public class SearchEventCaptorTest {
 	private CapturedSearchEvent _capture(
 		String title, SearchContext searchContext) {
 
+		return _capture(title, searchContext, mock(SearchRequest.class));
+	}
+
+	private CapturedSearchEvent _capture(
+		String title, SearchContext searchContext,
+		SearchRequest searchRequest) {
+
 		searchContext.setKeywords("annual leave");
 
 		Document document = mock(Document.class);
@@ -676,9 +706,17 @@ public class SearchEventCaptorTest {
 		when(searchResponse.getSearchHits()).thenReturn(searchHits);
 
 		return _searchEventCaptor.capture(
-			mock(SearchRequest.class), searchResponse, searchContext,
-			_configuration,
+			searchRequest, searchResponse, searchContext, _configuration,
 			new SearchRequestOrigin(SourceType.WIDGET, false, true));
+	}
+
+	private CapturedSearchHit _firstHit(
+		CapturedSearchEvent capturedSearchEvent) {
+
+		List<CapturedSearchHit> capturedSearchHits =
+			capturedSearchEvent.getHits();
+
+		return capturedSearchHits.get(0);
 	}
 
 	private void _setField(String name, Object value) throws Exception {
