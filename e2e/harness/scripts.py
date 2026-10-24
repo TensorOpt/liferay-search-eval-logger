@@ -114,6 +114,22 @@ def deployed = com.liferay.portal.kernel.service.PortletLocalServiceUtil.
 result = JsonOutput.toJson(deployed*.getPortletId().sort())
 """
 
+# Empties the zero-result panel's one hour cache (TO-135), as Server
+# Administration's "Clear content cached by this VM" would, so the next render
+# of the export screen recomputes the panel from the log.
+FLUSH_ZERO_RESULT_PANEL_CACHE = """
+def bundleContext =
+    com.liferay.portal.kernel.module.util.SystemBundleUtil.getBundleContext()
+
+def reference = bundleContext.getServiceReference(
+    com.liferay.portal.kernel.cache.SingleVMPool)
+
+bundleContext.getService(reference).getPortalCache(
+    "ai.tensoropt.sel.web.internal.zeroresult.ZeroResultPanel").removeAll()
+
+result = "flushed"
+"""
+
 # The plugin's bundles as the framework sees them: state (32 is ACTIVE) and
 # location, which says whether a bundle came from a jar or from inside an .lpkg.
 PLUGIN_BUNDLES = """
