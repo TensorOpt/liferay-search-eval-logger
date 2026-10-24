@@ -318,6 +318,11 @@ def main(argv):
             requires=["content-and-searches"],
         )
         results.run(
+            "zero-result-panel-seed",
+            lambda case: checks.zero_result_panel_seed(context, case),
+            requires=["capture"],
+        )
+        results.run(
             "collection-start-recorded",
             lambda case: checks.collection_start_recorded(context, case),
             requires=["capture"],
@@ -361,6 +366,11 @@ def main(argv):
             "export-archive-contents",
             lambda case: checks.validate_archive(context, case),
             requires=["export"],
+        )
+        results.run(
+            "zero-result-panel",
+            lambda case: checks.zero_result_panel(context, case),
+            requires=["export", "zero-result-panel-seed"],
         )
         results.run(
             "export-range-is-honoured",

@@ -129,19 +129,19 @@ SPDX-License-Identifier: Apache-2.0
 	</c:if>
 
 	<div class="sheet">
-		<div class="sheet-header">
-			<h2 class="sheet-title"><liferay-ui:message key="run-export" /></h2>
-
-			<div class="sheet-text"><liferay-ui:message key="export-description" /></div>
-		</div>
-
 		<c:choose>
 			<c:when test="${not hasExportPermission}">
-				<div class="alert alert-warning">
+				<div class="alert alert-warning mb-0">
 					<liferay-ui:message key="you-do-not-have-permission-to-export" />
 				</div>
 			</c:when>
 			<c:otherwise>
+				<div class="sheet-header">
+					<h2 class="sheet-title"><liferay-ui:message key="run-export" /></h2>
+
+					<div class="sheet-text"><liferay-ui:message key="export-description" /></div>
+				</div>
+
 				<portlet:actionURL
 					name="<%= SearchEvalLoggerPortletKeys.MVC_COMMAND_NAME_EXPORT %>"
 					var="exportURL"
@@ -182,6 +182,83 @@ SPDX-License-Identifier: Apache-2.0
 			</p>
 		</c:if>
 	</div>
+
+	<%--
+	DESIGN.md 6 (TO-135): computed from the existing log only, on the server
+	when this screen renders, for the whole retention window (there is no
+	date picker here, unlike the export above; the retention purge already
+	bounds what the log holds). Nothing new is collected and nothing is sent
+	anywhere. Gated on "zeroResultPanel" being present, not directly on
+	hasExportPermission: the attribute is only ever set when the viewer holds
+	that permission (see SearchEvalLoggerPortlet#doView), so a viewer without
+	it still cannot reach this sheet's data by any route, not only by the
+	JSP hiding it, but the same absent-attribute path also covers
+	ZeroResultPanelLoader failing for a permitted viewer (a timeout, an
+	unsupported query on some database). Gating on hasExportPermission alone
+	would render this sheet's heading and an empty "{0} of {1} searches
+	({2}%)..." - liferay-ui:message falls back to the bare key text when its
+	arguments are null - for exactly that failure case, which is worse than
+	the sheet simply not being there.
+	--%>
+
+	<c:if test="${not empty zeroResultPanel}">
+		<div class="sheet">
+			<div class="sheet-header">
+				<h2 class="sheet-title"><liferay-ui:message key="zero-result-title" /></h2>
+			</div>
+
+			<c:choose>
+				<c:when test="${zeroResultPanel.noSearchesLogged}">
+					<p class="mb-0"><liferay-ui:message key="zero-result-no-searches-yet" /></p>
+				</c:when>
+				<c:otherwise>
+					<p>
+						<liferay-ui:message
+							arguments="${zeroResultPanel.overallMessageArguments}"
+							key="zero-result-overall"
+						/>
+					</p>
+
+					<p>
+						<liferay-ui:message
+							arguments="${zeroResultPanel.guestMessageArguments}"
+							key="zero-result-guests"
+						/>
+
+						<br />
+
+						<liferay-ui:message
+							arguments="${zeroResultPanel.signedInMessageArguments}"
+							key="zero-result-signed-in-users"
+						/>
+					</p>
+
+					<c:if test="${zeroResultPanel.hasTopQueries}">
+						<table class="table table-autofit table-list">
+							<thead>
+								<tr>
+									<th><liferay-ui:message key="zero-result-query" /></th>
+									<th><liferay-ui:message key="zero-result-searches" /></th>
+								</tr>
+							</thead>
+							<tbody>
+								<c:forEach items="${zeroResultPanel.topQueries}" var="zeroResultQuery">
+									<tr>
+										<td><c:out value="${zeroResultQuery.query}" /></td>
+										<td>${zeroResultQuery.searchCount}</td>
+									</tr>
+								</c:forEach>
+							</tbody>
+						</table>
+
+						<p class="text-muted small mb-0">
+							<liferay-ui:message key="zero-result-grouping-note" />
+						</p>
+					</c:if>
+				</c:otherwise>
+			</c:choose>
+		</div>
+	</c:if>
 
 	<div class="sheet">
 		<div class="sheet-header">

@@ -182,6 +182,8 @@ The archive holds:
 - `manifest.json`: the archive's `format_version` (the plugin's major.minor, e.g. `1.0`; every patch release of it writes the same format), date range, counts, the settings in force, the filtering counters and per-field coverage;
 - `README.md`: the schema and the caveats needed to read the data correctly.
 
+The same screen also shows a **zero-result panel**: the share of searches that returned nothing, overall and separately for guests and signed-in users, plus the 20 most frequent zero-result queries (grouped by trimming spaces and ignoring case). It is computed from the existing log only, for the whole retention window, every time the screen renders; nothing new is collected and nothing is sent anywhere. It needs the same **Export Search Evaluation Data** permission as the export above, since it shows query text that permission already grants through an export.
+
 ## What to do with the export
 
 1. **Read `manifest.json` first.** The coverage figures tell you how many results carry a title or snippet. The drop count tells you whether the log is complete or lossy.

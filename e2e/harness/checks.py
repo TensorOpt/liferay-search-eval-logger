@@ -20,7 +20,7 @@ import zipfile
 
 from datetime import datetime, timedelta, timezone
 
-from . import pluginconfig, scripts
+from . import pluginconfig, scripts, zeroresult
 from .generate import SNIPPET_COVERAGE, TITLE_COVERAGE, Generator
 from .portal import ADMIN_PORTLET_ID
 from .util import HarnessError, Stopwatch, log, wait_for
@@ -40,6 +40,34 @@ MARKER_TERM = "zarvexium"
 # search for this returns results, the probe is reading something other than
 # the result set and every capture assertion downstream is worthless.
 CONTROL_TERM = "qqzzxxnothinghere"
+
+# TO-135: a term nothing can match, distinct from CONTROL_TERM above so the
+# two cases' counts never overlap. Used in case and whitespace variants to
+# exercise the zero-result panel's grouping rule (DESIGN.md 6).
+ZERO_RESULT_TERM = "qqzzxxnothingmatchesever"
+
+# jq's ascii_downcase folds only ASCII A-Z, so "café" (already lower case)
+# and "cafÉ" (ascii_downcase leaves the non-ASCII É alone) must stay two
+# separate rows, and "cafe" (no accent at all) a third. A `group by
+# queryText` on MySQL 8.4's default collation (utf8mb4_0900_ai_ci) or on
+# MariaDB would merge some or all of these into one arbitrary row;
+# SearchEventLocalServiceImpl no longer groups in SQL for exactly this
+# reason (see its javadoc and DESIGN.md 6.3). Asserting these three stay
+# separate only proves the bug stays fixed when this suite runs against one
+# of those two databases; on PostgreSQL, whose default collation is exact,
+# the three would stay separate even with the old, removed `group by`.
+ZERO_RESULT_ACCENTED_VARIANTS = (
+    "%scafé" % ZERO_RESULT_TERM,
+    "%sCAFÉ" % ZERO_RESULT_TERM,
+    "%scafe" % ZERO_RESULT_TERM,
+)
+
+# TO-135, stored XSS: a zero-result query is guest-controlled input -
+# SearchEventCaptor only trims it (D2/D8), and the panel's table renders it
+# into an administrator's own Control Panel session. A nonsense prefix keeps
+# it a zero-result search; the markup is what the panel's escaping has to
+# survive.
+ZERO_RESULT_XSS_TERM = "qqzzxx<b>xss</b>"
 
 # The floor and the margin for the purge case's ambiguity band, in seconds.
 # The band itself is derived at runtime from how long the counts actually take;
@@ -394,6 +422,23 @@ def ec3_bypass_detected(context, case):
     assert_true(
         "Restart required" in text,
         "The admin screen did not show the restart warning of DESIGN.md 3.1",
+    )
+
+    # TO-135: the tables were created moments ago (install_onto_running_portal
+    # just confirmed it) and nothing has searched yet, so this is the one
+    # point in the whole run where SEL_SearchEvent is provably empty. The
+    # zero-result panel's empty-log rendering (DESIGN.md 6) is exercised here
+    # rather than by a dedicated case for it: a second case would have to
+    # recreate this exact "nothing has been captured yet" precondition, which
+    # this one already holds for an unrelated reason.
+
+    panel = context.portal.zero_result_panel()
+
+    assert_true(
+        panel["no_searches_logged"],
+        "The zero-result panel did not render its empty-log message "
+        "(\"No searches in the log yet.\") while the table was known to "
+        "hold nothing",
     )
 
     log_text = context.stack.liferay_log()
@@ -834,6 +879,121 @@ def assert_funnel_adds_up(counters):
         counters["persisted"] + counters["dropped"],
         "Admitted events are neither persisted nor dropped, or counted as both",
     )
+
+
+def zero_result_panel_seed(context, case):
+    """TO-135: deliberate zero-result searches, as a guest and as a signed-in
+    user, that the panel's grouping rule (DESIGN.md 6) must merge into a
+    single table row.
+
+    Run early, alongside the other real traffic this suite generates, so
+    these rows are ordinary log entries by the time `export` downloads the
+    archive `zero_result_panel` checks against: nothing about them is
+    special-cased on either side of that comparison.
+
+    What this does and does not exercise, precisely: the leading/trailing
+    whitespace variant below is trimmed before it ever reaches
+    `SEL_SearchEvent` (the admission path calls the Java equivalent of
+    `String.trim()`), so by the time this suite can see it, it is already
+    identical to the plain variant - this seed proves nothing about the
+    panel's own whitespace trimming (`ZeroResultQueryNormalizer`'s Unicode
+    `White_Space` trim is unit-tested, not exercised end to end here). The
+    case variant (plain versus upper) is not trimmed at capture, so it does
+    reach the database as a distinct raw string, which is what exercises the
+    panel's own ASCII case fold end to end: storage, SQL streaming and Java
+    aggregation together, not only the unit-tested function in isolation.
+    The accented/unaccented trio below exercises the same fold on a
+    non-ASCII pair, which is also the trio the MySQL/MariaDB collation bug
+    described in `SearchEventLocalServiceImpl` would have merged had the
+    query still been grouped in SQL.
+    """
+    from .portal import Portal
+
+    variants = [
+        "  %s " % ZERO_RESULT_TERM,
+        ZERO_RESULT_TERM,
+        ZERO_RESULT_TERM.upper(),
+    ]
+
+    guest = Portal(context.stack)
+
+    all_variants = variants + list(ZERO_RESULT_ACCENTED_VARIANTS)
+
+    for keywords in all_variants:
+        count, _ = context.portal.search_result_count(keywords)
+
+        assert_equal(
+            count, 0,
+            "The deliberately unmatchable term %r returned results for a "
+            "signed-in search" % keywords,
+        )
+
+        count, _ = guest.search_result_count(keywords)
+
+        assert_equal(
+            count, 0,
+            "The deliberately unmatchable term %r returned results for a "
+            "guest search" % keywords,
+        )
+
+    case.note(
+        "ran %d zero-result search variants of %r (including the "
+        "accented/unaccented trio) as a signed-in user and as a guest"
+        % (len(all_variants), ZERO_RESULT_TERM)
+    )
+
+    def persisted():
+        rows = context.stack.sql(
+            "select audienceType, count(*) from SEL_SearchEvent where "
+            "lower(queryText) like '%%%s%%' and requestedFrom = 0 and "
+            "totalHits = 0 group by audienceType" % ZERO_RESULT_TERM.lower()
+        )
+
+        counts = {row[0]: int(row[1]) for row in rows}
+
+        if (counts.get("GUEST", 0) >= len(all_variants)) and (
+            counts.get("AUTHENTICATED", 0) >= len(all_variants)
+        ):
+            return counts
+
+        return None
+
+    counts = wait_for(
+        "the zero-result marker searches to be persisted for both "
+        "audiences",
+        persisted, timeout=180, interval=3.0,
+    )
+
+    case.note("persisted zero-result marker events by audience: %s" % counts)
+
+    # The stored-XSS seed: a guest search, since the point is that an
+    # unauthenticated visitor's own input ends up rendered on an
+    # administrator's screen.
+
+    count, _ = guest.search_result_count(ZERO_RESULT_XSS_TERM)
+
+    assert_equal(
+        count, 0,
+        "The deliberately unmatchable XSS term %r returned results for a "
+        "guest search" % ZERO_RESULT_XSS_TERM,
+    )
+
+    def xss_term_persisted():
+        count = context.stack.sql_long(
+            "select count(*) from SEL_SearchEvent where queryText = '%s' "
+            "and requestedFrom = 0 and totalHits = 0 and audienceType = "
+            "'GUEST'" % ZERO_RESULT_XSS_TERM
+        )
+
+        return True if count > 0 else None
+
+    wait_for(
+        "the XSS marker search to be persisted",
+        xss_term_persisted,
+        timeout=180, interval=3.0,
+    )
+
+    case.note("persisted the XSS marker search as a guest")
 
 
 def collection_start_recorded(context, case):
@@ -1504,6 +1664,177 @@ def validate_archive(context, case):
     assert_true(
         abs(coverage.get("snippet", 0) - SNIPPET_COVERAGE) < 0.02,
         "Reported snippet coverage is not the ratio the generator wrote",
+    )
+
+
+def zero_result_panel(context, case):
+    """DESIGN.md 6 (TO-135): the zero-result panel's own figures against the
+    acceptance jq recipes Z1 and Z2, computed in Python
+    (``harness.zeroresult``) over the exact archive `run_export` already
+    downloaded.
+
+    The panel covers the whole retention window and so, per the assertion in
+    `validate_archive` just above, does this archive: every row the purge
+    left in the table. So whatever else this suite's other cases wrote into
+    the log - the marker searches, the scale-data corpus, not only the rows
+    `zero_result_panel_seed` wrote on purpose - has to agree too. That is
+    deliberate: it is a stronger check than comparing the panel only against
+    the rows this run seeded for the purpose.
+    """
+    panel = context.portal.zero_result_panel()
+
+    assert_true(
+        not panel["no_searches_logged"],
+        "The panel reported an empty log after this run performed real "
+        "searches",
+    )
+
+    # Stored XSS (blocker finding, TO-135): asserted on the raw admin screen
+    # text, not on `panel`, whose query cells already went through
+    # `html.unescape()` for the other assertions in this function - checking
+    # the raw page is the only way to tell "rendered as escaped text" apart
+    # from "rendered as markup and then unescaped back by this harness's own
+    # parser", which would hide exactly the bug this exists to catch.
+
+    assert_query_text_is_html_escaped(
+        context.portal.admin_screen(), ZERO_RESULT_XSS_TERM)
+
+    events = list(_read_events(context.archive_path))
+
+    assert_zero_result_panel_matches(panel, events)
+
+    # DESIGN.md 6.3's collation note, asserted directly rather than only
+    # relying on the equality check above to fail in some shape if it did
+    # not hold: the accented/unaccented trio `zero_result_panel_seed` ran
+    # must appear as three separate rows, each counted on its own, not
+    # merged into one by a `group by queryText` somewhere on the database
+    # side. Proves the fix only on whichever database this run used; see
+    # the module docstring on ZERO_RESULT_ACCENTED_VARIANTS.
+
+    normalized_accented_queries = {
+        zeroresult.normalize_query(variant)
+        for variant in ZERO_RESULT_ACCENTED_VARIANTS
+    }
+
+    top_queries_by_query = {
+        row["query"]: row["searches"] for row in panel["top_queries"]
+    }
+
+    for normalized_query in normalized_accented_queries:
+        assert_true(
+            top_queries_by_query.get(normalized_query, 0) >= 1,
+            "The accented/unaccented variant %r is missing from the panel's "
+            "top queries, or was merged into another row (the MySQL/"
+            "MariaDB collation bug DESIGN.md 6.3 describes)" % normalized_query,
+        )
+
+    assert_equal(
+        len(normalized_accented_queries), 3,
+        "The three accented/unaccented variants normalized to fewer than "
+        "three distinct keys, so this check proves nothing",
+    )
+
+    case.note(
+        "overall %d of %d (%s%%); guests %d of %d (%s%%); signed-in %d of "
+        "%d (%s%%); %d distinct top queries"
+        % (
+            panel["overall"]["zero_result"], panel["overall"]["searches"],
+            panel["overall"]["rate"], panel["guests"]["zero_result"],
+            panel["guests"]["searches"], panel["guests"]["rate"],
+            panel["signed_in"]["zero_result"], panel["signed_in"]["searches"],
+            panel["signed_in"]["rate"], len(panel["top_queries"]),
+        )
+    )
+
+
+def assert_query_text_is_html_escaped(html, raw_markup):
+    """DESIGN.md 6.3, stored XSS (TO-135 review finding): a zero-result query
+    is guest-controlled input, rendered into an administrator's own Control
+    Panel page. This asserts that happened as escaped text, never as markup:
+    the escaped form must appear on the page, and the raw, unescaped markup
+    must not appear anywhere on it at all.
+
+    ``raw_markup`` is escaped here exactly the way HTML entity-escaping
+    defines it (``&`` first, then ``<`` and ``>``; this project's payloads
+    carry no quote characters, so ``"``/``'`` are left alone rather than
+    guessing which of the several correct encodings - JSTL's ``<c:out>``
+    among them - a reader should expect).
+    """
+    escaped_markup = raw_markup.replace(
+        "&", "&amp;"
+    ).replace(
+        "<", "&lt;"
+    ).replace(
+        ">", "&gt;"
+    )
+
+    assert_true(
+        escaped_markup in html,
+        "The escaped form %r of a guest-controlled query is not on the "
+        "admin screen; the zero-result panel may not be escaping query "
+        "text" % escaped_markup,
+    )
+    assert_true(
+        raw_markup not in html,
+        "The raw, unescaped markup %r appears on the admin screen: stored "
+        "XSS through the zero-result panel's query table" % raw_markup,
+    )
+
+
+def assert_zero_result_panel_matches(panel, events):
+    """The real assertion behind `zero_result_panel`, kept separate so
+    selftest can feed it fixtures directly (a wrong count, a wrong order, a
+    non-ASCII fold) without a portal, the same way `assert_funnel_adds_up`
+    above is tested.
+    """
+    z1 = zeroresult.compute_z1(events)
+
+    assert_equal(
+        panel["overall"]["searches"], z1["searches"],
+        "Overall first-page search count does not match Z1",
+    )
+    assert_equal(
+        panel["overall"]["zero_result"], z1["zero_result"],
+        "Overall zero-result count does not match Z1",
+    )
+    assert_equal(
+        panel["overall"]["rate"],
+        zeroresult.round_half_up(z1["zero_result"], z1["searches"]),
+        "Overall rate does not match Z1, rounded the same way",
+    )
+
+    by_audience_type = {
+        row["audience_type"]: row for row in z1["by_audience"]
+    }
+
+    for label, audience_type in (
+        ("guests", "GUEST"), ("signed_in", "AUTHENTICATED"),
+    ):
+        expected = by_audience_type.get(
+            audience_type, {"searches": 0, "zero_result": 0}
+        )
+
+        assert_equal(
+            panel[label]["searches"], expected["searches"],
+            "%s search count does not match Z1" % label,
+        )
+        assert_equal(
+            panel[label]["zero_result"], expected["zero_result"],
+            "%s zero-result count does not match Z1" % label,
+        )
+        assert_equal(
+            panel[label]["rate"],
+            zeroresult.round_half_up(
+                expected["zero_result"], expected["searches"]
+            ),
+            "%s rate does not match Z1, rounded the same way" % label,
+        )
+
+    z2 = zeroresult.compute_z2(events, limit=20)
+
+    assert_equal(
+        panel["top_queries"], z2,
+        "The top zero-result queries table does not match Z2",
     )
 
 
@@ -2882,6 +3213,17 @@ def export_permission_refused(context, case):
         "A user without EXPORT was still offered the export form",
     )
 
+    # TO-135: the zero-result panel shows query text, which is exactly what
+    # EXPORT already gates, so it is built, and present as a request
+    # attribute, only for a viewer who holds that permission. "Searches with
+    # no results" is the panel's own heading and appears nowhere else on the
+    # screen.
+
+    assert_true(
+        "Searches with no results" not in text,
+        "A user without EXPORT was still shown the zero-result panel",
+    )
+
     before = context.portal.background_task_count()
 
     namespace = "_%s_" % ADMIN_PORTLET_ID
@@ -3246,6 +3588,29 @@ def _assert_snippet_shape(snippet, where):
                 "%s: snippet.%s.%s holds a non-string fragment: %r"
                 % (where, locale, field_name, fragments),
             )
+
+
+def _read_events(path):
+    """Yields every event record out of an export archive's events.jsonl.
+
+    For computing an aggregate over the whole file (TO-135's
+    `zero_result_panel`), not for validating its shape; `_stream_events`
+    below does that, and does not hand back the records themselves.
+
+    This still never holds the open archive or the whole decoded file: it
+    reads one line at a time, same as `_stream_events`. Only the caller's
+    `list(...)` around this materialises every record, and that is a
+    test-harness choice bounded by the suite's own scale tier (a few thousand
+    events at the default "smoke" tier), not the production export-memory
+    invariant DESIGN.md 6.1 is about.
+    """
+    with zipfile.ZipFile(path) as archive:
+        with archive.open("events.jsonl") as entry:
+            for raw_line in io.TextIOWrapper(entry, encoding="utf-8"):
+                line = raw_line.strip()
+
+                if line:
+                    yield json.loads(line)
 
 
 def _stream_events(archive, case=None):

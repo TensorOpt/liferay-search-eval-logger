@@ -95,7 +95,7 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
 - **api** holds what more than one bundle needs: the enums, `SearchEvalLoggerConstants`, `SearchEvalLoggerConfiguration` (the `@Meta.OCD` interface — it lives here, not in impl, because the web module reads the same settings the collector applies), `SearchEvalLoggerStatistics`, and the generated model and service interfaces.
 - **service** is the schema and persistence, nothing else.
 - **impl** is entirely under `ai.tensoropt.sel.internal` and exports nothing.
-- **web** owns the export: a `BackgroundTaskExecutor` that streams a JDBC cursor (`SearchEventLocalService.forEachExportRow`) → JSONL → `ZipOutputStream` into a temp file, the manifest and archive README builders, the admin portlet, and `resource-actions/default.xml` defining the dedicated `EXPORT` permission (granted to nobody by default, and checked on both the trigger and the download). It deliberately has **no** configuration screen: `@Meta.OCD` with `@ExtendedObjectClassDefinition(scope = COMPANY)` already yields Liferay's own System Settings UI, scoped per virtual instance.
+- **web** owns the export: a `BackgroundTaskExecutor` that streams a JDBC cursor (`SearchEventLocalService.forEachExportRow`) → JSONL → `ZipOutputStream` into a temp file, the manifest and archive README builders, the admin portlet, and `resource-actions/default.xml` defining the dedicated `EXPORT` permission (granted to nobody by default, and checked on both the trigger and the download). It deliberately has **no** configuration screen: `@Meta.OCD` with `@ExtendedObjectClassDefinition(scope = COMPANY)` already yields Liferay's own System Settings UI, scoped per virtual instance. The same admin portlet also renders the zero-result panel (`ai.tensoropt.sel.web.internal.zeroresult`, DESIGN.md §6.3), gated on the same `EXPORT` permission as the export itself: `ZeroResultPanelLoader` reads a SQL `group by audienceType` (safe, since the only grouped values are the ASCII enum names) plus a forward-only cursor of raw, ungrouped query text, counts the latter by normalized key itself, and hands both to `ZeroResultPanel` to sort and format.
 
 ### Decisions that look wrong until you know why
 
@@ -108,6 +108,8 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
 ### Export invariants
 
 Two things a change elsewhere could silently break: nothing in the export path may collect rows into a list (a full-window export is millions of hits, and §6.1 calls streaming a hard requirement), and per-field coverage must be counted while streaming rather than re-queried.
+
+The zero-result panel (§6.3) is a separate path with its own, looser rule: its query text is deliberately *not* grouped in SQL (MySQL's and MariaDB's default collations merge strings the acceptance recipe keeps apart), so it streams the raw text through a cursor instead and counts by normalized key in `ZeroResultPanelLoader`, bounded by the number of *distinct normalized* queries, never by the number of events. Do not read this as license to loosen the export path's own rule above; the two are bounded for different reasons and neither justifies relaxing the other.
 
 The manifest's `format_version` is the plugin's major.minor (TO-122), derived from `Bundle-Version`, and consumers key their readers on it. So any change to the archive's layout, `events.jsonl` fields or manifest keys needs at least a minor version bump; a patch release must leave the export format exactly as it was.
 

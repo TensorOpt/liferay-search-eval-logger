@@ -35,8 +35,8 @@ from harness import util as harness_util  # noqa: E402
 
 harness_util.log = lambda message: None
 
-from harness import checks  # noqa: E402
-from harness.portal import parse_result_count  # noqa: E402
+from harness import checks, zeroresult  # noqa: E402
+from harness.portal import parse_result_count, parse_zero_result_panel  # noqa: E402
 from harness.results import Results  # noqa: E402
 from harness.util import HarnessError  # noqa: E402
 
@@ -803,6 +803,442 @@ def check_funnel_counters():
             description,
             lambda counters=counters: checks.assert_funnel_adds_up(counters),
         )
+
+
+def _zero_result_event(
+    query, requested_from=0, total_hits=0, audience_type="GUEST"
+):
+    return {
+        "query": query,
+        "requested_from": requested_from,
+        "total_hits": total_hits,
+        "audience_type": audience_type,
+    }
+
+
+def check_zero_result_recipes():
+    """TO-135: harness.zeroresult's Python port of the acceptance jq recipes
+    Z1 and Z2 discriminates a wrong count, a wrong order and a non-ASCII
+    fold, the same way check_funnel_counters above proves
+    assert_funnel_adds_up does for the admission funnel.
+    """
+
+    # ascii_downcase folds only ASCII. A full Unicode fold would merge this
+    # accented query with a plain-ASCII one that is not actually the same
+    # string under the recipe.
+
+    expect_accepted(
+        "normalize_query leaves a non-ASCII letter's case alone",
+        lambda: _assert(
+            zeroresult.normalize_query("CAFÉ") == "cafÉ"
+        ),
+    )
+    expect_rejected(
+        "a full Unicode fold of the same string is caught as wrong",
+        lambda: _assert(
+            zeroresult.normalize_query("CAFÉ") == "café"
+        ),
+    )
+
+    # Oniguruma's \s, confirmed against jq, strips a non-breaking space
+    # (U+00A0) and an ideographic space (U+3000) at the edges.
+
+    expect_accepted(
+        "normalize_query strips a non-breaking space like jq's \\s does",
+        lambda: _assert(
+            zeroresult.normalize_query(" hello ") == "hello"
+        ),
+    )
+    expect_accepted(
+        "normalize_query strips an ideographic space like jq's \\s does",
+        lambda: _assert(
+            zeroresult.normalize_query("　hello　") == "hello"
+        ),
+    )
+
+    # Also confirmed against jq: U+001C-U+001F (the legacy FS/GS/RS/US
+    # separator controls) are NOT in Unicode's White_Space property, and
+    # jq's \s does not strip them. Python's own str.strip() and re's \s
+    # both strip them anyway (both follow str.isspace(), a wider,
+    # non-standard set), which is exactly the bug an earlier version of
+    # normalize_query had: it relied on str.strip() and over-trimmed
+    # relative to jq. This has to stay rejected, not accepted, or that
+    # regression goes unnoticed again.
+
+    expect_rejected(
+        "stripping U+001C-U+001F (the pre-fix str.strip() over-trim) is "
+        "caught as disagreeing with jq",
+        lambda: _assert(
+            zeroresult.normalize_query("hello") == "hello"
+        ),
+    )
+    expect_accepted(
+        "normalize_query correctly leaves U+001C-U+001F in place, matching jq",
+        lambda: _assert(
+            zeroresult.normalize_query("hello") == "hello"
+        ),
+    )
+
+    events = [
+        _zero_result_event("  Nothingmatches "),
+        _zero_result_event("nothingmatches"),
+        _zero_result_event("NOTHINGMATCHES", audience_type="AUTHENTICATED"),
+        _zero_result_event("other", total_hits=5),
+        _zero_result_event("page two", requested_from=10),
+    ]
+
+    z1 = zeroresult.compute_z1(events)
+
+    expect_accepted(
+        "Z1 counts only first-page searches, and only the zero-result ones "
+        "as zero",
+        lambda: _assert(z1["searches"] == 4 and z1["zero_result"] == 3),
+    )
+    expect_rejected(
+        "Z1 with a wrong total search count is caught",
+        lambda: _assert(z1["searches"] == 999),
+    )
+    expect_rejected(
+        "Z1 with a wrong zero-result count is caught",
+        lambda: _assert(z1["zero_result"] == 0),
+    )
+
+    by_audience = {row["audience_type"]: row for row in z1["by_audience"]}
+
+    expect_accepted(
+        "Z1's by_audience splits the same rows guests and authenticated "
+        "users actually produced",
+        lambda: _assert(
+            by_audience["GUEST"]["searches"] == 3
+            and by_audience["AUTHENTICATED"]["searches"] == 1
+        ),
+    )
+    expect_rejected(
+        "a guest count attributed to the wrong audience is caught",
+        lambda: _assert(by_audience["GUEST"]["searches"] == 4),
+    )
+
+    z2 = zeroresult.compute_z2(events, limit=20)
+
+    expect_accepted(
+        "Z2 merges case and whitespace variants into one normalized group",
+        lambda: _assert(
+            z2[0] == {"query": "nothingmatches", "searches": 3}
+        ),
+    )
+    expect_rejected(
+        "Z2 with the wrong count for the merged group is caught",
+        lambda: _assert(z2[0]["searches"] == 2),
+    )
+
+    tied = [
+        _zero_result_event("zebra"), _zero_result_event("apple"),
+        _zero_result_event("mango"),
+    ]
+
+    tied_z2 = zeroresult.compute_z2(tied, limit=20)
+
+    expect_accepted(
+        "equal counts break ties by ascending code point order, as a "
+        "stable sort over group_by's own key order would",
+        lambda: _assert(
+            [row["query"] for row in tied_z2] == ["apple", "mango", "zebra"]
+        ),
+    )
+    expect_rejected(
+        "the reverse (descending key) tie order is caught as wrong",
+        lambda: _assert(
+            [row["query"] for row in tied_z2] == ["zebra", "mango", "apple"]
+        ),
+    )
+
+    many = [
+        _zero_result_event("query%02d" % index)
+        for index in range(25)
+    ]
+
+    # Every normalized query here is distinct, so every one has a count of
+    # 1 and ties break by ascending code point order: "query00" sorts before
+    # "query01", ..., before "query24", and the first 20 of that order are
+    # query00 through query19.
+
+    cut = zeroresult.compute_z2(many, limit=20)
+
+    expect_accepted(
+        "the top-20 cut keeps exactly 20 rows, in order, from 25 distinct "
+        "queries",
+        lambda: _assert(
+            len(cut) == 20 and cut[0]["query"] == "query00"
+            and cut[19]["query"] == "query19"
+        ),
+    )
+    expect_rejected(
+        "a cut that let a 21st row through is caught",
+        lambda: _assert(len(cut) == 21),
+    )
+
+    expect_accepted(
+        "round_half_up matches ZeroResultRate.formatPercent's rounding",
+        lambda: _assert(zeroresult.round_half_up(25, 2000) == "1.3"),
+    )
+    expect_rejected(
+        "round-half-even's answer for the same boundary is caught as wrong",
+        lambda: _assert(zeroresult.round_half_up(25, 2000) == "1.2"),
+    )
+    expect_accepted(
+        "round_half_up is 0.0 for a zero denominator, not a division by "
+        "zero",
+        lambda: _assert(zeroresult.round_half_up(0, 0) == "0.0"),
+    )
+
+
+ZERO_RESULT_PANEL_SCREEN = """
+<html><body>
+<h2 class="sheet-title">Searches with no results</h2>
+<p>3 of 10 searches (30.0%) in the log returned no results.</p>
+<p>Guests: 2 of 6 searches (33.3%).<br>
+Signed-in users: 1 of 4 searches (25.0%).</p>
+<table><thead><tr><th>Query</th><th>Searches</th></tr></thead>
+<tbody>
+<tr><td>nothingmatches</td><td>3</td></tr>
+<tr><td>other term</td><td>1</td></tr>
+</tbody></table>
+<p class="text-muted">Queries are grouped after trimming spaces and
+ignoring case.</p>
+</body></html>
+<h2 class="sheet-title">Admission Counters</h2>
+"""
+
+ZERO_RESULT_PANEL_EMPTY_SCREEN = """
+<html><body>
+<h2 class="sheet-title">Searches with no results</h2>
+<p>No searches in the log yet.</p>
+<h2 class="sheet-title">Admission Counters</h2>
+</body></html>
+"""
+
+# No zero-result searches yet: the rate lines render (all at 0 (0.0%)), but
+# the table does not, and "Admission Counters" below opens straight into its
+# own <tbody> with no <thead> first - the exact shape that would fool a
+# parser that searched forward for the nearest <tbody> instead of stopping at
+# this panel's own boundary.
+ZERO_RESULT_PANEL_NO_ZERO_RESULTS_SCREEN = """
+<html><body>
+<h2 class="sheet-title">Searches with no results</h2>
+<p>0 of 12 searches (0.0%) in the log returned no results.</p>
+<p>Guests: 0 of 8 searches (0.0%).<br>
+Signed-in users: 0 of 4 searches (0.0%).</p>
+<h2 class="sheet-title">Admission Counters</h2>
+<table class="table table-autofit table-list">
+<tbody>
+<tr><td>Searches observed while enabled</td><td>12</td></tr>
+</tbody></table>
+</body></html>
+"""
+
+
+def check_zero_result_panel_parsing():
+    """TO-135: harness.portal.parse_zero_result_panel reads the panel's own
+    rendered text, not a coincidentally-matching number.
+    """
+    panel = parse_zero_result_panel(ZERO_RESULT_PANEL_SCREEN)
+
+    expect_accepted(
+        "a populated panel parses overall, both audiences and the table",
+        lambda: _assert(
+            panel["overall"] == {"zero_result": 3, "searches": 10, "rate": "30.0"}
+            and panel["guests"]
+            == {"zero_result": 2, "searches": 6, "rate": "33.3"}
+            and panel["signed_in"]
+            == {"zero_result": 1, "searches": 4, "rate": "25.0"}
+            and panel["top_queries"]
+            == [
+                {"query": "nothingmatches", "searches": 3},
+                {"query": "other term", "searches": 1},
+            ]
+        ),
+    )
+
+    wrong_overall = dict(panel["overall"], searches=999)
+
+    expect_rejected(
+        "a wrong overall search count is caught",
+        lambda: _assert(panel["overall"] == wrong_overall),
+    )
+
+    reordered = list(reversed(panel["top_queries"]))
+
+    expect_rejected(
+        "the table rows in the wrong order are caught",
+        lambda: _assert(panel["top_queries"] == reordered),
+    )
+
+    empty_panel = parse_zero_result_panel(ZERO_RESULT_PANEL_EMPTY_SCREEN)
+
+    expect_accepted(
+        "an empty log parses as no_searches_logged, not a crash or a zero "
+        "rate",
+        lambda: _assert(empty_panel == {"no_searches_logged": True}),
+    )
+
+    # Regression for the bug this module's first version had: with no table
+    # of its own, a non-greedy search from the heading for the nearest
+    # <tbody> would latch onto Admission Counters' table instead, which also
+    # opens straight into <tbody> with no <thead>. Bounding the parse to this
+    # panel's own slice of the page (up to the next sheet's heading) is what
+    # keeps that from happening.
+
+    no_zero_results_panel = parse_zero_result_panel(
+        ZERO_RESULT_PANEL_NO_ZERO_RESULTS_SCREEN
+    )
+
+    expect_accepted(
+        "no zero-result searches yet still renders the rate lines, all at "
+        "zero, and no table - not Admission Counters' table read as this "
+        "panel's own",
+        lambda: _assert(
+            no_zero_results_panel["overall"]
+            == {"zero_result": 0, "searches": 12, "rate": "0.0"}
+            and no_zero_results_panel["top_queries"] == []
+        ),
+    )
+    expect_rejected(
+        "Admission Counters' row mistaken for a zero-result query is "
+        "caught",
+        lambda: _assert(
+            no_zero_results_panel["top_queries"]
+            == [
+                {
+                    "query": "Searches observed while enabled",
+                    "searches": 12,
+                }
+            ]
+        ),
+    )
+
+    # A screen with none of this panel's lines at all (every other sheet
+    # removed) must fail to parse rather than silently report zeroes: a
+    # wrong page read as an empty log would hide a real regression behind a
+    # result that looks like the one legitimate empty-log case.
+
+    expect_rejected(
+        "a page with none of the panel's own lines raises rather than "
+        "reporting zeroes",
+        lambda: parse_zero_result_panel("<html><body>Sign in.</body></html>"),
+    )
+
+
+def check_zero_result_panel_matches_events():
+    """TO-135: checks.assert_zero_result_panel_matches, the function the real
+    `zero_result_panel` e2e case calls, discriminates the panel disagreeing
+    with the recipes computed over the same events - the point of the whole
+    check.
+    """
+    events = [
+        _zero_result_event("widget", audience_type="GUEST"),
+        _zero_result_event("widget", audience_type="AUTHENTICATED"),
+        _zero_result_event("other", total_hits=4, audience_type="GUEST"),
+    ]
+
+    matching_panel = {
+        "no_searches_logged": False,
+        "overall": {"zero_result": 2, "searches": 3, "rate": "66.7"},
+        "guests": {"zero_result": 1, "searches": 2, "rate": "50.0"},
+        "signed_in": {"zero_result": 1, "searches": 1, "rate": "100.0"},
+        "top_queries": [{"query": "widget", "searches": 2}],
+    }
+
+    expect_accepted(
+        "a panel whose figures match the recipes is accepted",
+        lambda: checks.assert_zero_result_panel_matches(matching_panel, events),
+    )
+
+    wrong_overall = dict(
+        matching_panel,
+        overall=dict(matching_panel["overall"], zero_result=0),
+    )
+
+    expect_rejected(
+        "a panel whose overall zero-result count disagrees with Z1 is "
+        "caught",
+        lambda: checks.assert_zero_result_panel_matches(wrong_overall, events),
+    )
+
+    wrong_audience = dict(
+        matching_panel,
+        guests=dict(matching_panel["guests"], searches=99),
+    )
+
+    expect_rejected(
+        "a panel whose guest count disagrees with Z1's by_audience is "
+        "caught",
+        lambda: checks.assert_zero_result_panel_matches(
+            wrong_audience, events
+        ),
+    )
+
+    wrong_rate = dict(
+        matching_panel,
+        overall=dict(matching_panel["overall"], rate="0.0"),
+    )
+
+    expect_rejected(
+        "a panel whose rate disagrees with round_half_up is caught",
+        lambda: checks.assert_zero_result_panel_matches(wrong_rate, events),
+    )
+
+    wrong_table = dict(matching_panel, top_queries=[])
+
+    expect_rejected(
+        "a panel whose top-queries table disagrees with Z2 is caught",
+        lambda: checks.assert_zero_result_panel_matches(wrong_table, events),
+    )
+
+
+def check_zero_result_panel_xss_escaping():
+    """TO-135, stored XSS (blocker review finding): a zero-result query is
+    guest-controlled input rendered into an administrator's own page, and
+    checks.assert_query_text_is_html_escaped is what the real
+    `zero_result_panel` e2e case calls to prove it reaches that page as
+    escaped text rather than as markup. This proves the assertion itself
+    discriminates: a raw, unescaped tag must be rejected, not silently
+    accepted because some escaped text happens to appear elsewhere on the
+    page too.
+    """
+    raw_markup = "qqzzxx<b>xss</b>"
+
+    escaped_page = (
+        "<html><body><table><tr><td>qqzzxx&lt;b&gt;xss&lt;/b&gt;</td>"
+        "<td>1</td></tr></table></body></html>"
+    )
+
+    expect_accepted(
+        "a page that rendered the query through HTML escaping is accepted",
+        lambda: checks.assert_query_text_is_html_escaped(
+            escaped_page, raw_markup),
+    )
+
+    unescaped_page = (
+        "<html><body><table><tr><td>qqzzxx<b>xss</b></td>"
+        "<td>1</td></tr></table></body></html>"
+    )
+
+    expect_rejected(
+        "a page that rendered the raw, unescaped tag is caught (the "
+        "stored XSS this finding is about)",
+        lambda: checks.assert_query_text_is_html_escaped(
+            unescaped_page, raw_markup),
+    )
+
+    neither_page = "<html><body>Sign in.</body></html>"
+
+    expect_rejected(
+        "a page carrying neither the escaped nor the raw form is caught, "
+        "not silently accepted as "
+        "\"at least it is not the raw tag\"",
+        lambda: checks.assert_query_text_is_html_escaped(
+            neither_page, raw_markup),
+    )
 
 
 NOTIFICATIONS_EMPTY = """
@@ -1606,6 +2042,10 @@ def main():
         check_number_types()
         check_format_version()
         check_funnel_counters()
+        check_zero_result_recipes()
+        check_zero_result_panel_parsing()
+        check_zero_result_panel_matches_events()
+        check_zero_result_panel_xss_escaping()
         check_notification_listed()
         check_daily_schedule()
         check_foreign_download()

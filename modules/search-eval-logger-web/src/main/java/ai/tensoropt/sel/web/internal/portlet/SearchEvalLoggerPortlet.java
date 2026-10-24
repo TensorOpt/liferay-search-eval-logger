@@ -26,9 +26,12 @@ import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 import ai.tensoropt.sel.api.SearchInterceptionStatus;
 import ai.tensoropt.sel.api.SignupBannerDismissal;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.service.SearchEventLocalService;
 import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
 import ai.tensoropt.sel.web.internal.funnel.EvaluationServiceLinks;
 import ai.tensoropt.sel.web.internal.security.permission.resource.SearchEvalLoggerPortletPermission;
+import ai.tensoropt.sel.web.internal.zeroresult.ZeroResultPanel;
+import ai.tensoropt.sel.web.internal.zeroresult.ZeroResultPanelLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,8 +167,24 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 			"exportCompleteURL",
 			EvaluationServiceLinks.getExportCompleteURL());
 
-		renderRequest.setAttribute(
-			"hasExportPermission", _hasExportPermission(themeDisplay));
+		boolean hasExportPermission = _hasExportPermission(themeDisplay);
+
+		renderRequest.setAttribute("hasExportPermission", hasExportPermission);
+
+		// DESIGN.md 6, TO-135: the zero-result panel needs the same
+		// permission as export, because it shows query text an exporter
+		// could already read from the archive. Not computed at all when the
+		// viewer lacks that permission, rather than computed and hidden by
+		// the JSP alone.
+
+		if (hasExportPermission) {
+			ZeroResultPanel zeroResultPanel = ZeroResultPanelLoader.load(
+				_searchEventLocalService, themeDisplay.getCompanyId());
+
+			if (zeroResultPanel != null) {
+				renderRequest.setAttribute("zeroResultPanel", zeroResultPanel);
+			}
+		}
 
 		List<ExportRow> exportRows = _getExportRows(themeDisplay);
 
@@ -409,6 +428,9 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 	@Reference
 	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;
+
+	@Reference
+	private SearchEventLocalService _searchEventLocalService;
 
 	@Reference
 	private SearchInterceptionStatus _searchInterceptionStatus;
