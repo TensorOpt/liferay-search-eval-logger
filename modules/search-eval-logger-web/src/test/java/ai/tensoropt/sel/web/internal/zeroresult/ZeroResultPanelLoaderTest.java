@@ -7,18 +7,25 @@ package ai.tensoropt.sel.web.internal.zeroresult;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ai.tensoropt.sel.api.AudienceType;
 import ai.tensoropt.sel.service.SearchEventLocalService;
 
 import com.liferay.petra.function.UnsafeConsumer;
+import com.liferay.portal.kernel.cache.PortalCache;
 import com.liferay.portal.kernel.exception.SystemException;
 
 import java.util.Map;
@@ -61,7 +68,7 @@ public class ZeroResultPanelLoaderTest {
 		);
 
 		ZeroResultPanel zeroResultPanel = ZeroResultPanelLoader.load(
-			searchEventLocalService, 123L);
+			_emptyPortalCache(), searchEventLocalService, 123L);
 
 		assertArrayEquals(
 			new String[] {"2", "2", "100.0"},
@@ -85,7 +92,8 @@ public class ZeroResultPanelLoaderTest {
 		).forEachZeroResultFirstPageQuery(anyLong(), any());
 
 		assertNull(
-			ZeroResultPanelLoader.load(searchEventLocalService, 123L));
+			ZeroResultPanelLoader.load(
+				_emptyPortalCache(), searchEventLocalService, 123L));
 	}
 
 	@Test
@@ -101,7 +109,84 @@ public class ZeroResultPanelLoaderTest {
 		);
 
 		assertNull(
-			ZeroResultPanelLoader.load(searchEventLocalService, 123L));
+			ZeroResultPanelLoader.load(
+				_emptyPortalCache(), searchEventLocalService, 123L));
+	}
+
+	@Test
+	public void aCachedPanelIsServedWithoutReadingTheLog() {
+		SearchEventLocalService searchEventLocalService = mock(
+			SearchEventLocalService.class);
+		PortalCache<Long, ZeroResultPanel> portalCache = _emptyPortalCache();
+		ZeroResultPanel cachedZeroResultPanel = ZeroResultPanel.build(
+			Map.of(), Map.of());
+
+		when(
+			portalCache.get(123L)
+		).thenReturn(
+			cachedZeroResultPanel
+		);
+
+		assertSame(
+			cachedZeroResultPanel,
+			ZeroResultPanelLoader.load(
+				portalCache, searchEventLocalService, 123L));
+
+		verifyNoInteractions(searchEventLocalService);
+	}
+
+	@Test
+	public void aComputedPanelIsCachedForAnHour() {
+		SearchEventLocalService searchEventLocalService = mock(
+			SearchEventLocalService.class);
+
+		when(
+			searchEventLocalService.getFirstPageSearchCountsByAudienceType(
+				anyLong())
+		).thenReturn(
+			Map.of()
+		);
+
+		PortalCache<Long, ZeroResultPanel> portalCache = _emptyPortalCache();
+
+		ZeroResultPanel zeroResultPanel = ZeroResultPanelLoader.load(
+			portalCache, searchEventLocalService, 123L);
+
+		verify(
+			portalCache
+		).put(
+			123L, zeroResultPanel, 3600
+		);
+	}
+
+	@Test
+	public void aFailedComputationIsNotCached() {
+		SearchEventLocalService searchEventLocalService = mock(
+			SearchEventLocalService.class);
+
+		when(
+			searchEventLocalService.getFirstPageSearchCountsByAudienceType(
+				anyLong())
+		).thenThrow(
+			new SystemException("database unavailable")
+		);
+
+		PortalCache<Long, ZeroResultPanel> portalCache = _emptyPortalCache();
+
+		assertNull(
+			ZeroResultPanelLoader.load(
+				portalCache, searchEventLocalService, 123L));
+
+		verify(
+			portalCache, never()
+		).put(
+			eq(123L), any(), anyInt()
+		);
+	}
+
+	@SuppressWarnings("unchecked")
+	private PortalCache<Long, ZeroResultPanel> _emptyPortalCache() {
+		return mock(PortalCache.class);
 	}
 
 }

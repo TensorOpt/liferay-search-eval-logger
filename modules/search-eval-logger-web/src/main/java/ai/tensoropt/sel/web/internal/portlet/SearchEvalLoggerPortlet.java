@@ -8,6 +8,8 @@ import com.liferay.portal.background.task.util.comparator.BackgroundTaskCreateDa
 import com.liferay.portal.configuration.module.configuration.ConfigurationProvider;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTask;
 import com.liferay.portal.kernel.backgroundtask.BackgroundTaskManagerUtil;
+import com.liferay.portal.kernel.cache.PortalCache;
+import com.liferay.portal.kernel.cache.SingleVMPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
@@ -179,7 +181,8 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 		if (hasExportPermission) {
 			ZeroResultPanel zeroResultPanel = ZeroResultPanelLoader.load(
-				_searchEventLocalService, themeDisplay.getCompanyId());
+				_getZeroResultPanelPortalCache(), _searchEventLocalService,
+				themeDisplay.getCompanyId());
 
 			if (zeroResultPanel != null) {
 				renderRequest.setAttribute("zeroResultPanel", zeroResultPanel);
@@ -317,6 +320,15 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 		return exportRows;
 	}
 
+	@SuppressWarnings("unchecked")
+	private PortalCache<Long, ZeroResultPanel>
+		_getZeroResultPanelPortalCache() {
+
+		return (PortalCache<Long, ZeroResultPanel>)
+			_singleVMPool.getPortalCache(
+				ZeroResultPanelLoader.PORTAL_CACHE_NAME);
+	}
+
 	private boolean _hasExportPermission(ThemeDisplay themeDisplay) {
 		try {
 			return SearchEvalLoggerPortletPermission.contains(
@@ -431,6 +443,9 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 	@Reference
 	private SearchEventLocalService _searchEventLocalService;
+
+	@Reference
+	private SingleVMPool _singleVMPool;
 
 	@Reference
 	private SearchInterceptionStatus _searchInterceptionStatus;
