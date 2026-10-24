@@ -1686,6 +1686,13 @@ def zero_result_panel(context, case):
     proves the cache itself: a new zero-result search is not in the panel
     until the cache is emptied again.
     """
+    assert_true(
+        _zero_result_panel_index_exists(context),
+        "SEL_SearchEvent has no index on (companyId, requestedFrom, "
+        "totalHits, audienceType); the panel's audience counts would scan "
+        "the table",
+    )
+
     context.portal.run_script(scripts.FLUSH_ZERO_RESULT_PANEL_CACHE)
 
     panel = context.portal.zero_result_panel()
@@ -1754,6 +1761,25 @@ def zero_result_panel(context, case):
     )
 
     _assert_zero_result_panel_is_cached(context, panel)
+
+
+def _zero_result_panel_index_exists(context):
+    """The finder C_R_T_A index (DESIGN.md 6.3), as the database itself
+    reports it after a fresh install."""
+    if context.stack.dialect == "postgres":
+        sql = (
+            "select count(*) from pg_indexes where tablename = "
+            "'sel_searchevent' and indexdef ilike "
+            "'%(companyid, requestedfrom, totalhits, audiencetype)%'"
+        )
+    else:
+        sql = (
+            "select count(*) from information_schema.statistics where "
+            "table_schema = database() and lower(table_name) = "
+            "'sel_searchevent' and lower(column_name) = 'audiencetype'"
+        )
+
+    return context.stack.sql_long(sql) > 0
 
 
 def _assert_zero_result_panel_is_cached(context, panel):

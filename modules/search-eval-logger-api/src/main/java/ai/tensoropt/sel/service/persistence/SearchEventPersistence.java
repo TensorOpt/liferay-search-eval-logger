@@ -488,6 +488,191 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	public int countByC_LtCreateDate(long companyId, Date createDate);
 
 	/**
+	 * Returns all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the matching search events
+	 */
+	public java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType);
+
+	/**
+	 * Returns a range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @return the range of matching search events
+	 */
+	public java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end);
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search events
+	 */
+	public java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator);
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @param useFinderCache whether to use the finder cache
+	 * @return the ordered range of matching search events
+	 */
+	public java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator,
+		boolean useFinderCache);
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	public SearchEvent findByC_R_T_A_First(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+				orderByComparator)
+		throws NoSuchSearchEventException;
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	public SearchEvent fetchByC_R_T_A_First(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator);
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	public SearchEvent findByC_R_T_A_Last(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+				orderByComparator)
+		throws NoSuchSearchEventException;
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	public SearchEvent fetchByC_R_T_A_Last(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator);
+
+	/**
+	 * Returns the search events before and after the current search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param searchEventId the primary key of the current search event
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the previous, current, and next search event
+	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
+	 */
+	public SearchEvent[] findByC_R_T_A_PrevAndNext(
+			long searchEventId, long companyId, int requestedFrom,
+			long totalHits, String audienceType,
+			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+				orderByComparator)
+		throws NoSuchSearchEventException;
+
+	/**
+	 * Removes all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63; from the database.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 */
+	public void removeByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType);
+
+	/**
+	 * Returns the number of search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the number of matching search events
+	 */
+	public int countByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType);
+
+	/**
 	 * Caches the search event in the entity cache if it is enabled.
 	 *
 	 * @param searchEvent the search event

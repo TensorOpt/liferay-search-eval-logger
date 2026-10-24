@@ -1768,6 +1768,681 @@ public class SearchEventPersistenceImpl
 	private static final String _FINDER_COLUMN_C_LTCREATEDATE_CREATEDATE_2 =
 		"searchEvent.createDate < ?";
 
+	private FinderPath _finderPathWithPaginationFindByC_R_T_A;
+	private FinderPath _finderPathWithoutPaginationFindByC_R_T_A;
+	private FinderPath _finderPathCountByC_R_T_A;
+
+	/**
+	 * Returns all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the matching search events
+	 */
+	@Override
+	public List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType,
+			QueryUtil.ALL_POS, QueryUtil.ALL_POS, null);
+	}
+
+	/**
+	 * Returns a range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @return the range of matching search events
+	 */
+	@Override
+	public List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end) {
+
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end,
+			null);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search events
+	 */
+	@Override
+	public List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end, OrderByComparator<SearchEvent> orderByComparator) {
+
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end,
+			orderByComparator, true);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @param useFinderCache whether to use the finder cache
+	 * @return the ordered range of matching search events
+	 */
+	@Override
+	public List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end, OrderByComparator<SearchEvent> orderByComparator,
+		boolean useFinderCache) {
+
+		audienceType = Objects.toString(audienceType, "");
+
+		FinderPath finderPath = null;
+		Object[] finderArgs = null;
+
+		if ((start == QueryUtil.ALL_POS) && (end == QueryUtil.ALL_POS) &&
+			(orderByComparator == null)) {
+
+			if (useFinderCache) {
+				finderPath = _finderPathWithoutPaginationFindByC_R_T_A;
+				finderArgs = new Object[] {
+					companyId, requestedFrom, totalHits, audienceType
+				};
+			}
+		}
+		else if (useFinderCache) {
+			finderPath = _finderPathWithPaginationFindByC_R_T_A;
+			finderArgs = new Object[] {
+				companyId, requestedFrom, totalHits, audienceType, start, end,
+				orderByComparator
+			};
+		}
+
+		List<SearchEvent> list = null;
+
+		if (useFinderCache) {
+			list = (List<SearchEvent>)dummyFinderCache.getResult(
+				finderPath, finderArgs, this);
+
+			if ((list != null) && !list.isEmpty()) {
+				for (SearchEvent searchEvent : list) {
+					if ((companyId != searchEvent.getCompanyId()) ||
+						(requestedFrom != searchEvent.getRequestedFrom()) ||
+						(totalHits != searchEvent.getTotalHits()) ||
+						!audienceType.equals(searchEvent.getAudienceType())) {
+
+						list = null;
+
+						break;
+					}
+				}
+			}
+		}
+
+		if (list == null) {
+			StringBundler sb = null;
+
+			if (orderByComparator != null) {
+				sb = new StringBundler(
+					6 + (orderByComparator.getOrderByFields().length * 2));
+			}
+			else {
+				sb = new StringBundler(6);
+			}
+
+			sb.append(_SQL_SELECT_SEARCHEVENT_WHERE);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_COMPANYID_2);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_REQUESTEDFROM_2);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_TOTALHITS_2);
+
+			boolean bindAudienceType = false;
+
+			if (audienceType.isEmpty()) {
+				sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_3);
+			}
+			else {
+				bindAudienceType = true;
+
+				sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_2);
+			}
+
+			if (orderByComparator != null) {
+				appendOrderByComparator(
+					sb, _ORDER_BY_ENTITY_ALIAS, orderByComparator);
+			}
+			else {
+				sb.append(SearchEventModelImpl.ORDER_BY_JPQL);
+			}
+
+			String sql = sb.toString();
+
+			Session session = null;
+
+			try {
+				session = openSession();
+
+				Query query = session.createQuery(sql);
+
+				QueryPos queryPos = QueryPos.getInstance(query);
+
+				queryPos.add(companyId);
+
+				queryPos.add(requestedFrom);
+
+				queryPos.add(totalHits);
+
+				if (bindAudienceType) {
+					queryPos.add(audienceType);
+				}
+
+				list = (List<SearchEvent>)QueryUtil.list(
+					query, getDialect(), start, end);
+
+				cacheResult(list);
+
+				if (useFinderCache) {
+					dummyFinderCache.putResult(finderPath, finderArgs, list);
+				}
+			}
+			catch (Exception exception) {
+				throw processException(exception);
+			}
+			finally {
+				closeSession(session);
+			}
+		}
+
+		return list;
+	}
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	@Override
+	public SearchEvent findByC_R_T_A_First(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws NoSuchSearchEventException {
+
+		SearchEvent searchEvent = fetchByC_R_T_A_First(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+
+		if (searchEvent != null) {
+			return searchEvent;
+		}
+
+		StringBundler sb = new StringBundler(10);
+
+		sb.append(_NO_SUCH_ENTITY_WITH_KEY);
+
+		sb.append("companyId=");
+		sb.append(companyId);
+
+		sb.append(", requestedFrom=");
+		sb.append(requestedFrom);
+
+		sb.append(", totalHits=");
+		sb.append(totalHits);
+
+		sb.append(", audienceType=");
+		sb.append(audienceType);
+
+		sb.append("}");
+
+		throw new NoSuchSearchEventException(sb.toString());
+	}
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	@Override
+	public SearchEvent fetchByC_R_T_A_First(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		OrderByComparator<SearchEvent> orderByComparator) {
+
+		List<SearchEvent> list = findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, 0, 1,
+			orderByComparator);
+
+		if (!list.isEmpty()) {
+			return list.get(0);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	@Override
+	public SearchEvent findByC_R_T_A_Last(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws NoSuchSearchEventException {
+
+		SearchEvent searchEvent = fetchByC_R_T_A_Last(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+
+		if (searchEvent != null) {
+			return searchEvent;
+		}
+
+		StringBundler sb = new StringBundler(10);
+
+		sb.append(_NO_SUCH_ENTITY_WITH_KEY);
+
+		sb.append("companyId=");
+		sb.append(companyId);
+
+		sb.append(", requestedFrom=");
+		sb.append(requestedFrom);
+
+		sb.append(", totalHits=");
+		sb.append(totalHits);
+
+		sb.append(", audienceType=");
+		sb.append(audienceType);
+
+		sb.append("}");
+
+		throw new NoSuchSearchEventException(sb.toString());
+	}
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	@Override
+	public SearchEvent fetchByC_R_T_A_Last(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		OrderByComparator<SearchEvent> orderByComparator) {
+
+		int count = countByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType);
+
+		if (count == 0) {
+			return null;
+		}
+
+		List<SearchEvent> list = findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, count - 1, count,
+			orderByComparator);
+
+		if (!list.isEmpty()) {
+			return list.get(0);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the search events before and after the current search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param searchEventId the primary key of the current search event
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the previous, current, and next search event
+	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
+	 */
+	@Override
+	public SearchEvent[] findByC_R_T_A_PrevAndNext(
+			long searchEventId, long companyId, int requestedFrom,
+			long totalHits, String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws NoSuchSearchEventException {
+
+		audienceType = Objects.toString(audienceType, "");
+
+		SearchEvent searchEvent = findByPrimaryKey(searchEventId);
+
+		Session session = null;
+
+		try {
+			session = openSession();
+
+			SearchEvent[] array = new SearchEventImpl[3];
+
+			array[0] = getByC_R_T_A_PrevAndNext(
+				session, searchEvent, companyId, requestedFrom, totalHits,
+				audienceType, orderByComparator, true);
+
+			array[1] = searchEvent;
+
+			array[2] = getByC_R_T_A_PrevAndNext(
+				session, searchEvent, companyId, requestedFrom, totalHits,
+				audienceType, orderByComparator, false);
+
+			return array;
+		}
+		catch (Exception exception) {
+			throw processException(exception);
+		}
+		finally {
+			closeSession(session);
+		}
+	}
+
+	protected SearchEvent getByC_R_T_A_PrevAndNext(
+		Session session, SearchEvent searchEvent, long companyId,
+		int requestedFrom, long totalHits, String audienceType,
+		OrderByComparator<SearchEvent> orderByComparator, boolean previous) {
+
+		StringBundler sb = null;
+
+		if (orderByComparator != null) {
+			sb = new StringBundler(
+				7 + (orderByComparator.getOrderByConditionFields().length * 3) +
+					(orderByComparator.getOrderByFields().length * 3));
+		}
+		else {
+			sb = new StringBundler(6);
+		}
+
+		sb.append(_SQL_SELECT_SEARCHEVENT_WHERE);
+
+		sb.append(_FINDER_COLUMN_C_R_T_A_COMPANYID_2);
+
+		sb.append(_FINDER_COLUMN_C_R_T_A_REQUESTEDFROM_2);
+
+		sb.append(_FINDER_COLUMN_C_R_T_A_TOTALHITS_2);
+
+		boolean bindAudienceType = false;
+
+		if (audienceType.isEmpty()) {
+			sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_3);
+		}
+		else {
+			bindAudienceType = true;
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_2);
+		}
+
+		if (orderByComparator != null) {
+			String[] orderByConditionFields =
+				orderByComparator.getOrderByConditionFields();
+
+			if (orderByConditionFields.length > 0) {
+				sb.append(WHERE_AND);
+			}
+
+			for (int i = 0; i < orderByConditionFields.length; i++) {
+				sb.append(_ORDER_BY_ENTITY_ALIAS);
+				sb.append(orderByConditionFields[i]);
+
+				if ((i + 1) < orderByConditionFields.length) {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(WHERE_GREATER_THAN_HAS_NEXT);
+					}
+					else {
+						sb.append(WHERE_LESSER_THAN_HAS_NEXT);
+					}
+				}
+				else {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(WHERE_GREATER_THAN);
+					}
+					else {
+						sb.append(WHERE_LESSER_THAN);
+					}
+				}
+			}
+
+			sb.append(ORDER_BY_CLAUSE);
+
+			String[] orderByFields = orderByComparator.getOrderByFields();
+
+			for (int i = 0; i < orderByFields.length; i++) {
+				sb.append(_ORDER_BY_ENTITY_ALIAS);
+				sb.append(orderByFields[i]);
+
+				if ((i + 1) < orderByFields.length) {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(ORDER_BY_ASC_HAS_NEXT);
+					}
+					else {
+						sb.append(ORDER_BY_DESC_HAS_NEXT);
+					}
+				}
+				else {
+					if (orderByComparator.isAscending() ^ previous) {
+						sb.append(ORDER_BY_ASC);
+					}
+					else {
+						sb.append(ORDER_BY_DESC);
+					}
+				}
+			}
+		}
+		else {
+			sb.append(SearchEventModelImpl.ORDER_BY_JPQL);
+		}
+
+		String sql = sb.toString();
+
+		Query query = session.createQuery(sql);
+
+		query.setFirstResult(0);
+		query.setMaxResults(2);
+
+		QueryPos queryPos = QueryPos.getInstance(query);
+
+		queryPos.add(companyId);
+
+		queryPos.add(requestedFrom);
+
+		queryPos.add(totalHits);
+
+		if (bindAudienceType) {
+			queryPos.add(audienceType);
+		}
+
+		if (orderByComparator != null) {
+			for (Object orderByConditionValue :
+					orderByComparator.getOrderByConditionValues(searchEvent)) {
+
+				queryPos.add(orderByConditionValue);
+			}
+		}
+
+		List<SearchEvent> list = query.list();
+
+		if (list.size() == 2) {
+			return list.get(1);
+		}
+		else {
+			return null;
+		}
+	}
+
+	/**
+	 * Removes all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63; from the database.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 */
+	@Override
+	public void removeByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		for (SearchEvent searchEvent :
+				findByC_R_T_A(
+					companyId, requestedFrom, totalHits, audienceType,
+					QueryUtil.ALL_POS, QueryUtil.ALL_POS, null)) {
+
+			remove(searchEvent);
+		}
+	}
+
+	/**
+	 * Returns the number of search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the number of matching search events
+	 */
+	@Override
+	public int countByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		audienceType = Objects.toString(audienceType, "");
+
+		FinderPath finderPath = _finderPathCountByC_R_T_A;
+
+		Object[] finderArgs = new Object[] {
+			companyId, requestedFrom, totalHits, audienceType
+		};
+
+		Long count = (Long)dummyFinderCache.getResult(
+			finderPath, finderArgs, this);
+
+		if (count == null) {
+			StringBundler sb = new StringBundler(5);
+
+			sb.append(_SQL_COUNT_SEARCHEVENT_WHERE);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_COMPANYID_2);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_REQUESTEDFROM_2);
+
+			sb.append(_FINDER_COLUMN_C_R_T_A_TOTALHITS_2);
+
+			boolean bindAudienceType = false;
+
+			if (audienceType.isEmpty()) {
+				sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_3);
+			}
+			else {
+				bindAudienceType = true;
+
+				sb.append(_FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_2);
+			}
+
+			String sql = sb.toString();
+
+			Session session = null;
+
+			try {
+				session = openSession();
+
+				Query query = session.createQuery(sql);
+
+				QueryPos queryPos = QueryPos.getInstance(query);
+
+				queryPos.add(companyId);
+
+				queryPos.add(requestedFrom);
+
+				queryPos.add(totalHits);
+
+				if (bindAudienceType) {
+					queryPos.add(audienceType);
+				}
+
+				count = (Long)query.uniqueResult();
+
+				dummyFinderCache.putResult(finderPath, finderArgs, count);
+			}
+			catch (Exception exception) {
+				throw processException(exception);
+			}
+			finally {
+				closeSession(session);
+			}
+		}
+
+		return count.intValue();
+	}
+
+	private static final String _FINDER_COLUMN_C_R_T_A_COMPANYID_2 =
+		"searchEvent.companyId = ? AND ";
+
+	private static final String _FINDER_COLUMN_C_R_T_A_REQUESTEDFROM_2 =
+		"searchEvent.requestedFrom = ? AND ";
+
+	private static final String _FINDER_COLUMN_C_R_T_A_TOTALHITS_2 =
+		"searchEvent.totalHits = ? AND ";
+
+	private static final String _FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_2 =
+		"searchEvent.audienceType = ?";
+
+	private static final String _FINDER_COLUMN_C_R_T_A_AUDIENCETYPE_3 =
+		"(searchEvent.audienceType IS NULL OR searchEvent.audienceType = '')";
+
 	public SearchEventPersistenceImpl() {
 		Map<String, String> dbColumnNames = new HashMap<String, String>();
 
@@ -2367,6 +3042,41 @@ public class SearchEventPersistenceImpl
 			FINDER_CLASS_NAME_LIST_WITH_PAGINATION, "countByC_LtCreateDate",
 			new String[] {Long.class.getName(), Date.class.getName()},
 			new String[] {"companyId", "createDate"}, false);
+
+		_finderPathWithPaginationFindByC_R_T_A = new FinderPath(
+			FINDER_CLASS_NAME_LIST_WITH_PAGINATION, "findByC_R_T_A",
+			new String[] {
+				Long.class.getName(), Integer.class.getName(),
+				Long.class.getName(), String.class.getName(),
+				Integer.class.getName(), Integer.class.getName(),
+				OrderByComparator.class.getName()
+			},
+			new String[] {
+				"companyId", "requestedFrom", "totalHits", "audienceType"
+			},
+			true);
+
+		_finderPathWithoutPaginationFindByC_R_T_A = new FinderPath(
+			FINDER_CLASS_NAME_LIST_WITHOUT_PAGINATION, "findByC_R_T_A",
+			new String[] {
+				Long.class.getName(), Integer.class.getName(),
+				Long.class.getName(), String.class.getName()
+			},
+			new String[] {
+				"companyId", "requestedFrom", "totalHits", "audienceType"
+			},
+			true);
+
+		_finderPathCountByC_R_T_A = new FinderPath(
+			FINDER_CLASS_NAME_LIST_WITHOUT_PAGINATION, "countByC_R_T_A",
+			new String[] {
+				Long.class.getName(), Integer.class.getName(),
+				Long.class.getName(), String.class.getName()
+			},
+			new String[] {
+				"companyId", "requestedFrom", "totalHits", "audienceType"
+			},
+			false);
 
 		SearchEventUtil.setPersistence(this);
 	}

@@ -1,4 +1,5 @@
 create index IX_62DE8BD3 on SEL_SearchEvent (companyId, createDate);
+create index IX_9F78B7D3 on SEL_SearchEvent (companyId, requestedFrom, totalHits, audienceType[$COLUMN_LENGTH:20$]);
 create index IX_F5E0D8A1 on SEL_SearchEvent (uuid_[$COLUMN_LENGTH:75$]);
 
 create index IX_7AEF143A on SEL_SearchHit (companyId, createDate);
