@@ -649,6 +649,236 @@ public class SearchEventUtil {
 	}
 
 	/**
+	 * Returns all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the matching search events
+	 */
+	public static List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		return getPersistence().findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType);
+	}
+
+	/**
+	 * Returns a range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @return the range of matching search events
+	 */
+	public static List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end) {
+
+		return getPersistence().findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search events
+	 */
+	public static List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end, OrderByComparator<SearchEvent> orderByComparator) {
+
+		return getPersistence().findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end,
+			orderByComparator);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @param useFinderCache whether to use the finder cache
+	 * @return the ordered range of matching search events
+	 */
+	public static List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end, OrderByComparator<SearchEvent> orderByComparator,
+		boolean useFinderCache) {
+
+		return getPersistence().findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end,
+			orderByComparator, useFinderCache);
+	}
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	public static SearchEvent findByC_R_T_A_First(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
+
+		return getPersistence().findByC_R_T_A_First(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+	}
+
+	/**
+	 * Returns the first search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the first matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	public static SearchEvent fetchByC_R_T_A_First(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		OrderByComparator<SearchEvent> orderByComparator) {
+
+		return getPersistence().fetchByC_R_T_A_First(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+	}
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event
+	 * @throws NoSuchSearchEventException if a matching search event could not be found
+	 */
+	public static SearchEvent findByC_R_T_A_Last(
+			long companyId, int requestedFrom, long totalHits,
+			String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
+
+		return getPersistence().findByC_R_T_A_Last(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+	}
+
+	/**
+	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
+	 */
+	public static SearchEvent fetchByC_R_T_A_Last(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		OrderByComparator<SearchEvent> orderByComparator) {
+
+		return getPersistence().fetchByC_R_T_A_Last(
+			companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+	}
+
+	/**
+	 * Returns the search events before and after the current search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param searchEventId the primary key of the current search event
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
+	 * @return the previous, current, and next search event
+	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
+	 */
+	public static SearchEvent[] findByC_R_T_A_PrevAndNext(
+			long searchEventId, long companyId, int requestedFrom,
+			long totalHits, String audienceType,
+			OrderByComparator<SearchEvent> orderByComparator)
+		throws ai.tensoropt.sel.exception.NoSuchSearchEventException {
+
+		return getPersistence().findByC_R_T_A_PrevAndNext(
+			searchEventId, companyId, requestedFrom, totalHits, audienceType,
+			orderByComparator);
+	}
+
+	/**
+	 * Removes all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63; from the database.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 */
+	public static void removeByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		getPersistence().removeByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType);
+	}
+
+	/**
+	 * Returns the number of search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the number of matching search events
+	 */
+	public static int countByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		return getPersistence().countByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType);
+	}
+
+	/**
 	 * Caches the search event in the entity cache if it is enabled.
 	 *
 	 * @param searchEvent the search event
