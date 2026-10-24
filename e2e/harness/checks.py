@@ -1706,41 +1706,6 @@ def zero_result_panel(context, case):
     assert_query_text_is_html_escaped(
         context.portal.admin_screen(), ZERO_RESULT_XSS_TERM)
 
-    _assert_zero_result_panel_is_cached(context, panel)
-
-
-def _assert_zero_result_panel_is_cached(context, panel):
-    """One more zero-result search, persisted, must leave the cached panel
-    as it was, and appear once the cache is emptied."""
-    term = ZERO_RESULT_TERM + "cachecheck"
-
-    count, _ = context.portal.search_result_count(term)
-
-    assert_equal(count, 0, "The cache check term %r returned results" % term)
-
-    wait_for(
-        "the cache check search to be persisted",
-        lambda: context.stack.sql_long(
-            "select count(*) from SEL_SearchEvent where queryText = '%s'"
-            % term) > 0,
-        timeout=180, interval=3.0,
-    )
-
-    assert_equal(
-        context.portal.zero_result_panel()["overall"],
-        panel["overall"],
-        "The zero-result panel changed within the hour it is cached for",
-    )
-
-    context.portal.run_script(scripts.FLUSH_ZERO_RESULT_PANEL_CACHE)
-
-    assert_equal(
-        context.portal.zero_result_panel()["overall"]["zero_result"],
-        panel["overall"]["zero_result"] + 1,
-        "The zero-result panel did not pick up a new zero-result search once "
-        "its cache was emptied",
-    )
-
     events = list(_read_events(context.archive_path))
 
     assert_zero_result_panel_matches(panel, events)
@@ -1786,6 +1751,41 @@ def _assert_zero_result_panel_is_cached(context, panel):
             panel["signed_in"]["zero_result"], panel["signed_in"]["searches"],
             panel["signed_in"]["rate"], len(panel["top_queries"]),
         )
+    )
+
+    _assert_zero_result_panel_is_cached(context, panel)
+
+
+def _assert_zero_result_panel_is_cached(context, panel):
+    """One more zero-result search, persisted, must leave the cached panel
+    as it was, and appear once the cache is emptied."""
+    term = ZERO_RESULT_TERM + "cachecheck"
+
+    count, _ = context.portal.search_result_count(term)
+
+    assert_equal(count, 0, "The cache check term %r returned results" % term)
+
+    wait_for(
+        "the cache check search to be persisted",
+        lambda: context.stack.sql_long(
+            "select count(*) from SEL_SearchEvent where queryText = '%s'"
+            % term) > 0,
+        timeout=180, interval=3.0,
+    )
+
+    assert_equal(
+        context.portal.zero_result_panel()["overall"],
+        panel["overall"],
+        "The zero-result panel changed within the hour it is cached for",
+    )
+
+    context.portal.run_script(scripts.FLUSH_ZERO_RESULT_PANEL_CACHE)
+
+    assert_equal(
+        context.portal.zero_result_panel()["overall"]["zero_result"],
+        panel["overall"]["zero_result"] + 1,
+        "The zero-result panel did not pick up a new zero-result search once "
+        "its cache was emptied",
     )
 
 
