@@ -96,12 +96,6 @@ public interface SearchHitLocalService
 	 * entities are <code>cache-enabled="false"</code> and nothing listens for
 	 * their removal, so no cache is left holding rows that no longer exist.
 	 * </p>
-	 *
-	 * <p>
-	 * The connection is the one bound to the current transaction where there
-	 * is one, matching what the generated <code>runSQL</code> does, so the
-	 * delete commits or rolls back with its caller.
-	 * </p>
 	 */
 	public int deleteByCompanyIdAndCreateDateBefore(
 		long companyId, Date cutoffDate);

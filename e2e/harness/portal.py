@@ -433,6 +433,15 @@ class Portal:
 
         return counters
 
+    def zero_result_panel(self):
+        """The zero-result panel off the admin screen (DESIGN.md 6, TO-135).
+
+        See the module level :func:`parse_zero_result_panel` for the shape
+        returned and why it has to be parsed this way rather than, say, by
+        counting occurrences of a substring.
+        """
+        return parse_zero_result_panel(self.admin_screen())
+
     # Searching
 
     def search(self, keywords, path="/web/guest/search"):
@@ -791,3 +800,114 @@ def parse_result_count(html):
         return 0
 
     return None
+
+
+# The zero-result panel's three copy lines, exactly as
+# ai.tensoropt.sel.web.internal.zeroresult.ZeroResultPanel and its
+# Language.properties keys render them. Anchored on the full sentence, not
+# just the numbers, so a line that silently changed its wording would be
+# caught by this pattern failing to match at all rather than by a
+# coincidentally correct-looking number.
+_ZERO_RESULT_NO_SEARCHES_TEXT = "No searches in the log yet."
+
+_ZERO_RESULT_OVERALL_PATTERN = re.compile(
+    r"(\d+) of (\d+) searches \((\d+\.\d)%\) in the log returned no results\."
+)
+
+_ZERO_RESULT_GUESTS_PATTERN = re.compile(
+    r"Guests:\s*(\d+) of (\d+) searches \((\d+\.\d)%\)\."
+)
+
+_ZERO_RESULT_SIGNED_IN_PATTERN = re.compile(
+    r"Signed-in users:\s*(\d+) of (\d+) searches \((\d+\.\d)%\)\."
+)
+
+# The panel's own heading and the next sheet's, "Admission Counters" (view.jsp
+# renders that sheet immediately after this one, permission or not). Bounding
+# the slice between the two, rather than searching the rest of the page
+# non-greedily for the first <tbody>, matters specifically when the panel
+# itself renders no table (an empty log, or no zero-result searches yet):
+# without a bound, the nearest <tbody> after the heading is a different
+# table's, such as Admission Counters' own, which also opens straight into
+# <tbody> with no <thead> before it.
+_ZERO_RESULT_PANEL_HEADING = "Searches with no results"
+
+_ZERO_RESULT_NEXT_SHEET_HEADING = "Admission Counters"
+
+_ZERO_RESULT_ROW_PATTERN = re.compile(
+    r"<tr>\s*<td>(.*?)</td>\s*<td>\s*([0-9]+)\s*</td>\s*</tr>", re.S
+)
+
+
+def parse_zero_result_panel(html):
+    """DESIGN.md 6 (TO-135): the zero-result panel, as the admin screen
+    renders it.
+
+    Returns ``{"no_searches_logged": True}`` for the empty-log rendering
+    (DESIGN.md's "No searches in the log yet."), or
+    ``{"no_searches_logged": False, "overall": {...}, "guests": {...},
+    "signed_in": {...}, "top_queries": [...]}`` otherwise, where each of
+    "overall"/"guests"/"signed_in" is ``{"searches": N, "zero_result": N,
+    "rate": "X.X"}`` and "top_queries" is a list of
+    ``{"query": str, "searches": N}`` in the order the table renders them
+    (count descending, see ``harness.zeroresult.compute_z2``), empty when the
+    panel rendered no table at all.
+
+    Raises ``HarnessError`` if the page has none of this panel's own markup
+    at all, which keeps a page that answered 200 but is not the plugin's
+    screen (a sign-in redirect, an access-denied page) from being read as an
+    empty log.
+    """
+    start = html.find(_ZERO_RESULT_PANEL_HEADING)
+
+    if start < 0:
+        raise HarnessError(
+            "The zero-result panel's own heading was not found on the "
+            "admin screen"
+        )
+
+    end = html.find(_ZERO_RESULT_NEXT_SHEET_HEADING, start)
+    panel_html = html[start:] if end < 0 else html[start:end]
+
+    if _ZERO_RESULT_NO_SEARCHES_TEXT in panel_html:
+        return {"no_searches_logged": True}
+
+    def line(pattern, label):
+        match = pattern.search(panel_html)
+
+        if match is None:
+            raise HarnessError(
+                "The zero-result panel's %s line was not found on the "
+                "admin screen" % label
+            )
+
+        return {
+            "zero_result": int(match.group(1)),
+            "searches": int(match.group(2)),
+            "rate": match.group(3),
+        }
+
+    overall = line(_ZERO_RESULT_OVERALL_PATTERN, "overall")
+    guests = line(_ZERO_RESULT_GUESTS_PATTERN, "guests")
+    signed_in = line(_ZERO_RESULT_SIGNED_IN_PATTERN, "signed-in users")
+
+    top_queries = []
+
+    tbody_match = re.search(r"<tbody>(.*?)</tbody>", panel_html, re.S)
+
+    if tbody_match is not None:
+        for row in _ZERO_RESULT_ROW_PATTERN.finditer(tbody_match.group(1)):
+            top_queries.append(
+                {
+                    "query": html_module.unescape(row.group(1)),
+                    "searches": int(row.group(2)),
+                }
+            )
+
+    return {
+        "no_searches_logged": False,
+        "overall": overall,
+        "guests": guests,
+        "signed_in": signed_in,
+        "top_queries": top_queries,
+    }

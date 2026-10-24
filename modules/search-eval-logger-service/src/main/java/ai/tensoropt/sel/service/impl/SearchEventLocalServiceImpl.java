@@ -18,6 +18,10 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.osgi.service.component.annotations.Component;
 
@@ -103,6 +107,155 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	}
 
 	/**
+	 * Counts first-page searches and, within them, zero-result searches,
+	 * grouped by audience type, for the zero-result panel on the export
+	 * screen (DESIGN.md 6).
+	 *
+	 * <p>
+	 * "First-page" is <code>requestedFrom == 0</code>: a caller re-reading
+	 * page two of an earlier query must not count a second time, for either
+	 * the rate or the per-audience denominator. "Zero-result" is
+	 * <code>totalHits == 0</code>. Both match the jq recipes the panel's
+	 * figures are checked against.
+	 * </p>
+	 *
+	 * <p>
+	 * One row per distinct <code>audienceType</code> value actually present
+	 * in the data. The panel's overall totals are the caller's sum across
+	 * every row this returns, which is correct regardless of which audience
+	 * type values exist, rather than a second query of its own.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC and a <code>group by</code>, for the same reason as every
+	 * other method here: this aggregates over the whole table and must never
+	 * materialise a row as an entity to do it.
+	 * </p>
+	 *
+	 * @return a map from the stored <code>audienceType</code> value to a pair of <code>{searchCount, zeroResultSearchCount}</code>
+	 */
+	public Map<String, long[]> getFirstPageSearchCountsByAudienceType(
+		long companyId) {
+
+		return ServiceConnections.withConnection(
+			searchEventPersistence.getDataSource(),
+			connection -> {
+				Map<String, long[]> counts = new HashMap<>();
+
+				try (PreparedStatement preparedStatement =
+						connection.prepareStatement(
+							_AUDIENCE_COUNTS_SQL)) {
+
+					preparedStatement.setLong(1, companyId);
+
+					CompletableFuture<Void> cancellation = _cancelAfterTimeout(
+						preparedStatement);
+
+					try (ResultSet resultSet =
+							preparedStatement.executeQuery()) {
+
+						while (resultSet.next()) {
+							counts.put(
+								resultSet.getString(1),
+								new long[] {
+									resultSet.getLong(2),
+									resultSet.getLong(3)
+								});
+						}
+					}
+					finally {
+						cancellation.cancel(false);
+					}
+				}
+
+				return counts;
+			});
+	}
+
+	/**
+	 * Streams the exact, unmodified query text of every zero-result
+	 * first-page search in one virtual instance, one row at a time, via a
+	 * forward-only cursor, for the caller to normalise and count as it
+	 * consumes them.
+	 *
+	 * <p>
+	 * <b>Deliberately not <code>group by queryText</code>.</b> An earlier
+	 * version of this method grouped in SQL. That groups under the table's
+	 * own collation, which on MySQL 8.4's default
+	 * (<code>utf8mb4_0900_ai_ci</code>) and on MariaDB is case- and
+	 * accent-insensitive: "café", "cafÉ" and "cafe" would merge into one
+	 * arbitrary row, silently disagreeing with the acceptance jq recipe's
+	 * ASCII-only <code>ascii_downcase</code>, which keeps "café" and "cafe"
+	 * apart (it folds only <code>A</code>-<code>Z</code>). PostgreSQL's
+	 * default collation is exact, which is why grouping in SQL looked
+	 * correct there and nowhere else. Returning the raw string and counting
+	 * in the caller, exactly matching the recipe's own normalisation
+	 * (<code>ai.tensoropt.sel.web.internal.zeroresult.ZeroResultQueryNormalizer</code>),
+	 * is the one grouping rule that behaves identically on every database
+	 * Liferay supports, including ones this project has not tested against;
+	 * an unsupported dialect's own <code>group by</code> collation default
+	 * is not something this method can know in advance, and must not be
+	 * guessed at with a dialect-specific cast or function such as
+	 * <code>md5()</code>, which does not exist on every supported database
+	 * either.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC with a server side cursor, the same pattern
+	 * {@link #forEachExportRow} uses and for the same reason: the caller is
+	 * expected to normalise and count as it consumes rows, not collect them,
+	 * so memory stays bounded by the number of distinct normalised queries,
+	 * never by the number of zero-result searches.
+	 * </p>
+	 */
+	public <E extends Throwable> void forEachZeroResultFirstPageQuery(
+			long companyId, UnsafeConsumer<String, E> queryConsumer)
+		throws E, SystemException {
+
+		ServiceConnections.withConnection(
+			searchEventPersistence.getDataSource(),
+			connection -> {
+				_streamZeroResultQueries(
+					connection, companyId, queryConsumer);
+
+				return null;
+			});
+	}
+
+	private <E extends Throwable> void _streamZeroResultQueries(
+			Connection connection, long companyId,
+			UnsafeConsumer<String, E> queryConsumer)
+		throws E, SQLException {
+
+		this.<E>_streamQuery(
+			connection, _ZERO_RESULT_QUERY_SQL,
+			preparedStatement -> preparedStatement.setLong(1, companyId),
+			true,
+			resultSet -> {
+
+				// Reading the column is wrapped here, not left to propagate
+				// as SQLException: the row callback's own type (E) is
+				// whatever queryConsumer's caller chose, which is under no
+				// obligation to cover SQLException, so it is rethrown
+				// unchecked, the same type ServiceConnections.withConnection
+				// already wraps every other SQLException in this class as.
+
+				String queryText;
+
+				try {
+					queryText = resultSet.getString(1);
+				}
+				catch (SQLException sqlException) {
+					throw new SystemException(sqlException);
+				}
+
+				if (queryText != null) {
+					queryConsumer.accept(queryText);
+				}
+			});
+	}
+
+	/**
 	 * Streams every event in the range with its hits already attached, one
 	 * row per hit, grouped by event and ordered by rank.
 	 *
@@ -140,7 +293,7 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	 * Either bound may be null, which the export screen offers in as many
 	 * words, and which means that end of the range is unbounded. The clause is
 	 * then left out of the statement rather than filled with an extreme
-	 * timestamp; see {@link ExportRowQuery}.
+	 * timestamp; see <code>ExportRowQuery</code>.
 	 * </p>
 	 */
 	public <E extends Throwable> void forEachExportRow(
@@ -165,28 +318,51 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		ExportRowQuery exportRowQuery = new ExportRowQuery(
 			companyId, startDate, endDate);
 
-		boolean autoCommit = connection.getAutoCommit();
+		_streamQuery(
+			connection, exportRowQuery.getSQL(),
+			exportRowQuery::setParameters, false, rowConsumer);
+	}
 
-		// A server side cursor only materialises on demand. Without this
-		// PostgreSQL buffers the whole result, which for this query is 6
-		// million rows, and the streaming guarantee in DESIGN.md 6.1 is lost
-		// before the writer sees a single row.
+	/**
+	 * The cursor scaffolding {@link #_stream} and
+	 * {@link #_streamZeroResultQueries} both need and otherwise duplicated:
+	 * disable autocommit so the driver honours the fetch size instead of
+	 * buffering the whole result (PostgreSQL would, for a query that can
+	 * return millions of rows, losing the streaming guarantee DESIGN.md
+	 * 6.1 depends on before the caller sees a single row), set the
+	 * statement's parameters, and walk the result set one row at a time.
+	 * Restores autocommit afterward either way.
+	 */
+	private <E extends Throwable> void _streamQuery(
+			Connection connection, String sql,
+			UnsafeConsumer<PreparedStatement, SQLException> parameterSetter,
+			boolean panelQuery, UnsafeConsumer<ResultSet, E> rowConsumer)
+		throws E, SQLException {
+
+		boolean autoCommit = connection.getAutoCommit();
 
 		if (autoCommit) {
 			connection.setAutoCommit(false);
 		}
 
 		try (PreparedStatement preparedStatement = connection.prepareStatement(
-				exportRowQuery.getSQL())) {
+				sql)) {
 
 			preparedStatement.setFetchSize(_FETCH_SIZE);
 
-			exportRowQuery.setParameters(preparedStatement);
+			parameterSetter.accept(preparedStatement);
+
+			CompletableFuture<Void> cancellation =
+				panelQuery ? _cancelAfterTimeout(preparedStatement) :
+					CompletableFuture.completedFuture(null);
 
 			try (ResultSet resultSet = preparedStatement.executeQuery()) {
 				while (resultSet.next()) {
 					rowConsumer.accept(resultSet);
 				}
+			}
+			finally {
+				cancellation.cancel(false);
 			}
 		}
 		finally {
@@ -196,10 +372,59 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		}
 	}
 
+	/**
+	 * Bounds a zero-result panel query to _PANEL_QUERY_TIMEOUT_SECONDS. The
+	 * standard query timeout alone is not enough: the MariaDB driver DXP
+	 * 2025.Q1 ships (3.2.0) ignores it against a MySQL server and stays
+	 * blocked on a table lock, while every driver tested honours
+	 * <code>Statement.cancel()</code>. So both are set, the cancel on the
+	 * JDK's own delayed executor, which leaves this bundle no thread to
+	 * stop. The caller cancels the returned future once the query is done.
+	 */
+	private static CompletableFuture<Void> _cancelAfterTimeout(
+			PreparedStatement preparedStatement)
+		throws SQLException {
+
+		preparedStatement.setQueryTimeout(_PANEL_QUERY_TIMEOUT_SECONDS);
+
+		return CompletableFuture.runAsync(
+			() -> {
+				try {
+					preparedStatement.cancel();
+				}
+				catch (SQLException sqlException) {
+
+					// Best effort: the query's own timeout still applies
+
+				}
+			},
+			CompletableFuture.delayedExecutor(
+				_PANEL_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+	}
+
+	private static final String _AUDIENCE_COUNTS_SQL =
+		"select audienceType, count(*), sum(case when totalHits = 0 then " +
+			"1 else 0 end) from SEL_SearchEvent where companyId = ? and " +
+				"requestedFrom = 0 group by audienceType";
+
 	private static final int _FETCH_SIZE = 1000;
+
+	/**
+	 * The zero-result panel's two queries run on every render of the export
+	 * screen, which did not touch SEL_SearchEvent before them. Without a
+	 * timeout, anything holding an exclusive lock on the table (a schema
+	 * change, the e2e suite's queue-overflow case) froze the whole screen.
+	 * On a timeout the driver throws, and ZeroResultPanelLoader leaves the
+	 * panel out while the rest of the screen renders.
+	 */
+	private static final int _PANEL_QUERY_TIMEOUT_SECONDS = 10;
 
 	private static final String _COUNT_SQL =
 		"select count(*) from SEL_SearchEvent where companyId = ? and " +
 			"createDate >= ?";
+
+	private static final String _ZERO_RESULT_QUERY_SQL =
+		"select queryText from SEL_SearchEvent where companyId = ? and " +
+			"requestedFrom = 0 and totalHits = 0";
 
 }

@@ -83,12 +83,6 @@ public class SearchEventLocalServiceWrapper
 	 * entities are <code>cache-enabled="false"</code> and nothing listens for
 	 * their removal, so no cache is left holding rows that no longer exist.
 	 * </p>
-	 *
-	 * <p>
-	 * The connection is the one bound to the current transaction where there
-	 * is one, matching what the generated <code>runSQL</code> does, so the
-	 * delete commits or rolls back with its caller.
-	 * </p>
 	 */
 	@Override
 	public int deleteByCompanyIdAndCreateDateBefore(
@@ -302,6 +296,13 @@ public class SearchEventLocalServiceWrapper
 	 * An event with no hits still yields one row, with the hit columns null,
 	 * so an empty result set is not silently dropped from the export.
 	 * </p>
+	 *
+	 * <p>
+	 * Either bound may be null, which the export screen offers in as many
+	 * words, and which means that end of the range is unbounded. The clause is
+	 * then left out of the statement rather than filled with an extreme
+	 * timestamp; see <code>ExportRowQuery</code>.
+	 * </p>
 	 */
 	@Override
 	public <E extends Throwable> void forEachExportRow(
@@ -312,6 +313,52 @@ public class SearchEventLocalServiceWrapper
 
 		_searchEventLocalService.forEachExportRow(
 			companyId, startDate, endDate, rowConsumer);
+	}
+
+	/**
+	 * Streams the exact, unmodified query text of every zero-result
+	 * first-page search in one virtual instance, one row at a time, via a
+	 * forward-only cursor, for the caller to normalise and count as it
+	 * consumes them.
+	 *
+	 * <p>
+	 * <b>Deliberately not <code>group by queryText</code>.</b> An earlier
+	 * version of this method grouped in SQL. That groups under the table's
+	 * own collation, which on MySQL 8.4's default
+	 * (<code>utf8mb4_0900_ai_ci</code>) and on MariaDB is case- and
+	 * accent-insensitive: "café", "cafÉ" and "cafe" would merge into one
+	 * arbitrary row, silently disagreeing with the acceptance jq recipe's
+	 * ASCII-only <code>ascii_downcase</code>, which keeps "café" and "cafe"
+	 * apart (it folds only <code>A</code>-<code>Z</code>). PostgreSQL's
+	 * default collation is exact, which is why grouping in SQL looked
+	 * correct there and nowhere else. Returning the raw string and counting
+	 * in the caller, exactly matching the recipe's own normalisation
+	 * (<code>ai.tensoropt.sel.web.internal.zeroresult.ZeroResultQueryNormalizer</code>),
+	 * is the one grouping rule that behaves identically on every database
+	 * Liferay supports, including ones this project has not tested against;
+	 * an unsupported dialect's own <code>group by</code> collation default
+	 * is not something this method can know in advance, and must not be
+	 * guessed at with a dialect-specific cast or function such as
+	 * <code>md5()</code>, which does not exist on every supported database
+	 * either.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC with a server side cursor, the same pattern
+	 * {@link #forEachExportRow} uses and for the same reason: the caller is
+	 * expected to normalise and count as it consumes rows, not collect them,
+	 * so memory stays bounded by the number of distinct normalised queries,
+	 * never by the number of zero-result searches.
+	 * </p>
+	 */
+	@Override
+	public <E extends Throwable> void forEachZeroResultFirstPageQuery(
+			long companyId,
+			com.liferay.petra.function.UnsafeConsumer<String, E> queryConsumer)
+		throws com.liferay.portal.kernel.exception.SystemException, E {
+
+		_searchEventLocalService.forEachZeroResultFirstPageQuery(
+			companyId, queryConsumer);
 	}
 
 	@Override
@@ -355,6 +402,42 @@ public class SearchEventLocalServiceWrapper
 
 		return _searchEventLocalService.
 			getCountByCompanyIdAndCreateDateOnOrAfter(companyId, startDate);
+	}
+
+	/**
+	 * Counts first-page searches and, within them, zero-result searches,
+	 * grouped by audience type, for the zero-result panel on the export
+	 * screen (DESIGN.md 6).
+	 *
+	 * <p>
+	 * "First-page" is <code>requestedFrom == 0</code>: a caller re-reading
+	 * page two of an earlier query must not count a second time, for either
+	 * the rate or the per-audience denominator. "Zero-result" is
+	 * <code>totalHits == 0</code>. Both match the jq recipes the panel's
+	 * figures are checked against.
+	 * </p>
+	 *
+	 * <p>
+	 * One row per distinct <code>audienceType</code> value actually present
+	 * in the data. The panel's overall totals are the caller's sum across
+	 * every row this returns, which is correct regardless of which audience
+	 * type values exist, rather than a second query of its own.
+	 * </p>
+	 *
+	 * <p>
+	 * Raw JDBC and a <code>group by</code>, for the same reason as every
+	 * other method here: this aggregates over the whole table and must never
+	 * materialise a row as an entity to do it.
+	 * </p>
+	 *
+	 * @return a map from the stored <code>audienceType</code> value to a pair of <code>{searchCount, zeroResultSearchCount}</code>
+	 */
+	@Override
+	public java.util.Map<String, long[]> getFirstPageSearchCountsByAudienceType(
+		long companyId) {
+
+		return _searchEventLocalService.getFirstPageSearchCountsByAudienceType(
+			companyId);
 	}
 
 	@Override

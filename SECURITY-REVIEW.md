@@ -177,6 +177,28 @@ e2e cases `export-permission-refused` (a user without the permission cannot
 start an export) and `export-foreign-download` (the download URL cannot be
 redirected to another background task's attachment).
 
+**The same screen now renders guest-controlled query text into an admin
+page, and is output-encoded (TO-135).** The export screen's zero-result
+panel (`DESIGN.md` §6.3) shows the most frequent zero-result queries to a
+viewer who holds `EXPORT`, which by itself grants no new capability: that
+viewer could already read every query in the log through an export. What is
+new is *where* the text is rendered: a query is guest-controlled input (any
+unauthenticated visitor who can search can put arbitrary text into it, and
+`SearchEventCaptor` only trims it, never sanitises it, per D2/D8), and this
+panel puts the most frequent zero-result ones directly into an
+administrator's own Control Panel page as HTML, which an export's downloaded
+JSON file never does. The JSP renders each query through `<c:out>`
+(`view.jsp`), which HTML-escapes it, so a query such as
+`<img src=x onerror=...>` renders as literal, inert text rather than running
+as markup in the viewing administrator's session. The panel is also built,
+and present as a request attribute, only for a viewer who holds the
+permission (`SearchEvalLoggerPortlet#doView`, delegating to
+`ZeroResultPanelLoader`); checked by `export-permission-refused`. Checked by
+e2e case `zero-result-panel`, which seeds a search containing markup and
+asserts the rendered page contains the escaped form and never the raw tag,
+and by unit test `ZeroResultQueryNormalizerTest`/`ZeroResultPanelTest` for
+the normalisation and merge logic the escaped text passes through first.
+
 **Archive contents** (`DESIGN.md` §6.2): `events.jsonl` (one JSON object per
 line, a search event with its hits nested), `manifest.json` (export range,
 counts, plugin configuration, admission counters, per-field coverage rates),
