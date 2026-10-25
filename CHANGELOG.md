@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-The first release, on two release lines: `main` for DXP 2025.Q3 to 2026.Q2 (built for 2026.Q1 LTS, Jakarta EE) and `dxp-2025.q1` for DXP 2025.Q1 LTS and 2025.Q2 (Java EE). Both contain the tickets below.
+The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1` for DXP 2025.Q3 to 2026.Q2 (built for 2026.Q1 LTS) and `dxp-2025.q1` for DXP 2025.Q1 LTS and 2025.Q2 (Java EE). All three contain the tickets below, except TO-138, which concerns `main` only.
 
 ### Features
 
