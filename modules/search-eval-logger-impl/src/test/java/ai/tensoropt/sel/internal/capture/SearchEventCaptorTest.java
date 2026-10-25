@@ -712,7 +712,7 @@ public class SearchEventCaptorTest {
 		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
 			mock(SearchRequest.class), searchResponse, searchContext,
 			_configuration,
-			new SearchRequestOrigin(SourceType.WIDGET, false, true));
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
 
 		return capturedSearchEvent.getHits(
 		).get(
@@ -752,7 +752,7 @@ public class SearchEventCaptorTest {
 
 		return _searchEventCaptor.capture(
 			searchRequest, searchResponse, searchContext, _configuration,
-			new SearchRequestOrigin(SourceType.WIDGET, false, true));
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
 	}
 
 	private CapturedSearchHit _firstHit(

@@ -23,15 +23,17 @@ public class SearchRequestOriginTest {
 		assertSame(SourceType.UNKNOWN, SearchRequestOrigin.UNKNOWN.getSourceType());
 		assertFalse(SearchRequestOrigin.UNKNOWN.isWebRequestPresent());
 		assertFalse(SearchRequestOrigin.UNKNOWN.isSuggestion());
+		assertFalse(SearchRequestOrigin.UNKNOWN.isAdministrative());
 	}
 
 	@Test
 	public void accessorsReturnWhatWasConstructed() {
 		SearchRequestOrigin searchRequestOrigin = new SearchRequestOrigin(
-			SourceType.HEADLESS, true, true);
+			SourceType.HEADLESS, true, true, true);
 
 		assertSame(SourceType.HEADLESS, searchRequestOrigin.getSourceType());
 		assertTrue(searchRequestOrigin.isSuggestion());
+		assertTrue(searchRequestOrigin.isAdministrative());
 		assertTrue(searchRequestOrigin.isWebRequestPresent());
 	}
 
@@ -43,7 +45,7 @@ public class SearchRequestOriginTest {
 	@Test
 	public void widgetTrafficIsNeverFlaggedAsSuggestion() {
 		SearchRequestOrigin searchRequestOrigin = new SearchRequestOrigin(
-			SourceType.WIDGET, false, true);
+			SourceType.WIDGET, false, false, true);
 
 		assertFalse(searchRequestOrigin.isSuggestion());
 	}
