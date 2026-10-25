@@ -323,6 +323,7 @@ MySQL on Linux does not.
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
+| `blueprint-preview-excluded` | TO-141: a search from the Blueprint editor's Preview reaches the wrapper but is not logged; where the headless Search API is open, a Blueprint-driven search through it is logged with its Blueprint |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
 | `collection-started-notification` | TO-112: exactly one "collection started" notification per cycle, fired from the persistence path rather than the daily job, none for a later event in the same cycle, and a new cycle re-arms it |
 | `email-delivery-preference` | EC-15 (TO-112): `UserNotificationManagerUtil.fetchUserNotificationDefinition` finds the registered definition and `isDeliver` answers true for email for an administrator who never set a preference. Not evidence of delivery - the stack has no SMTP sink - only of the gate `CollectionNotifier` checks |

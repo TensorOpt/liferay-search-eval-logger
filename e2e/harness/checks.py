@@ -69,6 +69,10 @@ ZERO_RESULT_ACCENTED_VARIANTS = (
 # survive.
 ZERO_RESULT_XSS_TERM = "qqzzxx<b>xss</b>"
 
+# TO-141. Distinct terms, so each search's row, or its absence, is unambiguous.
+BLUEPRINT_PREVIEW_TERM = "qqzzxxblueprintpreview"
+BLUEPRINT_SEARCH_TERM = "qqzzxxblueprintsearch"
+
 # The floor and the margin for the purge case's ambiguity band, in seconds.
 # The band itself is derived at runtime from how long the counts actually take;
 # see retention_purge. These only bound it from below.
@@ -879,6 +883,98 @@ def assert_funnel_adds_up(counters):
         counters["persisted"] + counters["dropped"],
         "Admitted events are neither persisted nor dropped, or counted as both",
     )
+
+
+def blueprint_preview_excluded(context, case):
+    """TO-141: the Blueprint editor's Preview is not logged as a user search.
+
+    The Preview posts to /o/search-experiences-rest/v1.0/search with the
+    Blueprint inline (DESIGN.md 7, EC-13). It has to reach the wrapper, or its
+    absence from the table proves nothing, so the keyword counter must move
+    while no row appears. Where the headless Search API is open (2026.Q1 and
+    later, EC-5), a Blueprint-driven user search through it is the control:
+    still admitted, and recorded with its Blueprint.
+    """
+    reference_code = "sel-e2e-blueprint-%d" % int(time.time())
+    configuration = {
+        "generalConfiguration": {
+            "searchableAssetTypes": ["com.liferay.blogs.model.BlogsEntry"]
+        }
+    }
+
+    status, body = context.portal.headless(
+        "POST",
+        "/o/search-experiences-rest/v1.0/sxp-blueprints",
+        {
+            "configuration": configuration,
+            "externalReferenceCode": reference_code,
+            "title": "SEL e2e Blueprint",
+        },
+    )
+
+    assert_equal(status, 200, "Creating a Blueprint failed: %s" % (body,))
+
+    keywords_before = context.portal.admission_counters()["keywords"]
+
+    status, body = context.portal.headless(
+        "POST",
+        "/o/search-experiences-rest/v1.0/search?query=" + BLUEPRINT_PREVIEW_TERM,
+        {"configuration": configuration, "title": "SEL e2e Blueprint"},
+    )
+
+    assert_equal(status, 200, "The Blueprint preview search failed: %s" % (body,))
+
+    keywords = context.portal.admission_counters()["keywords"]
+
+    assert_true(
+        keywords > keywords_before,
+        "The preview search never reached the wrapper, so its absence from "
+        "the table would prove nothing",
+    )
+
+    status, body = context.portal.headless(
+        "POST",
+        "/o/search/v1.0/search?search=" + BLUEPRINT_SEARCH_TERM,
+        {
+            "attributes": {
+                "search.experiences.blueprint.external.reference.code": (
+                    reference_code
+                )
+            }
+        },
+    )
+
+    headless_open = status != 404
+
+    if headless_open:
+        assert_equal(status, 200, "The headless search failed: %s" % (body,))
+    else:
+        case.note("the headless Search API is gated on this line (EC-5)")
+
+    _wait_for_settled_funnel(context)
+
+    previews = context.stack.sql_long(
+        "select count(*) from SEL_SearchEvent where queryText = '%s'"
+        % BLUEPRINT_PREVIEW_TERM
+    )
+
+    assert_equal(previews, 0, "The Blueprint editor's preview search was logged")
+
+    case.note("the preview reached the wrapper and was not logged")
+
+    if headless_open:
+        recorded = context.stack.sql_long(
+            "select count(*) from SEL_SearchEvent where queryText = '%s' "
+            "and sourceType = 'HEADLESS' "
+            "and blueprintExternalReferenceCode = '%s'"
+            % (BLUEPRINT_SEARCH_TERM, reference_code)
+        )
+
+        assert_equal(
+            recorded, 1, "The Blueprint-driven headless search was not logged"
+        )
+
+        case.note("the Blueprint-driven headless search was logged with its Blueprint")
 
 
 def zero_result_panel_seed(context, case):

@@ -77,7 +77,7 @@ public class LoggingSearcherTest {
 		when(
 			admissionFilter.admit(any(), any(), any())
 		).thenReturn(
-			new SearchRequestOrigin(SourceType.WIDGET, false, true)
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true)
 		);
 
 		_searchResponse = mock(SearchResponse.class);
