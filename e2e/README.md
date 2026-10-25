@@ -89,8 +89,9 @@ path is worse than naming a tested one.
 The image ships no activation key, and the portal logs `License registered for
 DXP Development` on startup. Nothing the harness asserts depends on a licensed
 feature: interception, capture, the purge, the export and the funnel links are
-all base DXP. The two Enterprise Search items in DESIGN.md section 7, EC-6 and
-EC-13, are out of scope here for the same reason they are open there.
+all base DXP. Blueprints run on this license too: EC-6 and EC-13 in DESIGN.md
+section 7 were measured on this stack by hand, though the suite does not
+exercise them.
 
 ### Collection is enabled from a file, and then proved
 
@@ -445,9 +446,10 @@ alongside the unit tests rather than only before a release.
   preload references either. It cannot prove the absence of an outbound request
   made from somewhere the page does not mention. That remains a reading
   exercise, and the one place to read is `EvaluationServiceLinks`.
-- **EC-5, EC-6, EC-13.** The headless Search API is behind feature flag
-  `LPS-179669` and Blueprints need Liferay Enterprise Search. Both are open in
-  DESIGN.md section 7 for the same reasons.
+- **EC-5, EC-6, EC-13.** Measured by hand (DESIGN.md section 7), not asserted
+  here; on 2025.Q1 the headless Search API is still behind feature flag
+  `LPS-179669`. Every search the suite runs goes through the Search Results
+  widget, with no Blueprint.
 - **Email delivery (TO-112, EC-15).** The notification cases read the
   administrator's notifications list and the stored `UserNotificationEvent`
   row, which cover the website path. The stack has no SMTP sink (no
