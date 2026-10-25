@@ -259,10 +259,12 @@ speculatively ahead of a concrete objection (`DESIGN.md` §8).
 
 ## 9. What is not verified
 
-This build has been exercised end to end against DXP 2026.Q1.13 LTS on
-PostgreSQL. The empirical checks in `DESIGN.md` §7, and the MySQL and MariaDB
-runs, were made on the DXP 2025.Q1.27 LTS build, which differs from this one
-only by Liferay's own `javax` to `jakarta` rewrite (TO-85). The following are explicitly **not** verified, and
+This build has been exercised end to end against DXP 2026.Q3.8 on
+PostgreSQL 15, MySQL 8.4 (with MySQL Connector/J and with the MariaDB driver)
+and MariaDB 11.4. The empirical checks in `DESIGN.md` §7 were made on the DXP
+2025.Q1.27 LTS build, which differs from this one by Liferay's own `javax` to
+`jakarta` rewrite (TO-85) and by Service Builder code regenerated for 2026.Q3
+(TO-138). The following are explicitly **not** verified, and
 this section does not soften any of them:
 
 - **EC-5 — the headless Search API** (`/o/search/v1.0/...`). Blocked by

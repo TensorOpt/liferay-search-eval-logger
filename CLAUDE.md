@@ -21,23 +21,24 @@ What is *not* done: every empirical check in DESIGN.md §7 is still open except 
 
 ### First things to know
 
-- **Build**: `./gradlew build` from the root, on **JDK 17 or 21**. DXP 2026.Q1 LTS ships Java 17 bytecode (class file major 61), so a JDK 11 compiler rejects the target platform jars outright with "class file has wrong version 61.0". Modules compile to Java 17, pinned in the root `build.gradle`, so the bundles advertise `osgi.ee=JavaSE 17`; the official DXP images run them on Java 21. Needs network access to `repository-cdn.liferay.com`. Root `./gradlew clean` fails without Docker (the workspace plugin's `:stopDockerContainer`); clean per module instead.
-- **Target platform**: `liferay.workspace.product=dxp-2026.q1.13-lts` in `gradle.properties` is the single source — the target platform version, bundle URL and Docker image all derive from it. 2026.Q1 is Jakarta EE: the code imports `jakarta.portlet`, `jakarta.servlet` and `jakarta.mail`, and its component properties and language keys use the `jakarta.portlet.` prefix. That port was produced by Liferay's own `./gradlew upgradeJakarta` (TO-85) and is kept as its own commit, so it can be told apart from everything else. From 2025.Q3 the unit tests also need log4j and commons-configuration on the test runtime classpath, at the versions the platform ships, and a test `portal.properties` that sets `liferay.home`, because `PropsUtil` now initialises itself. If the product key moves again, re-run a full build and the e2e suite before assuming anything still works, and re-check the bytecode level of the new artifacts before assuming the build JDK still works.
+- **Build**: `./gradlew build` from the root, on **JDK 17 or 21**. DXP 2026.Q3 ships Java 17 bytecode (class file major 61), so a JDK 11 compiler rejects the target platform jars outright with "class file has wrong version 61.0". Modules compile to Java 17, pinned in the root `build.gradle`, so the bundles advertise `osgi.ee=JavaSE 17`; the official DXP images run them on Java 21. Needs network access to `repository-cdn.liferay.com`. Root `./gradlew clean` fails without Docker (the workspace plugin's `:stopDockerContainer`); clean per module instead.
+- **Target platform**: `liferay.workspace.product=dxp-2026.q3.8` in `gradle.properties` is the single source — the target platform version, bundle URL and Docker image all derive from it. 2026.Q3 changed `BasePersistenceImpl` to take a second type parameter, so the service module pins Service Builder 1.0.566 in its `build.gradle`; the workspace plugin's default (1.0.510) generates code that no longer compiles. It is Jakarta EE: the code imports `jakarta.portlet`, `jakarta.servlet` and `jakarta.mail`, and its component properties and language keys use the `jakarta.portlet.` prefix. That port was produced by Liferay's own `./gradlew upgradeJakarta` (TO-85) and is kept as its own commit, so it can be told apart from everything else. From 2025.Q3 the unit tests also need log4j and commons-configuration on the test runtime classpath, at the versions the platform ships, and a test `portal.properties` that sets `liferay.home`, because `PropsUtil` now initialises itself. If the product key moves again, re-run a full build and the e2e suite before assuming anything still works, and re-check the bytecode level of the new artifacts before assuming the build JDK still works.
 - **Naming collision**: the generated model type `ai.tensoropt.sel.model.SearchHit` collides by simple name with Liferay's `com.liferay.portal.search.hits.SearchHit`. Any code touching both must fully qualify one; the impl and web modules both do.
 - **Generated code**: `service.xml` and `portlet-model-hints.xml` are the hand-authored source of truth. Everything Service Builder emits (model, `*LocalService`, persistence, `META-INF/sql/*.sql`) is committed and must never be hand-edited — re-run `./gradlew :modules:search-eval-logger-service:buildService` after changing either file. `buildService` rewrites `portlet-model-hints.xml` and strips its XML comments, so comments belong in `service.xml`, which it preserves.
 
 ### Branches
 
-One branch per supported DXP LTS line, the newest on `main`:
+`main` builds for the newest DXP release; each LTS line `main` has moved past keeps a branch of its own:
 
-| Branch | DXP | Java EE flavour |
-|---|---|---|
-| `main` | 2026.Q1 LTS | Jakarta EE |
-| `dxp-2025.q1` | 2025.Q1 LTS | Java EE (`javax`) |
+| Branch | Builds for | Runs on | Java EE flavour |
+|---|---|---|---|
+| `main` | 2026.Q3 | 2026.Q3 | Jakarta EE |
+| `dxp-2026.q1` | 2026.Q1 LTS | 2025.Q3 to 2026.Q2 | Jakarta EE |
+| `dxp-2025.q1` | 2025.Q1 LTS | 2025.Q1, 2025.Q2 | Java EE (`javax`) |
 
 - **Work lands on `main`.** Fixes, and anything affecting security or the collected data, are then backported to the older branches by cherry-pick. New features are backported only when asked for.
-- **A backport rarely conflicts.** The code differs between the two branches only where `upgradeJakarta` rewrote it (`javax` and `jakarta` imports, component properties, one JSP taglib URI) and in the e2e harness's handling of portal markup. A conflict means one of those lines; resolve it in the older branch's own form.
-- **Each new LTS repeats TO-85.** Deploy `main`'s current JARs onto the new LTS unchanged. If they resolve and the e2e suite passes, no new branch is needed. If not, branch the outgoing LTS off `main` first, then upgrade `main`.
+- **A backport rarely conflicts.** `dxp-2025.q1` differs from the Jakarta branches where `upgradeJakarta` rewrote it (`javax` and `jakarta` imports, component properties, one JSP taglib URI) and in the e2e harness's handling of portal markup. `main` differs from `dxp-2026.q1` in its Service Builder version and generated code, and in using `com.liferay.petra.string.StringBundler`, which 2026.Q3 left as the only `StringBundler`. A conflict means one of those lines; resolve it in the older branch's own form. Never cherry-pick generated Service Builder code across branches: change `service.xml` and re-run `buildService` on each.
+- **Moving `main` to a newer DXP release repeats TO-85 and TO-138.** Deploy `main`'s current JARs onto it unchanged. If they resolve and the e2e suite passes, only the product key moves. If not, and `main` is on an LTS line, branch that line off `main` first (TO-138 branched `dxp-2026.q1` when 2026.Q3 changed `BasePersistenceImpl`), then upgrade `main`.
 - **A branch is retired** when its LTS loses Premium Support; for 2025.Q1, February 2028.
 
 ### Build, test and release
@@ -49,7 +50,7 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
 `scripts/publish.py`.
 
 - **Releases are per DXP line.** Each branch releases its own line from
-  `gradle.properties`: tag `v<version>-<line>`, e.g. `v1.0.0-dxp-2026.q1`.
+  `gradle.properties`: tag `v<version>-<line>`, e.g. `v1.0.0-dxp-2026.q3`.
   The version is the bundles' own `Bundle-Version`, never a parameter: to
   release a new one, bump it in all four `bnd.bnd` files, push, and run the
   pipeline's manual release job. `scripts/package.py` refuses if the four
@@ -117,7 +118,7 @@ The manifest's `format_version` is the plugin's major.minor (TO-122), derived fr
 
 ## What this project is
 
-A Liferay DXP OSGi plugin (currently targeting DXP 2026.Q1 LTS on `main`, and 2025.Q1 LTS on the `dxp-2025.q1` branch; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
+A Liferay DXP OSGi plugin (currently targeting DXP 2026.Q3 on `main`, 2026.Q1 LTS on the `dxp-2026.q1` branch and 2025.Q1 LTS on the `dxp-2025.q1` branch; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
 
 ## Architecture (from DESIGN.md §3.5)
 

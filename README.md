@@ -96,15 +96,13 @@ The outcomes:
 
 ## Requirements
 
-- **Liferay DXP 2025.Q3 to 2026.Q2, built for 2026.Q1 LTS.** These releases [run on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq). Compiled to Java 17 bytecode; the official DXP images run it on Java 21.
+- **Liferay DXP 2026.Q3, built for 2026.Q3.** It [runs on Jakarta EE](https://learn.liferay.com/w/reference/jakarta-2025-faq). Compiled to Java 17 bytecode; the official DXP images run it on Java 21. Older DXP releases have their own builds.
 
-  | DXP | This build | Checked by |
-  |---|---|---|
-  | 2025.Q1 LTS, 2025.Q2 | No: Java EE (`javax`); use the [`dxp-2025.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2025.q1) and its releases | not deployed: those releases are Java EE and cannot provide the `jakarta` packages this build imports |
-  | 2025.Q3, 2025.Q4 | Yes | deploying it on 2025.Q3.10 and 2025.Q4.12 |
-  | 2026.Q1 LTS | Yes | the full end-to-end suite on 2026.Q1.12 and 2026.Q1.13 |
-  | 2026.Q2 | Yes | deploying it on 2026.Q2.12 |
-  | 2026.Q3 and later | No: Liferay changed the base class Service Builder's persistence code extends, so storage fails to start; it needs a rebuild | deploying it on 2026.Q3.6 |
+  | DXP | This build | Use instead | Checked by |
+  |---|---|---|---|
+  | 2025.Q1 LTS, 2025.Q2 | No: Java EE (`javax`) | the [`dxp-2025.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2025.q1) and its releases | not deployed: those releases cannot provide the `jakarta` packages this build imports |
+  | 2025.Q3 to 2026.Q2 | No: compiled against 2026.Q3's persistence API, which changed the base class Service Builder's code extends | the [`dxp-2026.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2026.q1) and its releases, which run on all of these | not deployed |
+  | 2026.Q3 | Yes | | the full end-to-end suite on 2026.Q3.8 |
 
   "Deploying it" means on a clean portal, as JARs and as an `.lpkg`: all four bundles Active, every component of the plugin up, and no error from the plugin in the log. It does not exercise searching or exporting; the end-to-end suite does.
 - **Database.** Tested end to end on PostgreSQL 15, MySQL 8.4 and MariaDB 11.4.
@@ -114,7 +112,7 @@ The outcomes:
 
 ## Install
 
-1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP line: tags end in `-dxp-2026.q1` for DXP 2026.Q1 and `-dxp-2025.q1` for DXP 2025.Q1. Download `liferay-search-eval-logger-*-jars.zip` and unzip it: the four JARs and `SHA256SUMS` come out together, in a folder named after the zip.
+1. From the [releases](https://github.com/TensorOpt/liferay-search-eval-logger/releases), pick the one for your DXP release: tags end in `-dxp-2026.q3` for DXP 2026.Q3, `-dxp-2026.q1` for DXP 2025.Q3 to 2026.Q2, and `-dxp-2025.q1` for DXP 2025.Q1 and 2025.Q2. Download `liferay-search-eval-logger-*-jars.zip` and unzip it: the four JARs and `SHA256SUMS` come out together, in a folder named after the zip.
 2. In that folder, verify them (on Linux, `sha256sum -c SHA256SUMS`):
    ```
    shasum -a 256 -c SHA256SUMS
@@ -256,7 +254,7 @@ make publish                    # publishes the jars already in build/dist, unte
 
 `DB` is `postgres` (the default), `mysql`, `mysql-mariadb-driver` or `mariadb`. Each gets its own dev stack, so switching `DB` never reuses another engine's data. Without `FRESH=1`, `make run` keeps the database from that `DB`'s last run. `make stop DB=mysql` stops that stack; a bare `make stop` stops every one. `PORT=8081` moves the portal off 8080; `make run` refuses to start, before touching Docker, if anything else already listens on that port.
 
-Each branch builds for one DXP line, set by `liferay.workspace.product` in `gradle.properties`: `main` for DXP 2026.Q1, `dxp-2025.q1` for DXP 2025.Q1. The end-to-end suite is described in [e2e/README.md](e2e/README.md).
+Each branch builds for one DXP line, set by `liferay.workspace.product` in `gradle.properties`: `main` for DXP 2026.Q3, `dxp-2026.q1` for DXP 2026.Q1 LTS, `dxp-2025.q1` for DXP 2025.Q1 LTS. The end-to-end suite is described in [e2e/README.md](e2e/README.md).
 
 ## License
 
