@@ -65,8 +65,6 @@ public class LoggingSearcher implements Searcher {
 		SearchResponse searchResponse = _searcher.search(searchRequest);
 
 		try {
-			_searchInterceptionStatusImpl.recordInterception();
-
 			_capture(searchRequest, searchResponse);
 		}
 		catch (Throwable throwable) {
@@ -187,7 +185,7 @@ public class LoggingSearcher implements Searcher {
 	private AdmissionFilter _admissionFilter;
 
 	/*
-	 * EC-3 is open, and this filter is the judgment call it concerns.
+	 * EC-3 is resolved, and this filter is the judgment call it concerns.
 	 *
 	 * Binding on the absence of this component's own marker property, rather
 	 * than on "(!(service.ranking=100))" as the design doc drafts it, is
@@ -217,9 +215,6 @@ public class LoggingSearcher implements Searcher {
 
 	@Reference
 	private SearchEventDispatcher _searchEventDispatcher;
-
-	@Reference
-	private SearchInterceptionStatusImpl _searchInterceptionStatusImpl;
 
 	@Reference
 	private SearchRequestBuilderFactory _searchRequestBuilderFactory;

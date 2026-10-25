@@ -232,15 +232,31 @@ is isolated so that a full queue, an unavailable database, a serialization
 error, or missing request context degrades to logging nothing, never to a
 broken search response (`DESIGN.md` §3.1).
 
-**The restart requirement.** Liferay's own search consumers bind `Searcher`
-once, with a static reference that does not rebind when a higher-ranked
-wrapper registers later. Installing this plugin onto a running portal
-registers the wrapper correctly but leaves it uncalled — collection records
-nothing, with no error anywhere — until the portal restarts, and the same is
-true after every redeploy of `search-eval-logger-impl` (`DESIGN.md` §3.1,
-EC-3). The plugin detects this state through the OSGi service registry
-(`SearchInterceptionStatusImpl`) rather than leaving it to be discovered as
-an empty export, and shows it as a warning banner on its own admin screen.
+**The restart requirement, narrowed by TO-140.** Liferay's own search
+consumers bind `Searcher` once, with a static reference that does not rebind
+on its own when a higher-ranked wrapper registers later. Installing this
+plugin onto a running portal used to register the wrapper correctly but
+leave it uncalled for every such consumer: collection recorded nothing, with
+no error anywhere, until the portal restarted, and the same was true after
+every redeploy of `search-eval-logger-impl` (`DESIGN.md` §3.1, EC-3).
+
+`SearchConsumerRebinder` now rebinds the search entry points that matter
+(the Search Results widget, shared search requests, search bar suggestions)
+automatically, with no restart, by disabling and re-enabling exactly those
+components through the standard `ServiceComponentRuntime` API, never by
+restarting a bundle or the portal itself. It is scoped to that narrow,
+measured set deliberately: a spike found that forcing the same rebind
+across every component that references `Searcher` cascades into unrelated
+service-layer components and fails a large share of concurrent searches
+while it runs, which is exactly the kind of invasive, portal-wide action
+this review would flag. A handful of other, secondary consumers are not
+targeted and still need a restart to join; the plugin detects that
+remaining gap too, through the OSGi service registry (`SearchInterceptionStatusImpl`),
+rather than leaving it to be discovered as an incomplete export. The two
+gaps never share one signal: the primary gap, an entry point still
+bypassing after the automatic rebind, is the only one that gets the danger
+banner and the log warning; the secondary gap gets a quieter informational
+note on the same admin screen, and nothing in the log.
 
 ## 8. Data protection
 

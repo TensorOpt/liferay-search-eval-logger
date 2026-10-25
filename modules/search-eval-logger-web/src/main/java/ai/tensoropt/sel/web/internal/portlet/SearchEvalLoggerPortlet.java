@@ -124,6 +124,18 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 		boolean intercepting = _searchInterceptionStatus.isIntercepting();
 
+		// TO-140: a danger "Restart required" alert covers the primary gap
+		// above; this is the smaller, secondary one, shown only once the
+		// primary gap is already clear, so the two never both talk about
+		// the same restart at once.
+
+		boolean otherConsumersAwaitingRestart =
+			intercepting &&
+				_searchInterceptionStatus.hasOtherConsumersAwaitingRestart();
+
+		renderRequest.setAttribute(
+			"otherConsumersAwaitingRestart", otherConsumersAwaitingRestart);
+
 		CollectionCycle collectionCycle =
 			_collectionCycleStatus.getCollectionCycle(
 				themeDisplay.getCompanyId());

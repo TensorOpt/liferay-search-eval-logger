@@ -14,6 +14,21 @@ SPDX-License-Identifier: Apache-2.0
 	</c:if>
 
 	<%--
+	TO-140: a smaller, secondary note. The entry points above (the Search
+	Results widget, shared search requests, search bar suggestions) rebind
+	onto the wrapper automatically, without a restart; a handful of other
+	consumers of the search service do not and still need one. Shown only
+	once the danger alert above is already clear, so the two never both
+	talk about the same restart.
+	--%>
+
+	<c:if test="${otherConsumersAwaitingRestart}">
+		<div class="alert alert-info">
+			<liferay-ui:message key="secondary-consumers-restart-note" />
+		</div>
+	</c:if>
+
+	<%--
 	The readiness state of DESIGN.md 3.6, rendered here whether or not the
 	notification that announces it was delivered. EC-14 leaves that open, and this
 	screen is the fallback it names: the banner reads the cycle record the daily

@@ -265,6 +265,7 @@ class Context:
         self.export_range = None
         self.manifest = None
         self.collection_start_date = None
+        self.installed_at = None
 
         self.configuration = plugin_configuration(options.directory)
 
@@ -337,6 +338,8 @@ def install_onto_running_portal(context, case):
 
     deployed_at = time.monotonic()
 
+    context.installed_at = deployed_at
+
     for jar in context.options.jars:
         context.stack.deploy(jar)
 
@@ -369,13 +372,149 @@ def install_onto_running_portal(context, case):
     case.note("two tables and %d indexes created by Service Builder" % indexes)
 
 
-def ec3_bypass_detected(context, case):
-    """DESIGN.md 3.1: installed onto a running portal, nothing is intercepted.
+def install_intercepts_without_restart(context, case):
+    """TO-140: the automatic rebind clears the EC-3 bypass without a restart.
 
-    The assertion is on the plugin's own detector rather than on an empty
-    table, because an empty table is also what a plugin that simply does not
-    work looks like.
+    install_onto_running_portal just left the four bundles ACTIVE on a portal
+    that was already serving: the exact state DESIGN.md 3.1 used to say
+    required a restart, because Liferay's search consumers bind Searcher once,
+    statically and reluctantly. SearchConsumerRebinder now rebinds the entry
+    points automatically, off its own activation thread, the moment the
+    wrapper registers, so this polls for that rather than asserting outright.
+
+    No search runs in this case. That keeps SEL_SearchEvent provably empty,
+    which is also what TO-135's zero-result panel empty-log assertion needs;
+    a second case would have to recreate this exact precondition rather than
+    reuse it, so it lives here instead of in ec3_bypass_detected, which forces
+    a bypass right after this and could no longer rely on it.
     """
+
+    def rebound():
+        registry = _searcher_registry(context, case)
+
+        wrapper = [entry for entry in registry if entry["marker"]]
+
+        return bool(wrapper) and (
+            SEARCH_CONSUMER_BUNDLE in wrapper[0]["users"]
+        )
+
+    wait_for(
+        "the automatic rebind to move %s onto the wrapper"
+        % SEARCH_CONSUMER_BUNDLE,
+        rebound,
+        timeout=60,
+        interval=1.0,
+    )
+
+    registry = _searcher_registry(context, case)
+
+    wrapper = [entry for entry in registry if entry["marker"]]
+
+    assert_equal(
+        wrapper[0]["ranking"],
+        "100",
+        "The wrapper is not registered at the ranking DESIGN.md 3.1 specifies",
+    )
+
+    assert_true(
+        SEARCH_CONSUMER_BUNDLE in wrapper[0]["users"],
+        "%s is not a consumer of the wrapper after the automatic rebind"
+        % SEARCH_CONSUMER_BUNDLE,
+    )
+
+    # Not asserted here: that the widget bundle has dropped out of
+    # _users_of_portal_searcher(registry) entirely. Measured on a running
+    # stack (TO-140): forcing the rebind through disableComponent/
+    # enableComponent, rather than a real restart, leaves that bundle listed
+    # against the portal's own Searcher as well, in Bundle#getServicesInUse,
+    # even though a real search immediately afterwards is captured and the
+    # component's own ComponentConfigurationDTO shows its "searcher"
+    # reference bound to the wrapper and nothing else. That is an OSGi
+    # bookkeeping artifact of the forced rebind, not a second, genuine
+    # consumer, and restart-clears-bypass already shows the registry is
+    # clean after an actual restart. It is exactly why isIntercepting()
+    # reads component-level DTOs (EntryPointSearchConsumers) rather than
+    # bundle-level usage, which is what the INTERCEPTION_STATUS check right
+    # below, the one that actually matters, does.
+
+    case.note(
+        "%s is now a consumer of the wrapper, with no restart"
+        % SEARCH_CONSUMER_BUNDLE
+    )
+
+    intercepting = context.portal.run_script(scripts.INTERCEPTION_STATUS)
+
+    assert_equal(
+        intercepting,
+        "true",
+        "SearchInterceptionStatus reported interception as bypassed after "
+        "the automatic rebind",
+    )
+
+    text = context.portal.admin_screen()
+
+    assert_true(
+        "Restart required" not in text,
+        "The admin screen still shows the restart warning after the "
+        "automatic rebind",
+    )
+
+    # The entry points are intercepting, but the service-layer consumers
+    # that activated before install (com.liferay.account.service and the
+    # like, seen directly on the portal's own Searcher in the registry dump
+    # above) are not rebound by SearchConsumerRebinder at all and are still
+    # waiting for a restart. hasOtherConsumersAwaitingRestart() is exactly
+    # the signal that distinguishes this from a clean install, and the info
+    # note is the only place that is shown, never the danger banner.
+
+    assert_true(
+        "secondary consumers of the search service" in text,
+        "The admin screen did not show the secondary-consumer info note, "
+        "although service-layer consumers activated before install and "
+        "were never rebound",
+    )
+
+    log_text = context.stack.liferay_log(
+        since="%ds" % (int(time.monotonic() - context.installed_at) + 2)
+    )
+
+    assert_true(
+        re.search(r"Rebound \d+ search entry point component", log_text),
+        "The automatic rebind did not log its INFO summary line",
+    )
+
+    assert_log_clean(log_text, "installing onto a running portal")
+
+    # TO-135: the tables were created moments ago (install_onto_running_portal
+    # just confirmed it) and nothing has searched yet, so this is the one
+    # point in the whole run where SEL_SearchEvent is provably empty.
+
+    panel = context.portal.zero_result_panel()
+
+    assert_true(
+        panel["no_searches_logged"],
+        "The zero-result panel did not render its empty-log message "
+        "(\"No searches in the log yet.\") while the table was known to "
+        "hold nothing",
+    )
+
+
+def ec3_bypass_detected(context, case):
+    """DESIGN.md 3.1/EC-3: a failed rebind leaves the entry points bypassing,
+    and the plugin still says so.
+
+    TO-140's rebinder already cleared the bypass install_onto_running_portal
+    left behind, so this case has to force a genuine one itself, standing in
+    for a rebind that failed, from outside the plugin, using only the OSGi
+    runtime (scripts.FORCE_SEARCH_CONSUMER_BYPASS): it disables the rebinder
+    so nothing undoes what follows, then bounces LoggingSearcher itself,
+    which drops the entry point components' (SearchDisplayContextFactoryImpl,
+    PortletSharedSearchRequestImpl) static reference onto the portal's own
+    Searcher and leaves it there. Nothing here is a secondary consumer; it is
+    the primary gap isIntercepting() exists to catch.
+    """
+    context.portal.run_script(scripts.FORCE_SEARCH_CONSUMER_BYPASS)
+
     registry = _searcher_registry(context, case)
 
     wrapper = [entry for entry in registry if entry["marker"]]
@@ -391,26 +530,24 @@ def ec3_bypass_detected(context, case):
         "The wrapper is not registered at the ranking DESIGN.md 3.1 specifies",
     )
 
-    # The registry, not the detector's opinion of it. This is the whole of
-    # EC-3 in one reading: the widget's own bundle is holding the portal's
-    # searcher, the wrapper has no consumers at all, and a static reluctant
-    # reference will never move.
-
-    assert_true(
-        SEARCH_CONSUMER_BUNDLE in _users_of_portal_searcher(registry),
-        "%s is not bound to the portal's own Searcher, so this portal never "
-        "served a search before the plugin was installed and there is no "
-        "bypass to detect" % SEARCH_CONSUMER_BUNDLE,
-    )
+    # This is the whole of EC-3 in one reading: the wrapper has no
+    # consumers at all, and a static reluctant reference will never move on
+    # its own. Not asserted here: that the widget bundle is listed as a user
+    # of the portal's own Searcher. install-intercepts-without-restart's own
+    # successful rebind already leaves that bundle-level artifact behind
+    # (DESIGN.md 3.1), so it would already be true before this bypass is
+    # forced and would not prove this one took. The precise, component-level
+    # proof is SearchInterceptionStatus.isIntercepting() below.
 
     assert_true(
         SEARCH_CONSUMER_BUNDLE not in wrapper[0]["users"],
-        "%s is already using the wrapper before any restart" % SEARCH_CONSUMER_BUNDLE,
+        "%s is still using the wrapper after the forced bypass"
+        % SEARCH_CONSUMER_BUNDLE,
     )
 
     case.note(
-        "%s is bound to the portal's own Searcher and the wrapper has %d "
-        "consumers" % (SEARCH_CONSUMER_BUNDLE, len(wrapper[0]["users"]))
+        "the wrapper has %d consumers after the forced bypass"
+        % len(wrapper[0]["users"])
     )
 
     intercepting = context.portal.run_script(scripts.INTERCEPTION_STATUS)
@@ -418,8 +555,8 @@ def ec3_bypass_detected(context, case):
     assert_equal(
         intercepting,
         "false",
-        "SearchInterceptionStatus reported interception as live on a portal "
-        "that was not restarted after the plugin was installed",
+        "SearchInterceptionStatus reported interception as live on a "
+        "forced bypass",
     )
 
     text = context.portal.admin_screen()
@@ -429,29 +566,14 @@ def ec3_bypass_detected(context, case):
         "The admin screen did not show the restart warning of DESIGN.md 3.1",
     )
 
-    # TO-135: the tables were created moments ago (install_onto_running_portal
-    # just confirmed it) and nothing has searched yet, so this is the one
-    # point in the whole run where SEL_SearchEvent is provably empty. The
-    # zero-result panel's empty-log rendering (DESIGN.md 6) is exercised here
-    # rather than by a dedicated case for it: a second case would have to
-    # recreate this exact "nothing has been captured yet" precondition, which
-    # this one already holds for an unrelated reason.
-
-    panel = context.portal.zero_result_panel()
-
-    assert_true(
-        panel["no_searches_logged"],
-        "The zero-result panel did not render its empty-log message "
-        "(\"No searches in the log yet.\") while the table was known to "
-        "hold nothing",
-    )
-
-    log_text = context.stack.liferay_log()
-
-    assert_true(
-        "Search interception is not active" in log_text,
-        "The activation warning of DESIGN.md 3.1 is not in the portal log",
-    )
+    # Nothing logs a warning on this path: the rebinder, which is what logs
+    # it, was disabled before the bypass was forced, specifically so it
+    # could not immediately undo the rest of this script. The decision that
+    # drives that warning (whether an entry point is still bypassing once a
+    # rebind attempt is done) is covered instead by
+    # SearchConsumerRebinderTest.aRebindThatDoesNotClearTheBypassReturnsTheStillBypassingComponents,
+    # against a rebind attempt that actually ran and failed to clear it,
+    # which is the path that actually logs it.
 
 
 def stall_grace_period(context, case):
@@ -639,6 +761,20 @@ def restart_clears_bypass(context, case):
     assert_true(
         "Restart required" not in text,
         "The admin screen still shows the restart warning after a restart",
+    )
+
+    # A real restart moves every consumer, not only the entry points
+    # SearchConsumerRebinder targets: the wrapper is already registered,
+    # ranked higher, before anything else activates. install-intercepts-
+    # without-restart showed the secondary-consumer note while
+    # com.liferay.account.service and the like were still on the portal's
+    # own Searcher; after this restart none of them are, so the note must
+    # be gone too.
+
+    assert_true(
+        "secondary consumers of the search service" not in text,
+        "The admin screen still shows the secondary-consumer info note "
+        "after a restart that should have cleared it",
     )
 
 
@@ -2894,15 +3030,18 @@ def _wait_for_settled_funnel(context):
 
 def uninstall_and_reinstall(context, case):
     """TO-111: removing the plugin leaves search and the data intact, and
-    installing it again picks both up.
+    installing it again picks both up, without a restart (TO-140).
 
     Uninstalling takes the wrapper out from under Liferay's search consumers,
     which bound it with static reluctant references (EC-3), so the first thing
     checked is that search still answers with no restart. Reinstalling must
     reuse the existing tables and the collection cycle rather than start over,
-    and after the restart DESIGN.md 3.1 requires, collection has to resume.
+    and this is also the end-to-end proof that a redeploy no longer needs a
+    restart for collection to resume: the automatic rebind TO-140 added has to
+    clear the bypass on its own.
 
-    Last in the run: it removes and restarts the plugin under every other case.
+    Last in the run: it removes and reinstalls the plugin under every other
+    case.
     """
     events_before = context.stack.sql_long("select count(*) from SEL_SearchEvent")
     cycle_before = _read_cycle(context)
@@ -2985,26 +3124,74 @@ def uninstall_and_reinstall(context, case):
         tolerated=UNINSTALL_TOLERATED,
     )
 
-    context.stack.restart_liferay()
+    # TO-140: no restart here any more. The automatic rebind runs off
+    # SearchConsumerRebinder's own activation thread, triggered by
+    # LoggingSearcher re-registering a moment ago, so this polls rather than
+    # asserting outright.
 
-    context.portal.wait_until_serving(timeout=context.options.boot_timeout)
+    def reintercepting():
+        return context.portal.run_script(scripts.INTERCEPTION_STATUS) == "true"
 
-    assert_equal(
-        context.portal.run_script(scripts.INTERCEPTION_STATUS),
-        "true",
-        "Interception is not active after reinstalling and restarting",
+    wait_for(
+        "the automatic rebind to clear the bypass after reinstalling, "
+        "without a restart",
+        reintercepting,
+        timeout=60,
+        interval=1.0,
     )
 
-    for _ in range(5):
-        context.portal.search_result_count(MARKER_TERM)
+    # TO-140: settles the "benign artifact" DESIGN.md 3.1 documents (the
+    # forced rebind can leave an entry point bundle listed against the
+    # portal's own Searcher as well as the wrapper) with evidence rather
+    # than assertion, for the one entry point component this path actually
+    # exercises. search_result_count hits /web/guest/search, the Search
+    # Results widget, which goes through PortletSharedSearchRequestImpl;
+    # SearchDisplayContextFactoryImpl serves the legacy SearchPortlet and
+    # BasicSuggestionsContributor serves search bar suggestions, neither of
+    # which this case drives, and this does not add fixtures for either. A
+    # distinct term, used nowhere else in this run, and an exact count
+    # rather than an events_before + N floor: a genuine leftover bypass on
+    # PortletSharedSearchRequestImpl would undercount here, and a floor
+    # against a corpus of thousands of prior events could not catch that,
+    # nor could it catch an unrelated double-dispatch overcounting. The
+    # other two entry point components rest on their own component DTOs
+    # (EntryPointSearchConsumersTest, SearchConsumerRebinderTest) plus the
+    # bytecode finding that neither bundle acquires a Searcher outside
+    # Declarative Services (DESIGN.md 3.1), not on evidence from this case.
 
-    def resumed():
-        events = context.stack.sql_long("select count(*) from SEL_SearchEvent")
+    reinstalled_term = "%s-reinstalled-%d" % (MARKER_TERM, int(time.time()))
 
-        return events if events >= events_before + 5 else None
+    WIDGET_SEARCH_COUNT = 5
 
-    events_after = wait_for(
-        "collection to resume", resumed, timeout=300, interval=3.0
+    for _ in range(WIDGET_SEARCH_COUNT):
+        context.portal.search_result_count(reinstalled_term)
+
+    def captured_for_reinstalled_term():
+        count = context.stack.sql_long(
+            "select count(*) from SEL_SearchEvent where queryText = '%s'"
+            % reinstalled_term
+        )
+
+        return count if count >= WIDGET_SEARCH_COUNT else None
+
+    captured = wait_for(
+        "exactly %d widget searches for a distinct term to be captured "
+        "after reinstalling, without a restart" % WIDGET_SEARCH_COUNT,
+        captured_for_reinstalled_term,
+        timeout=300,
+        interval=3.0,
+    )
+
+    assert_equal(
+        captured,
+        WIDGET_SEARCH_COUNT,
+        "%d widget searches for a distinct term produced %d captured "
+        "events; a leftover, genuine bypass on PortletSharedSearchRequestImpl "
+        "would undercount here" % (WIDGET_SEARCH_COUNT, captured),
+    )
+
+    events_after = context.stack.sql_long(
+        "select count(*) from SEL_SearchEvent"
     )
 
     cycle_after = _read_cycle(context)

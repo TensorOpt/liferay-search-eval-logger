@@ -120,13 +120,14 @@ The outcomes:
    shasum -a 256 -c SHA256SUMS
    ```
 3. Copy the four JARs to `[Liferay Home]/deploy`.
-4. **Restart the portal.**
 
-Installed from Liferay Marketplace instead, the plugin arrives as an `.lpkg` that Marketplace builds from the same four JARs; the restart is needed either way.
+That is it. The plugin rebinds the Search Results widget, shared search requests and search bar suggestions onto itself automatically, with no restart, and the headless Search API needs no rebind at all.
+
+Installed from Liferay Marketplace instead, the plugin arrives as an `.lpkg`, which Liferay itself requires a restart to finish installing; that one restart is Liferay's own, not this plugin's.
 
 Upgrading, or switching which DXP line you run: delete the previous `ai.tensoropt.sel.*.jar` files from `[Liferay Home]/osgi/modules` first, since the new release's jars are named for their own DXP line and do not overwrite the old ones.
 
-The restart is required. Liferay's search components bind the search service once, at startup. A plugin installed onto a running portal is registered but never called, so it records nothing and logs no error. The same applies after every redeploy of `search-eval-logger-impl`.
+A handful of other, secondary consumers of the search service (such as Objects REST) are not covered by the automatic rebind and still bind the search service once, at their own startup, the same as before. In practice this means the Search Eval Export screen's blue informational note shows up every time you install onto any running portal: a dozen or more of those secondary consumers bind the search service during the portal's own startup, before this plugin is even installed. Restart the portal to pick up the change, whenever convenient; the note is separate from the "Restart required" banner below and does not mean collection is broken.
 
 ## Enable
 
@@ -152,7 +153,7 @@ All settings: [DESIGN.md, section 5](DESIGN.md#5-configuration).
 ## Check that it is collecting
 
 1. Open Control Panel > Configuration > **Search Eval Export**.
-2. If a red **Restart required** banner shows, the restart has not happened yet. Nothing is being recorded.
+2. If a red **Restart required** banner shows, the automatic rebind did not succeed: the Search Results widget, shared search requests or search bar suggestions are still bound to the portal's own search service. Restart the portal. A blue informational note instead, with no "Restart required" wording, means those are already collecting and only a secondary consumer such as Objects REST is still pending a restart.
 3. Run a keyword search on a page with the Search Results widget, then reload the screen. The counters should go up, and a "Collecting since" date should appear.
 
 You will also get a "Search logging is now collecting" notification.
@@ -162,7 +163,7 @@ You will also get a "Search logging is now collecting" notification.
 | Notification | When |
 |---|---|
 | Search logging is now collecting | Immediately after the first search is recorded |
-| Search logging is enabled but collecting nothing | Logging has been on for at least 24 hours, nothing has been recorded, and the restart is still outstanding |
+| Search logging is enabled but collecting nothing | Logging has been on for at least 24 hours and nothing has been recorded; the automatic rebind did not succeed, so the search widgets and search bar suggestions are still bound to the portal's own search service, and a restart is still outstanding |
 | Your search log is ready to export | At least 30 days since collection started and at least 500 searches on record. Both thresholds are configurable |
 
 - **Recipient.** Notifications go to the administrator who switched logging on. If that person cannot be determined, they go to the instance administrators.
@@ -231,7 +232,8 @@ Do not skip step 3. With the record left in place, a later reinstall never recre
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Red "Restart required" banner, or nothing recorded | The portal was not restarted after install or redeploy | Restart the portal |
+| Red "Restart required" banner, or nothing recorded | The automatic rebind did not succeed: the search widgets or search bar suggestions are still bound to the portal's own search service | Restart the portal |
+| Blue informational note on the export screen, naming Objects REST or another secondary consumer | The widgets and headless path are already collecting; only that one secondary consumer, which the automatic rebind does not target, still needs a restart to join | Restart the portal when convenient; nothing else is blocked until then |
 | Searches observed, but few or none recorded | They carried no keywords (facet-only browsing, internal lists) or were typeahead suggestions | Expected. Run a keyword search to confirm recording works |
 | Internal searches appear in the data | Some internal traffic carries keywords | Switch on Require Web Request Context, or exclude asset types |
 | Most results have no snippet | Your search UI does not request highlighting | Expected. Check coverage in `manifest.json` before planning any labelling |

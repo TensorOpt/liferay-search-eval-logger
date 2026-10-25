@@ -141,6 +141,41 @@ result = JsonOutput.toJson(
     })
 """
 
+# TO-140: forces the genuine bypass ec3-bypass-detected needs, using only the
+# OSGi runtime, no restart. SearchConsumerRebinder is disabled first so it
+# cannot immediately undo the rest of this: with it still active, bouncing
+# LoggingSearcher would just retrigger the same automatic rebind that
+# install-intercepts-without-restart already proved works. Bouncing
+# LoggingSearcher itself then unregisters the wrapper for a moment, which
+# unbinds the entry point components' static reference and lets it rebind, on
+# the only Searcher left, the portal's own; re-enabling LoggingSearcher brings
+# the wrapper back, but a static reluctant reference already bound and
+# satisfied does not move for it, which is exactly EC-3's bypass.
+FORCE_SEARCH_CONSUMER_BYPASS = """
+def bundleContext =
+    com.liferay.portal.kernel.module.util.SystemBundleUtil.getBundleContext()
+
+def reference = bundleContext.getServiceReference(
+    org.osgi.service.component.runtime.ServiceComponentRuntime)
+
+def scr = bundleContext.getService(reference)
+
+def find = { String name ->
+    scr.getComponentDescriptionDTOs().find { it.name == name }
+}
+
+def rebinder = find("ai.tensoropt.sel.internal.searcher.SearchConsumerRebinder")
+
+scr.disableComponent(rebinder).getValue()
+
+def loggingSearcher = find("ai.tensoropt.sel.internal.searcher.LoggingSearcher")
+
+scr.disableComponent(loggingSearcher).getValue()
+scr.enableComponent(loggingSearcher).getValue()
+
+result = "forced"
+"""
+
 # Which Searcher services are registered, and which bundles are using each.
 # This is the raw evidence behind EC-3: a non-wrapper Searcher with a consumer
 # bundle other than the plugin's own is a consumer that will never rebind.

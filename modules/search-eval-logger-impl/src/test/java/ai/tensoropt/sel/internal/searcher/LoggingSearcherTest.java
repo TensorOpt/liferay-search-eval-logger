@@ -96,9 +96,6 @@ public class LoggingSearcherTest {
 		_inject("_searchEvalLoggerStatisticsImpl", _statistics);
 		_inject("_searchEventCaptor", _searchEventCaptor);
 		_inject("_searchEventDispatcher", _searchEventDispatcher);
-		_inject(
-			"_searchInterceptionStatusImpl",
-			mock(SearchInterceptionStatusImpl.class));
 		_inject("_searchRequestBuilderFactory", searchRequestBuilderFactory);
 	}
 
