@@ -40,6 +40,7 @@
 		<column name="appliedFacets" type="String" />
 		<column name="facetCaptureStatus" type="String" />
 		<column name="blueprintId" type="String" />
+		<column name="blueprintExternalReferenceCode" type="String" />
 
 		<!-- Evaluation cohort, see DESIGN.md 4.3. No raw user identifier (D3). -->
 

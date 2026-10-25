@@ -29,6 +29,9 @@
 		<field name="blueprintId" type="String">
 			<hint name="max-length">100</hint>
 		</field>
+		<field name="blueprintExternalReferenceCode" type="String">
+			<hint name="max-length">75</hint>
+		</field>
 		<field name="audienceType" type="String">
 			<hint name="max-length">20</hint>
 		</field>

@@ -129,9 +129,10 @@ public class SearchEvalExportReadmeBuilder {
 							"same query on a constrained page and on a " +
 								"generic one produces two rows that look " +
 									"identical but have unrelated result " +
-										"sets. Where `blueprint_id` is " +
-											"present, use it to separate " +
-												"those populations.\n\n";
+										"sets. Where `blueprint_id` or " +
+											"`blueprint_external_reference_code` " +
+												"is present, use it to separate " +
+													"those populations.\n\n";
 
 	private static final String _CAPTURE_DEPTH_PREFIX =
 		"**Capture depth is bounded by what the caller asked for.** Only the " +

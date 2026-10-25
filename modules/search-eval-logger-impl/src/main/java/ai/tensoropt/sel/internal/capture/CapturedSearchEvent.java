@@ -34,6 +34,10 @@ public class CapturedSearchEvent implements Serializable {
 		return _appliedFacets;
 	}
 
+	public String getBlueprintExternalReferenceCode() {
+		return _blueprintExternalReferenceCode;
+	}
+
 	public String getBlueprintId() {
 		return _blueprintId;
 	}
@@ -98,6 +102,12 @@ public class CapturedSearchEvent implements Serializable {
 		_appliedFacets = appliedFacets;
 	}
 
+	public void setBlueprintExternalReferenceCode(
+		String blueprintExternalReferenceCode) {
+
+		_blueprintExternalReferenceCode = blueprintExternalReferenceCode;
+	}
+
 	public void setBlueprintId(String blueprintId) {
 		_blueprintId = blueprintId;
 	}
@@ -157,6 +167,7 @@ public class CapturedSearchEvent implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private String _appliedFacets;
+	private String _blueprintExternalReferenceCode;
 	private String _blueprintId;
 	private long _companyId;
 	private long _createTime;

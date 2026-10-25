@@ -12,6 +12,7 @@ create table SEL_SearchEvent (
 	appliedFacets TEXT null,
 	facetCaptureStatus VARCHAR(20) null,
 	blueprintId VARCHAR(100) null,
+	blueprintExternalReferenceCode VARCHAR(75) null,
 	audienceType VARCHAR(20) null,
 	cohortHash VARCHAR(64) null,
 	requestedSize INTEGER,

@@ -56,6 +56,10 @@ public class SearchEventTable extends BaseTable<SearchEventTable> {
 			Column.FLAG_DEFAULT);
 	public final Column<SearchEventTable, String> blueprintId = createColumn(
 		"blueprintId", String.class, Types.VARCHAR, Column.FLAG_DEFAULT);
+	public final Column<SearchEventTable, String>
+		blueprintExternalReferenceCode = createColumn(
+			"blueprintExternalReferenceCode", String.class, Types.VARCHAR,
+			Column.FLAG_DEFAULT);
 	public final Column<SearchEventTable, String> audienceType = createColumn(
 		"audienceType", String.class, Types.VARCHAR, Column.FLAG_DEFAULT);
 	public final Column<SearchEventTable, String> cohortHash = createColumn(
