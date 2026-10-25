@@ -283,9 +283,16 @@ def main(argv):
             requires=["stack-up"],
         )
         results.run(
+            "install-intercepts-without-restart",
+            lambda case: checks.install_intercepts_without_restart(
+                context, case
+            ),
+            requires=["install-onto-running-portal"],
+        )
+        results.run(
             "ec3-bypass-detected",
             lambda case: checks.ec3_bypass_detected(context, case),
-            requires=["install-onto-running-portal"],
+            requires=["install-intercepts-without-restart"],
         )
         results.run(
             "stall-grace-period",
