@@ -101,7 +101,7 @@ The outcomes:
   | DXP | This build | Use instead | Checked by |
   |---|---|---|---|
   | 2025.Q1 LTS, 2025.Q2 | No: Java EE (`javax`) | the [`dxp-2025.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2025.q1) and its releases | not deployed: those releases cannot provide the `jakarta` packages this build imports |
-  | 2025.Q3 to 2026.Q2 | No: compiled against 2026.Q3's persistence API, which changed the base class Service Builder's code extends | the [`dxp-2026.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2026.q1) and its releases, which run on all of these | not deployed |
+  | 2025.Q3 to 2026.Q2 | No: compiled against 2026.Q3's persistence API, which changed the base class Service Builder's code extends | the [`dxp-2026.q1` branch](https://github.com/TensorOpt/liferay-search-eval-logger/tree/dxp-2026.q1) and its releases, which run on all of these | deploying it on 2026.Q2.12: the bundles start, but both persistence components fail to activate, so storage does not start |
   | 2026.Q3 | Yes | | the full end-to-end suite on 2026.Q3.8 |
 
   "Deploying it" means on a clean portal, as JARs and as an `.lpkg`: all four bundles Active, every component of the plugin up, and no error from the plugin in the log. It does not exercise searching or exporting; the end-to-end suite does.
