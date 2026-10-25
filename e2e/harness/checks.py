@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from . import pluginconfig, scripts, zeroresult
 from .generate import SNIPPET_COVERAGE, TITLE_COVERAGE, Generator
 from .portal import ADMIN_PORTLET_ID
-from .util import HarnessError, Stopwatch, log, wait_for
+from .util import HarnessError, Stopwatch, TimeoutError_, log, wait_for
 
 CYCLE_PORTLET_ID = "ai.tensoropt.sel.collection.cycle"
 
@@ -2842,12 +2842,7 @@ def uninstall_and_reinstall(context, case):
     # on a GitLab runner Liferay re-ran its AOP re-registration three times
     # over 85s, the last 15s after STOPPED, and 60s ran out.
 
-    wait_for(
-        "the search widgets to be redeployed",
-        lambda: _search_widgets_deployed(context) == widgets_before,
-        timeout=300,
-        interval=0.5,
-    )
+    _wait_for_search_widgets(context, widgets_before)
 
     count, _ = context.portal.search_result_count(MARKER_TERM)
 
@@ -3024,6 +3019,43 @@ def lpkg_install(context, case):
     )
 
     case.note("recorded %d searches after the restart" % (events_after - events_before))
+
+
+def _wait_for_search_widgets(context, widgets_before):
+    """Waits for the deployed search widgets to match widgets_before again,
+    and on timeout says how they differ: a widget that never came back after
+    the uninstall reads differently from a "before" taken mid-change."""
+    last = {}
+
+    def redeployed():
+        last["widgets"] = _search_widgets_deployed(context)
+
+        return last["widgets"] == widgets_before
+
+    try:
+        wait_for(
+            "the search widgets to be redeployed", redeployed, timeout=300,
+            interval=0.5,
+        )
+    except TimeoutError_ as error:
+        raise TimeoutError_(
+            "%s\n%s"
+            % (error, describe_widget_difference(
+                widgets_before, last.get("widgets")))
+        ) from None
+
+
+def describe_widget_difference(before, after):
+    """The lines a failed widget wait reports."""
+    if after is None:
+        return "the deployed widgets could not be read; before: %s" % before
+
+    return "\n".join((
+        "missing compared with before: %s" % sorted(set(before) - set(after)),
+        "extra compared with before: %s" % sorted(set(after) - set(before)),
+        "before: %s" % before,
+        "after: %s" % after,
+    ))
 
 
 def _search_widgets_deployed(context):

@@ -1567,6 +1567,23 @@ def check_format_version():
         )
 
 
+def check_widget_difference():
+    """The uninstall case's widget wait names what differs on timeout."""
+    description = checks.describe_widget_difference(
+        ["search_bar", "search_results", "type_facet"],
+        ["search_bar", "search_results", "site_facet"],
+    )
+
+    _assert(
+        "missing compared with before: ['type_facet']" in description
+        and "extra compared with before: ['site_facet']" in description,
+        "the widget difference does not name the missing and extra widgets: "
+        + description,
+    )
+
+    CHECKED.append("accepted: a widget timeout names the missing and extra widgets")
+
+
 def check_number_types():
     """D-2: long valued fields must reach the archive as JSON numbers."""
     good = [event_line(index) for index in range(2)]
@@ -2040,6 +2057,7 @@ def main():
         check_funnel_links()
         check_archive_name()
         check_number_types()
+        check_widget_difference()
         check_format_version()
         check_funnel_counters()
         check_zero_result_recipes()
