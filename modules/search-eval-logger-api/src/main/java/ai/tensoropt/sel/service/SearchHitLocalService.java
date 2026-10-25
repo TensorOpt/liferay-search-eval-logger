@@ -276,3 +276,4 @@ public interface SearchHitLocalService
 	public SearchHit updateSearchHit(SearchHit searchHit);
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-1815172836

@@ -446,3 +446,4 @@ public abstract class SearchHitLocalServiceBaseImpl
 		SearchHitLocalServiceBaseImpl.class);
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-1965618023

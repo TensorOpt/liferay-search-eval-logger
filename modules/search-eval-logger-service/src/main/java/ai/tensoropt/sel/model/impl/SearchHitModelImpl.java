@@ -91,6 +91,8 @@ public class SearchHitModelImpl
 
 	public static final String TABLE_SQL_DROP = "drop table SEL_SearchHit";
 
+	public static final String ENTITY_ALIAS = "searchHit";
+
 	public static final String ORDER_BY_JPQL = " ORDER BY searchHit.rank ASC";
 
 	public static final String ORDER_BY_SQL =
@@ -977,3 +979,4 @@ public class SearchHitModelImpl
 	private SearchHit _escapedModel;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:641969652

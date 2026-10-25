@@ -249,3 +249,4 @@ public interface SearchHitModel
 	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-86866614

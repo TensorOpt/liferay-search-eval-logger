@@ -373,3 +373,4 @@ public class SearchEventCacheModel
 	public String sourceType;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-762191998

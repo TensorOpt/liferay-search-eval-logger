@@ -102,6 +102,8 @@ public class SearchEventModelImpl
 
 	public static final String TABLE_SQL_DROP = "drop table SEL_SearchEvent";
 
+	public static final String ENTITY_ALIAS = "searchEvent";
+
 	public static final String ORDER_BY_JPQL =
 		" ORDER BY searchEvent.createDate ASC";
 
@@ -1299,3 +1301,4 @@ public class SearchEventModelImpl
 	private SearchEvent _escapedModel;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-245709914

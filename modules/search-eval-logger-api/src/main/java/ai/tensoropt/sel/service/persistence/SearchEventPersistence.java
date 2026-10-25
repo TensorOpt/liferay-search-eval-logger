@@ -35,51 +35,10 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	 */
 
 	/**
-	 * Returns all the search events where uuid = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @return the matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid(String uuid);
-
-	/**
-	 * Returns a range of all the search events where uuid = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param uuid the uuid
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @return the range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid(
-		String uuid, int start, int end);
-
-	/**
 	 * Returns an ordered range of all the search events where uuid = &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param uuid the uuid
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
-	 * @return the ordered range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid(
-		String uuid, int start, int end,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns an ordered range of all the search events where uuid = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param uuid the uuid
@@ -122,47 +81,6 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 			orderByComparator);
 
 	/**
-	 * Returns the last search event in the ordered set where uuid = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event
-	 * @throws NoSuchSearchEventException if a matching search event could not be found
-	 */
-	public SearchEvent findByUuid_Last(
-			String uuid,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
-	 * Returns the last search event in the ordered set where uuid = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
-	 */
-	public SearchEvent fetchByUuid_Last(
-		String uuid,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns the search events before and after the current search event in the ordered set where uuid = &#63;.
-	 *
-	 * @param searchEventId the primary key of the current search event
-	 * @param uuid the uuid
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the previous, current, and next search event
-	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
-	 */
-	public SearchEvent[] findByUuid_PrevAndNext(
-			long searchEventId, String uuid,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
 	 * Removes all the search events where uuid = &#63; from the database.
 	 *
 	 * @param uuid the uuid
@@ -178,55 +96,10 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	public int countByUuid(String uuid);
 
 	/**
-	 * Returns all the search events where uuid = &#63; and companyId = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @return the matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid_C(
-		String uuid, long companyId);
-
-	/**
-	 * Returns a range of all the search events where uuid = &#63; and companyId = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @return the range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid_C(
-		String uuid, long companyId, int start, int end);
-
-	/**
 	 * Returns an ordered range of all the search events where uuid = &#63; and companyId = &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
-	 * @return the ordered range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByUuid_C(
-		String uuid, long companyId, int start, int end,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns an ordered range of all the search events where uuid = &#63; and companyId = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param uuid the uuid
@@ -272,50 +145,6 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 			orderByComparator);
 
 	/**
-	 * Returns the last search event in the ordered set where uuid = &#63; and companyId = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event
-	 * @throws NoSuchSearchEventException if a matching search event could not be found
-	 */
-	public SearchEvent findByUuid_C_Last(
-			String uuid, long companyId,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
-	 * Returns the last search event in the ordered set where uuid = &#63; and companyId = &#63;.
-	 *
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
-	 */
-	public SearchEvent fetchByUuid_C_Last(
-		String uuid, long companyId,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns the search events before and after the current search event in the ordered set where uuid = &#63; and companyId = &#63;.
-	 *
-	 * @param searchEventId the primary key of the current search event
-	 * @param uuid the uuid
-	 * @param companyId the company ID
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the previous, current, and next search event
-	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
-	 */
-	public SearchEvent[] findByUuid_C_PrevAndNext(
-			long searchEventId, String uuid, long companyId,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
 	 * Removes all the search events where uuid = &#63; and companyId = &#63; from the database.
 	 *
 	 * @param uuid the uuid
@@ -346,7 +175,7 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	 * Returns a range of all the search events where companyId = &#63; and createDate &lt; &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param companyId the company ID
@@ -362,7 +191,7 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	 * Returns an ordered range of all the search events where companyId = &#63; and createDate &lt; &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param companyId the company ID
@@ -381,7 +210,7 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	 * Returns an ordered range of all the search events where companyId = &#63; and createDate &lt; &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param companyId the company ID
@@ -427,50 +256,6 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 			orderByComparator);
 
 	/**
-	 * Returns the last search event in the ordered set where companyId = &#63; and createDate &lt; &#63;.
-	 *
-	 * @param companyId the company ID
-	 * @param createDate the create date
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event
-	 * @throws NoSuchSearchEventException if a matching search event could not be found
-	 */
-	public SearchEvent findByC_LtCreateDate_Last(
-			long companyId, Date createDate,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
-	 * Returns the last search event in the ordered set where companyId = &#63; and createDate &lt; &#63;.
-	 *
-	 * @param companyId the company ID
-	 * @param createDate the create date
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
-	 */
-	public SearchEvent fetchByC_LtCreateDate_Last(
-		long companyId, Date createDate,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns the search events before and after the current search event in the ordered set where companyId = &#63; and createDate &lt; &#63;.
-	 *
-	 * @param searchEventId the primary key of the current search event
-	 * @param companyId the company ID
-	 * @param createDate the create date
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the previous, current, and next search event
-	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
-	 */
-	public SearchEvent[] findByC_LtCreateDate_PrevAndNext(
-			long searchEventId, long companyId, Date createDate,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
 	 * Removes all the search events where companyId = &#63; and createDate &lt; &#63; from the database.
 	 *
 	 * @param companyId the company ID
@@ -488,63 +273,10 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	public int countByC_LtCreateDate(long companyId, Date createDate);
 
 	/**
-	 * Returns all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @return the matching search events
-	 */
-	public java.util.List<SearchEvent> findByC_R_T_A(
-		long companyId, int requestedFrom, long totalHits, String audienceType);
-
-	/**
-	 * Returns a range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @return the range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByC_R_T_A(
-		long companyId, int requestedFrom, long totalHits, String audienceType,
-		int start, int end);
-
-	/**
 	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
-	 * @return the ordered range of matching search events
-	 */
-	public java.util.List<SearchEvent> findByC_R_T_A(
-		long companyId, int requestedFrom, long totalHits, String audienceType,
-		int start, int end,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
 	 * @param companyId the company ID
@@ -598,58 +330,6 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 			orderByComparator);
 
 	/**
-	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event
-	 * @throws NoSuchSearchEventException if a matching search event could not be found
-	 */
-	public SearchEvent findByC_R_T_A_Last(
-			long companyId, int requestedFrom, long totalHits,
-			String audienceType,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
-	 * Returns the last search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the last matching search event, or <code>null</code> if a matching search event could not be found
-	 */
-	public SearchEvent fetchByC_R_T_A_Last(
-		long companyId, int requestedFrom, long totalHits, String audienceType,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns the search events before and after the current search event in the ordered set where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
-	 *
-	 * @param searchEventId the primary key of the current search event
-	 * @param companyId the company ID
-	 * @param requestedFrom the requested from
-	 * @param totalHits the total hits
-	 * @param audienceType the audience type
-	 * @param orderByComparator the comparator to order the set by (optionally <code>null</code>)
-	 * @return the previous, current, and next search event
-	 * @throws NoSuchSearchEventException if a search event with the primary key could not be found
-	 */
-	public SearchEvent[] findByC_R_T_A_PrevAndNext(
-			long searchEventId, long companyId, int requestedFrom,
-			long totalHits, String audienceType,
-			com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-				orderByComparator)
-		throws NoSuchSearchEventException;
-
-	/**
 	 * Removes all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63; from the database.
 	 *
 	 * @param companyId the company ID
@@ -671,20 +351,6 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	 */
 	public int countByC_R_T_A(
 		long companyId, int requestedFrom, long totalHits, String audienceType);
-
-	/**
-	 * Caches the search event in the entity cache if it is enabled.
-	 *
-	 * @param searchEvent the search event
-	 */
-	public void cacheResult(SearchEvent searchEvent);
-
-	/**
-	 * Caches the search events in the entity cache if it is enabled.
-	 *
-	 * @param searchEvents the search events
-	 */
-	public void cacheResult(java.util.List<SearchEvent> searchEvents);
 
 	/**
 	 * Creates a new search event with the primary key. Does not add the search event to the database.
@@ -725,71 +391,183 @@ public interface SearchEventPersistence extends BasePersistence<SearchEvent> {
 	public SearchEvent fetchByPrimaryKey(long searchEventId);
 
 	/**
-	 * Returns all the search events.
+	 * Returns all the search events where uuid = &#63;.
 	 *
-	 * @return the search events
+	 * @param uuid the uuid
+	 * @return the matching search events
 	 */
-	public java.util.List<SearchEvent> findAll();
+	public default java.util.List<SearchEvent> findByUuid(String uuid) {
+		return findByUuid(
+			uuid, com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS,
+			com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS, null, true);
+	}
 
 	/**
-	 * Returns a range of all the search events.
+	 * Returns a range of all the search events where uuid = &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
+	 * @param uuid the uuid
 	 * @param start the lower bound of the range of search events
 	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @return the range of search events
+	 * @return the range of matching search events
 	 */
-	public java.util.List<SearchEvent> findAll(int start, int end);
+	public default java.util.List<SearchEvent> findByUuid(
+		String uuid, int start, int end) {
+
+		return findByUuid(uuid, start, end, null, true);
+	}
 
 	/**
-	 * Returns an ordered range of all the search events.
+	 * Returns an ordered range of all the search events where uuid = &#63;.
 	 *
 	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
 	 * </p>
 	 *
-	 * @param start the lower bound of the range of search events
-	 * @param end the upper bound of the range of search events (not inclusive)
-	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
-	 * @return the ordered range of search events
-	 */
-	public java.util.List<SearchEvent> findAll(
-		int start, int end,
-		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator);
-
-	/**
-	 * Returns an ordered range of all the search events.
-	 *
-	 * <p>
-	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>SearchEventModelImpl</code>.
-	 * </p>
-	 *
+	 * @param uuid the uuid
 	 * @param start the lower bound of the range of search events
 	 * @param end the upper bound of the range of search events (not inclusive)
 	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
-	 * @param useFinderCache whether to use the finder cache
-	 * @return the ordered range of search events
+	 * @return the ordered range of matching search events
 	 */
-	public java.util.List<SearchEvent> findAll(
+	public default java.util.List<SearchEvent> findByUuid(
+		String uuid, int start, int end,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator) {
+
+		return findByUuid(uuid, start, end, orderByComparator, true);
+	}
+
+	/**
+	 * Returns all the search events where uuid = &#63; and companyId = &#63;.
+	 *
+	 * @param uuid the uuid
+	 * @param companyId the company ID
+	 * @return the matching search events
+	 */
+	public default java.util.List<SearchEvent> findByUuid_C(
+		String uuid, long companyId) {
+
+		return findByUuid_C(
+			uuid, companyId,
+			com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS,
+			com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS, null, true);
+	}
+
+	/**
+	 * Returns a range of all the search events where uuid = &#63; and companyId = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param uuid the uuid
+	 * @param companyId the company ID
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @return the range of matching search events
+	 */
+	public default java.util.List<SearchEvent> findByUuid_C(
+		String uuid, long companyId, int start, int end) {
+
+		return findByUuid_C(uuid, companyId, start, end, null, true);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where uuid = &#63; and companyId = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param uuid the uuid
+	 * @param companyId the company ID
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search events
+	 */
+	public default java.util.List<SearchEvent> findByUuid_C(
+		String uuid, long companyId, int start, int end,
+		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
+			orderByComparator) {
+
+		return findByUuid_C(
+			uuid, companyId, start, end, orderByComparator, true);
+	}
+
+	/**
+	 * Returns all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @return the matching search events
+	 */
+	public default java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits,
+		String audienceType) {
+
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType,
+			com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS,
+			com.liferay.portal.kernel.dao.orm.QueryUtil.ALL_POS, null, true);
+	}
+
+	/**
+	 * Returns a range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @return the range of matching search events
+	 */
+	public default java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
+		int start, int end) {
+
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end, null,
+			true);
+	}
+
+	/**
+	 * Returns an ordered range of all the search events where companyId = &#63; and requestedFrom = &#63; and totalHits = &#63; and audienceType = &#63;.
+	 *
+	 * <p>
+	 * Useful when paginating results. Returns a maximum of <code>end - start</code> instances. <code>start</code> and <code>end</code> are not primary keys, they are indexes in the result set. Thus, <code>0</code> refers to the first result in the set. Setting both <code>start</code> and <code>end</code> to <code>com.liferay.portal.kernel.dao.orm.QueryUtil#ALL_POS</code> will return the full result set. If <code>orderByComparator</code> is specified, then the query will include the given ORDER BY logic. If <code>orderByComparator</code> is absent, then the query will include the default ORDER BY logic from <code>ai.tensoropt.sel.model.impl.SearchEventModelImpl</code>.
+	 * </p>
+	 *
+	 * @param companyId the company ID
+	 * @param requestedFrom the requested from
+	 * @param totalHits the total hits
+	 * @param audienceType the audience type
+	 * @param start the lower bound of the range of search events
+	 * @param end the upper bound of the range of search events (not inclusive)
+	 * @param orderByComparator the comparator to order the results by (optionally <code>null</code>)
+	 * @return the ordered range of matching search events
+	 */
+	public default java.util.List<SearchEvent> findByC_R_T_A(
+		long companyId, int requestedFrom, long totalHits, String audienceType,
 		int start, int end,
 		com.liferay.portal.kernel.util.OrderByComparator<SearchEvent>
-			orderByComparator,
-		boolean useFinderCache);
+			orderByComparator) {
 
-	/**
-	 * Removes all the search events from the database.
-	 */
-	public void removeAll();
-
-	/**
-	 * Returns the number of search events.
-	 *
-	 * @return the number of search events
-	 */
-	public int countAll();
+		return findByC_R_T_A(
+			companyId, requestedFrom, totalHits, audienceType, start, end,
+			orderByComparator, true);
+	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:2064999190

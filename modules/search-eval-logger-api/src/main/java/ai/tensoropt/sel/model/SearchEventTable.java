@@ -78,3 +78,4 @@ public class SearchEventTable extends BaseTable<SearchEventTable> {
 	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:869088300

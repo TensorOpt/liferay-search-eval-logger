@@ -48,3 +48,4 @@ public interface SearchEvent extends PersistedModel, SearchEventModel {
 		};
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:1473985984

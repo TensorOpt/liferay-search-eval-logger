@@ -48,3 +48,4 @@ public interface SearchHit extends PersistedModel, SearchHitModel {
 		};
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:2081707794

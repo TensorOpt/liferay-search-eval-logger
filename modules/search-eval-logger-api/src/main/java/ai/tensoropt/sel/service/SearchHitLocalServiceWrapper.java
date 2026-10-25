@@ -354,3 +354,4 @@ public class SearchHitLocalServiceWrapper
 	private SearchHitLocalService _searchHitLocalService;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-220342154

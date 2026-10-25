@@ -2,6 +2,10 @@ dependencies {
 	api project(":modules:search-eval-logger-api")
 
 	compileOnly group: "com.liferay.portal", name: "release.dxp.api"
+
+	// DXP 2026.Q3 gave BasePersistenceImpl a second type parameter; the
+	// Service Builder workspace plugin 14.0.0 defaults to predates it.
+	serviceBuilder group: "com.liferay", name: "com.liferay.portal.tools.service.builder", version: "1.0.566"
 }
 
 buildService {

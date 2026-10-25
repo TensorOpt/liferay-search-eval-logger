@@ -432,3 +432,4 @@ public class SearchHitWrapper
 	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:158619464

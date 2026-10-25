@@ -266,3 +266,4 @@ public class SearchHitCacheModel
 	public String extraFields;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:1223183587

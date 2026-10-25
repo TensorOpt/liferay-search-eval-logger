@@ -564,3 +564,4 @@ public class SearchEventLocalServiceWrapper
 	private SearchEventLocalService _searchEventLocalService;
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:1430759132

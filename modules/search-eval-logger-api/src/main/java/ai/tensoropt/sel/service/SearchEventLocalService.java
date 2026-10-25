@@ -456,3 +456,4 @@ public interface SearchEventLocalService
 	public SearchEvent updateSearchEvent(SearchEvent searchEvent);
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:321508429

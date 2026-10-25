@@ -508,3 +508,4 @@ public class SearchEventLocalServiceUtil {
 			SearchEventLocalServiceUtil.class, SearchEventLocalService.class);
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:2141788713

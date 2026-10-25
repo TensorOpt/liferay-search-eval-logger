@@ -56,3 +56,4 @@ public class SearchHitTable extends BaseTable<SearchHitTable> {
 	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-367370586

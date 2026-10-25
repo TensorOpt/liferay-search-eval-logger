@@ -359,3 +359,4 @@ public interface SearchEventModel
 	}
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:-1894884276

@@ -30,7 +30,7 @@ services:
     build:
       context: ./liferay
       args:
-        LIFERAY_IMAGE: liferay/dxp:2026.q1.13-lts@sha256:466399dd430edcf5a51c66c597a57c30260d89f3efc46476abb598af192665de
+        LIFERAY_IMAGE: liferay/dxp:2026.q3.8@sha256:e741a796151af94440ef5caa3492525c5f5805c4f0de7201d5cfe001db9fd312
     image: ${SEL_E2E_PROJECT:-sel-e2e}-liferay:local
     depends_on:
       database:

@@ -314,3 +314,4 @@ public class SearchHitLocalServiceUtil {
 			SearchHitLocalServiceUtil.class, SearchHitLocalService.class);
 
 }
+// LIFERAY-SERVICE-BUILDER-HASH:2091502003
