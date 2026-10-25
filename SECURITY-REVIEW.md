@@ -262,20 +262,14 @@ speculatively ahead of a concrete objection (`DESIGN.md` §8).
 This build has been exercised end to end against DXP 2026.Q1.13 LTS on
 PostgreSQL. The empirical checks in `DESIGN.md` §7, and the MySQL and MariaDB
 runs, were made on the DXP 2025.Q1.27 LTS build, which differs from this one
-only by Liferay's own `javax` to `jakarta` rewrite (TO-85). The following are explicitly **not** verified, and
-this section does not soften any of them:
+only by Liferay's own `javax` to `jakarta` rewrite (TO-85), except EC-5, EC-6
+and EC-13, which were measured on this build: the headless Search API and
+Blueprint-driven searches are captured, and the Blueprint is recorded wherever
+a saved one is named (`DESIGN.md` §7). The following are explicitly **not**
+verified, and this section does not soften any of them:
 
-- **EC-5 — the headless Search API** (`/o/search/v1.0/...`). Blocked by
-  feature flag `LPS-179669`, which could not be opened in the test
-  environment. Code inspection says the endpoint resolves `Searcher` through
-  the registry and would inherit EC-3's restart constraint, but that is
-  reasoning, not a measurement (`DESIGN.md` §7, EC-5).
-- **EC-6 — Liferay Enterprise Search (Blueprints) interception.** Not
-  measured; needs an LES instance (`DESIGN.md` §7, EC-6).
 - **EC-9 — DXP Cloud.** Never deployed there; verified only against a
   self-managed DXP 2025.Q1.27 LTS instance (`DESIGN.md` §7, EC-9).
-- **EC-13 — Blueprint identifier capture.** Blocked by the same dependency as
-  EC-6 (`DESIGN.md` §7, EC-13).
 - **The runtime half of EC-14 — whose identity a notification resolves to.**
   Delivery itself is confirmed; whether `PrincipalThreadLocal` reliably
   carries the enabling administrator inside the configuration listener that

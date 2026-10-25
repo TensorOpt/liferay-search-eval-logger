@@ -642,8 +642,7 @@ def content_and_searches(context, case):
     """Creates content, waits until it is findable, then runs real searches.
 
     The searches go to the Search Results widget page, which is the path EC-1
-    confirmed and the only one available without the feature flag EC-5 is
-    blocked on.
+    confirmed.
     """
     created = 0
 
