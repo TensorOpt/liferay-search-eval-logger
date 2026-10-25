@@ -108,6 +108,7 @@ EVENT_KEYS = {
     "applied_facets",
     "facet_capture_status",
     "blueprint_id",
+    "blueprint_external_reference_code",
     "audience_type",
     "cohort_hash",
     "requested_size",

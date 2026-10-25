@@ -133,6 +133,8 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		searchEvent.setAppliedFacets(capturedSearchEvent.getAppliedFacets());
 		searchEvent.setFacetCaptureStatus(
 			capturedSearchEvent.getFacetCaptureStatus().name());
+		searchEvent.setBlueprintExternalReferenceCode(
+			capturedSearchEvent.getBlueprintExternalReferenceCode());
 		searchEvent.setBlueprintId(capturedSearchEvent.getBlueprintId());
 
 		long userId = capturedSearchEvent.getUserId();

@@ -333,6 +333,9 @@ public class SearchEvalExportWriter {
 			jsonObject, "facet_capture_status",
 			resultSet.getString("facetCaptureStatus"));
 		_put(jsonObject, "blueprint_id", resultSet.getString("blueprintId"));
+		_put(
+			jsonObject, "blueprint_external_reference_code",
+			resultSet.getString("blueprintExternalReferenceCode"));
 		_put(jsonObject, "audience_type", resultSet.getString("audienceType"));
 		_put(jsonObject, "cohort_hash", resultSet.getString("cohortHash"));
 		jsonObject.put("requested_size", resultSet.getInt("requestedSize"));
@@ -426,6 +429,7 @@ public class SearchEvalExportWriter {
 			"\"query_truncated\":false,\"locale\":null,\"scope_group_ids\":[]," +
 				"\"entry_class_names\":[],\"applied_facets\":null," +
 					"\"facet_capture_status\":null,\"blueprint_id\":null," +
+						"\"blueprint_external_reference_code\":null," +
 						"\"audience_type\":null,\"cohort_hash\":null," +
 							"\"requested_size\":0,\"requested_from\":0," +
 								"\"total_hits\":0,\"logged_hit_count\":0," +

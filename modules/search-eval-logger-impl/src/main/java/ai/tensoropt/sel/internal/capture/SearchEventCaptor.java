@@ -84,8 +84,16 @@ public class SearchEventCaptor {
 		capturedSearchEvent.setAppliedFacets(facetCapture.getAppliedFacets());
 		capturedSearchEvent.setFacetCaptureStatus(facetCapture.getStatus());
 
+		capturedSearchEvent.setBlueprintExternalReferenceCode(
+			_truncate(
+				_getAttribute(
+					searchContext,
+					_BLUEPRINT_EXTERNAL_REFERENCE_CODE_ATTRIBUTE_NAME),
+				_BLUEPRINT_EXTERNAL_REFERENCE_CODE_MAX_LENGTH));
 		capturedSearchEvent.setBlueprintId(
-			_truncate(_getBlueprintId(searchContext), _BLUEPRINT_ID_MAX_LENGTH));
+			_truncate(
+				_getAttribute(searchContext, _BLUEPRINT_ID_ATTRIBUTE_NAME),
+				_BLUEPRINT_ID_MAX_LENGTH));
 
 		int requestedFrom = GetterUtil.getInteger(searchRequest.getFrom());
 
@@ -245,11 +253,10 @@ public class SearchEventCaptor {
 		}
 	}
 
-	private String _getBlueprintId(SearchContext searchContext) {
-		String blueprintId = GetterUtil.getString(
-			searchContext.getAttribute(_BLUEPRINT_ID_ATTRIBUTE_NAME));
+	private String _getAttribute(SearchContext searchContext, String name) {
+		String value = GetterUtil.getString(searchContext.getAttribute(name));
 
-		return Validator.isNull(blueprintId) ? null : blueprintId;
+		return Validator.isNull(value) ? null : value;
 	}
 
 	/**
@@ -579,6 +586,16 @@ public class SearchEventCaptor {
 	// Column widths from portlet-model-hints.xml in the service module. Values
 	// are truncated here rather than at the database, so these must move
 	// together with that file.
+
+	// TO-139: Liferay's preferred way to name a blueprint, stable across
+	// instances; the ID attribute is the older one. Both are recorded.
+
+	private static final String
+		_BLUEPRINT_EXTERNAL_REFERENCE_CODE_ATTRIBUTE_NAME =
+			"search.experiences.blueprint.external.reference.code";
+
+	private static final int _BLUEPRINT_EXTERNAL_REFERENCE_CODE_MAX_LENGTH =
+		75;
 
 	private static final String _BLUEPRINT_ID_ATTRIBUTE_NAME =
 		"search.experiences.blueprint.id";

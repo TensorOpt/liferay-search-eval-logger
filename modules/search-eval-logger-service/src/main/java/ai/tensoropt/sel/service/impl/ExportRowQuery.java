@@ -90,15 +90,16 @@ class ExportRowQuery {
 	private static final String _SELECT =
 		"select e.uuid_, e.createDate, e.queryText, e.queryTruncated, " +
 			"e.locale, e.scopeGroupIds, e.entryClassNames, e.appliedFacets, " +
-				"e.facetCaptureStatus, e.blueprintId, e.audienceType, " +
-					"e.cohortHash, e.requestedSize, e.requestedFrom, " +
-						"e.totalHits, e.loggedHitCount, e.sourceType, " +
-							"h.rank_, h.score, h.docUid, h.entryClassName, " +
-								"h.entryClassPK, h.title, h.snippet, " +
-									"h.extraFields from SEL_SearchEvent e " +
-										"left join SEL_SearchHit h on " +
-											"h.searchEventUuid = e.uuid_ " +
-												"where e.companyId = ?";
+				"e.facetCaptureStatus, e.blueprintId, " +
+					"e.blueprintExternalReferenceCode, e.audienceType, " +
+						"e.cohortHash, e.requestedSize, e.requestedFrom, " +
+							"e.totalHits, e.loggedHitCount, e.sourceType, " +
+								"h.rank_, h.score, h.docUid, h.entryClassName, " +
+									"h.entryClassPK, h.title, h.snippet, " +
+										"h.extraFields from SEL_SearchEvent e " +
+											"left join SEL_SearchHit h on " +
+												"h.searchEventUuid = e.uuid_ " +
+													"where e.companyId = ?";
 
 	private static final String _START_DATE_PREDICATE =
 		" and e.createDate >= ?";

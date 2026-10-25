@@ -123,6 +123,51 @@ public class SearchEventCaptorTest {
 	}
 
 	/**
+	 * TO-139: a blueprint named by external reference code, Liferay's
+	 * preferred way, and one named by the older ID are each recorded in their
+	 * own field, and both when a request carries both.
+	 */
+	@Test
+	public void theBlueprintIsRecordedByExternalReferenceCodeAndById() {
+		SearchContext byExternalReferenceCode = new SearchContext();
+
+		byExternalReferenceCode.setAttribute(
+			"search.experiences.blueprint.external.reference.code",
+			"product-search");
+
+		CapturedSearchEvent capturedSearchEvent = _capture(
+			"Title", byExternalReferenceCode);
+
+		assertEquals(
+			"product-search",
+			capturedSearchEvent.getBlueprintExternalReferenceCode());
+		assertNull(capturedSearchEvent.getBlueprintId());
+
+		SearchContext byId = new SearchContext();
+
+		byId.setAttribute("search.experiences.blueprint.id", "38417");
+
+		capturedSearchEvent = _capture("Title", byId);
+
+		assertNull(capturedSearchEvent.getBlueprintExternalReferenceCode());
+		assertEquals("38417", capturedSearchEvent.getBlueprintId());
+
+		SearchContext byBoth = new SearchContext();
+
+		byBoth.setAttribute(
+			"search.experiences.blueprint.external.reference.code",
+			"x".repeat(100));
+		byBoth.setAttribute("search.experiences.blueprint.id", "38417");
+
+		capturedSearchEvent = _capture("Title", byBoth);
+
+		assertEquals(
+			"x".repeat(75),
+			capturedSearchEvent.getBlueprintExternalReferenceCode());
+		assertEquals("38417", capturedSearchEvent.getBlueprintId());
+	}
+
+	/**
 	 * TO-133: ranks are stored from 1 and absolute across pages, so the top
 	 * result of page 1 is 1 and the top result of a page that starts at 20
 	 * is 21.

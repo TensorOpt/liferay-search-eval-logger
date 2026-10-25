@@ -46,6 +46,9 @@ public class SearchEventWrapper
 		attributes.put("appliedFacets", getAppliedFacets());
 		attributes.put("facetCaptureStatus", getFacetCaptureStatus());
 		attributes.put("blueprintId", getBlueprintId());
+		attributes.put(
+			"blueprintExternalReferenceCode",
+			getBlueprintExternalReferenceCode());
 		attributes.put("audienceType", getAudienceType());
 		attributes.put("cohortHash", getCohortHash());
 		attributes.put("requestedSize", getRequestedSize());
@@ -138,6 +141,13 @@ public class SearchEventWrapper
 			setBlueprintId(blueprintId);
 		}
 
+		String blueprintExternalReferenceCode = (String)attributes.get(
+			"blueprintExternalReferenceCode");
+
+		if (blueprintExternalReferenceCode != null) {
+			setBlueprintExternalReferenceCode(blueprintExternalReferenceCode);
+		}
+
 		String audienceType = (String)attributes.get("audienceType");
 
 		if (audienceType != null) {
@@ -204,6 +214,16 @@ public class SearchEventWrapper
 	@Override
 	public String getAudienceType() {
 		return model.getAudienceType();
+	}
+
+	/**
+	 * Returns the blueprint external reference code of this search event.
+	 *
+	 * @return the blueprint external reference code of this search event
+	 */
+	@Override
+	public String getBlueprintExternalReferenceCode() {
+		return model.getBlueprintExternalReferenceCode();
 	}
 
 	/**
@@ -429,6 +449,18 @@ public class SearchEventWrapper
 	@Override
 	public void setAudienceType(String audienceType) {
 		model.setAudienceType(audienceType);
+	}
+
+	/**
+	 * Sets the blueprint external reference code of this search event.
+	 *
+	 * @param blueprintExternalReferenceCode the blueprint external reference code of this search event
+	 */
+	@Override
+	public void setBlueprintExternalReferenceCode(
+		String blueprintExternalReferenceCode) {
+
+		model.setBlueprintExternalReferenceCode(blueprintExternalReferenceCode);
 	}
 
 	/**
