@@ -69,7 +69,7 @@ public class SearchEventCacheModel
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(41);
+		StringBundler sb = new StringBundler(43);
 
 		sb.append("{mvccVersion=");
 		sb.append(mvccVersion);
@@ -97,6 +97,8 @@ public class SearchEventCacheModel
 		sb.append(facetCaptureStatus);
 		sb.append(", blueprintId=");
 		sb.append(blueprintId);
+		sb.append(", blueprintExternalReferenceCode=");
+		sb.append(blueprintExternalReferenceCode);
 		sb.append(", audienceType=");
 		sb.append(audienceType);
 		sb.append(", cohortHash=");
@@ -190,6 +192,14 @@ public class SearchEventCacheModel
 			searchEventImpl.setBlueprintId(blueprintId);
 		}
 
+		if (blueprintExternalReferenceCode == null) {
+			searchEventImpl.setBlueprintExternalReferenceCode("");
+		}
+		else {
+			searchEventImpl.setBlueprintExternalReferenceCode(
+				blueprintExternalReferenceCode);
+		}
+
 		if (audienceType == null) {
 			searchEventImpl.setAudienceType("");
 		}
@@ -241,6 +251,7 @@ public class SearchEventCacheModel
 		appliedFacets = (String)objectInput.readObject();
 		facetCaptureStatus = objectInput.readUTF();
 		blueprintId = objectInput.readUTF();
+		blueprintExternalReferenceCode = objectInput.readUTF();
 		audienceType = objectInput.readUTF();
 		cohortHash = objectInput.readUTF();
 
@@ -321,6 +332,13 @@ public class SearchEventCacheModel
 			objectOutput.writeUTF(blueprintId);
 		}
 
+		if (blueprintExternalReferenceCode == null) {
+			objectOutput.writeUTF("");
+		}
+		else {
+			objectOutput.writeUTF(blueprintExternalReferenceCode);
+		}
+
 		if (audienceType == null) {
 			objectOutput.writeUTF("");
 		}
@@ -364,6 +382,7 @@ public class SearchEventCacheModel
 	public String appliedFacets;
 	public String facetCaptureStatus;
 	public String blueprintId;
+	public String blueprintExternalReferenceCode;
 	public String audienceType;
 	public String cohortHash;
 	public int requestedSize;
@@ -373,4 +392,4 @@ public class SearchEventCacheModel
 	public String sourceType;
 
 }
-// LIFERAY-SERVICE-BUILDER-HASH:-762191998
+// LIFERAY-SERVICE-BUILDER-HASH:1534058320

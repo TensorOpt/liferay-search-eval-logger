@@ -11,6 +11,7 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-115** Snippets are stored and exported as JSON keyed by locale, then field.
 - **TO-122** The export manifest names its format, `format_version`, as the plugin's major.minor.
 - **TO-133** Ranks are numbered from 1, as stored and as exported.
+- **TO-139** The blueprint driving a search is recorded and exported by external reference code too, Liferay's preferred way to name one, alongside its ID.
 - **TO-135** The export screen shows the share of searches that returned no results, overall and for guests and signed-in users, and the 20 most frequent zero-result queries, cached for an hour.
 
 ### Fixes

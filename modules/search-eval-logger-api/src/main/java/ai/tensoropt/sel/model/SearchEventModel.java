@@ -251,6 +251,22 @@ public interface SearchEventModel
 	public void setBlueprintId(String blueprintId);
 
 	/**
+	 * Returns the blueprint external reference code of this search event.
+	 *
+	 * @return the blueprint external reference code of this search event
+	 */
+	@AutoEscape
+	public String getBlueprintExternalReferenceCode();
+
+	/**
+	 * Sets the blueprint external reference code of this search event.
+	 *
+	 * @param blueprintExternalReferenceCode the blueprint external reference code of this search event
+	 */
+	public void setBlueprintExternalReferenceCode(
+		String blueprintExternalReferenceCode);
+
+	/**
 	 * Returns the audience type of this search event.
 	 *
 	 * @return the audience type of this search event
@@ -359,4 +375,4 @@ public interface SearchEventModel
 	}
 
 }
-// LIFERAY-SERVICE-BUILDER-HASH:-1894884276
+// LIFERAY-SERVICE-BUILDER-HASH:1086563032

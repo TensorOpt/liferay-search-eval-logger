@@ -89,6 +89,7 @@ def event_line(index, **overrides):
         "applied_facets": None,
         "facet_capture_status": "NONE_APPLIED",
         "blueprint_id": None,
+        "blueprint_external_reference_code": None,
         "audience_type": "AUTHENTICATED",
         "cohort_hash": "3585671aa51e6cd46efff007511fe851",
         "requested_size": 20,

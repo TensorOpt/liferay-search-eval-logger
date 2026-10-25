@@ -65,10 +65,12 @@ public class SearchEventModelImpl
 		{"queryTruncated", Types.BOOLEAN}, {"locale", Types.VARCHAR},
 		{"scopeGroupIds", Types.VARCHAR}, {"entryClassNames", Types.VARCHAR},
 		{"appliedFacets", Types.CLOB}, {"facetCaptureStatus", Types.VARCHAR},
-		{"blueprintId", Types.VARCHAR}, {"audienceType", Types.VARCHAR},
-		{"cohortHash", Types.VARCHAR}, {"requestedSize", Types.INTEGER},
-		{"requestedFrom", Types.INTEGER}, {"totalHits", Types.BIGINT},
-		{"loggedHitCount", Types.INTEGER}, {"sourceType", Types.VARCHAR}
+		{"blueprintId", Types.VARCHAR},
+		{"blueprintExternalReferenceCode", Types.VARCHAR},
+		{"audienceType", Types.VARCHAR}, {"cohortHash", Types.VARCHAR},
+		{"requestedSize", Types.INTEGER}, {"requestedFrom", Types.INTEGER},
+		{"totalHits", Types.BIGINT}, {"loggedHitCount", Types.INTEGER},
+		{"sourceType", Types.VARCHAR}
 	};
 
 	public static final Map<String, Integer> TABLE_COLUMNS_MAP =
@@ -88,6 +90,7 @@ public class SearchEventModelImpl
 		TABLE_COLUMNS_MAP.put("appliedFacets", Types.CLOB);
 		TABLE_COLUMNS_MAP.put("facetCaptureStatus", Types.VARCHAR);
 		TABLE_COLUMNS_MAP.put("blueprintId", Types.VARCHAR);
+		TABLE_COLUMNS_MAP.put("blueprintExternalReferenceCode", Types.VARCHAR);
 		TABLE_COLUMNS_MAP.put("audienceType", Types.VARCHAR);
 		TABLE_COLUMNS_MAP.put("cohortHash", Types.VARCHAR);
 		TABLE_COLUMNS_MAP.put("requestedSize", Types.INTEGER);
@@ -98,7 +101,7 @@ public class SearchEventModelImpl
 	}
 
 	public static final String TABLE_SQL_CREATE =
-		"create table SEL_SearchEvent (mvccVersion LONG default 0 not null,uuid_ VARCHAR(75) null,searchEventId LONG not null primary key,companyId LONG,createDate DATE null,queryText VARCHAR(2000) null,queryTruncated BOOLEAN,locale VARCHAR(20) null,scopeGroupIds VARCHAR(500) null,entryClassNames VARCHAR(2000) null,appliedFacets TEXT null,facetCaptureStatus VARCHAR(20) null,blueprintId VARCHAR(100) null,audienceType VARCHAR(20) null,cohortHash VARCHAR(64) null,requestedSize INTEGER,requestedFrom INTEGER,totalHits LONG,loggedHitCount INTEGER,sourceType VARCHAR(20) null)";
+		"create table SEL_SearchEvent (mvccVersion LONG default 0 not null,uuid_ VARCHAR(75) null,searchEventId LONG not null primary key,companyId LONG,createDate DATE null,queryText VARCHAR(2000) null,queryTruncated BOOLEAN,locale VARCHAR(20) null,scopeGroupIds VARCHAR(500) null,entryClassNames VARCHAR(2000) null,appliedFacets TEXT null,facetCaptureStatus VARCHAR(20) null,blueprintId VARCHAR(100) null,blueprintExternalReferenceCode VARCHAR(75) null,audienceType VARCHAR(20) null,cohortHash VARCHAR(64) null,requestedSize INTEGER,requestedFrom INTEGER,totalHits LONG,loggedHitCount INTEGER,sourceType VARCHAR(20) null)";
 
 	public static final String TABLE_SQL_DROP = "drop table SEL_SearchEvent";
 
@@ -286,6 +289,9 @@ public class SearchEventModelImpl
 			attributeGetterFunctions.put(
 				"blueprintId", SearchEvent::getBlueprintId);
 			attributeGetterFunctions.put(
+				"blueprintExternalReferenceCode",
+				SearchEvent::getBlueprintExternalReferenceCode);
+			attributeGetterFunctions.put(
 				"audienceType", SearchEvent::getAudienceType);
 			attributeGetterFunctions.put(
 				"cohortHash", SearchEvent::getCohortHash);
@@ -356,6 +362,10 @@ public class SearchEventModelImpl
 			attributeSetterBiConsumers.put(
 				"blueprintId",
 				(BiConsumer<SearchEvent, String>)SearchEvent::setBlueprintId);
+			attributeSetterBiConsumers.put(
+				"blueprintExternalReferenceCode",
+				(BiConsumer<SearchEvent, String>)
+					SearchEvent::setBlueprintExternalReferenceCode);
 			attributeSetterBiConsumers.put(
 				"audienceType",
 				(BiConsumer<SearchEvent, String>)SearchEvent::setAudienceType);
@@ -643,6 +653,27 @@ public class SearchEventModelImpl
 	}
 
 	@Override
+	public String getBlueprintExternalReferenceCode() {
+		if (_blueprintExternalReferenceCode == null) {
+			return "";
+		}
+		else {
+			return _blueprintExternalReferenceCode;
+		}
+	}
+
+	@Override
+	public void setBlueprintExternalReferenceCode(
+		String blueprintExternalReferenceCode) {
+
+		if (_columnOriginalValues == Collections.EMPTY_MAP) {
+			_setColumnOriginalValues();
+		}
+
+		_blueprintExternalReferenceCode = blueprintExternalReferenceCode;
+	}
+
+	@Override
 	public String getAudienceType() {
 		if (_audienceType == null) {
 			return "";
@@ -853,6 +884,8 @@ public class SearchEventModelImpl
 		searchEventImpl.setAppliedFacets(getAppliedFacets());
 		searchEventImpl.setFacetCaptureStatus(getFacetCaptureStatus());
 		searchEventImpl.setBlueprintId(getBlueprintId());
+		searchEventImpl.setBlueprintExternalReferenceCode(
+			getBlueprintExternalReferenceCode());
 		searchEventImpl.setAudienceType(getAudienceType());
 		searchEventImpl.setCohortHash(getCohortHash());
 		searchEventImpl.setRequestedSize(getRequestedSize());
@@ -895,6 +928,9 @@ public class SearchEventModelImpl
 			this.<String>getColumnOriginalValue("facetCaptureStatus"));
 		searchEventImpl.setBlueprintId(
 			this.<String>getColumnOriginalValue("blueprintId"));
+		searchEventImpl.setBlueprintExternalReferenceCode(
+			this.<String>getColumnOriginalValue(
+				"blueprintExternalReferenceCode"));
 		searchEventImpl.setAudienceType(
 			this.<String>getColumnOriginalValue("audienceType"));
 		searchEventImpl.setCohortHash(
@@ -1067,6 +1103,18 @@ public class SearchEventModelImpl
 			searchEventCacheModel.blueprintId = null;
 		}
 
+		searchEventCacheModel.blueprintExternalReferenceCode =
+			getBlueprintExternalReferenceCode();
+
+		String blueprintExternalReferenceCode =
+			searchEventCacheModel.blueprintExternalReferenceCode;
+
+		if ((blueprintExternalReferenceCode != null) &&
+			(blueprintExternalReferenceCode.length() == 0)) {
+
+			searchEventCacheModel.blueprintExternalReferenceCode = null;
+		}
+
 		searchEventCacheModel.audienceType = getAudienceType();
 
 		String audienceType = searchEventCacheModel.audienceType;
@@ -1173,6 +1221,7 @@ public class SearchEventModelImpl
 	private String _appliedFacets;
 	private String _facetCaptureStatus;
 	private String _blueprintId;
+	private String _blueprintExternalReferenceCode;
 	private String _audienceType;
 	private String _cohortHash;
 	private int _requestedSize;
@@ -1224,6 +1273,8 @@ public class SearchEventModelImpl
 		_columnOriginalValues.put("appliedFacets", _appliedFacets);
 		_columnOriginalValues.put("facetCaptureStatus", _facetCaptureStatus);
 		_columnOriginalValues.put("blueprintId", _blueprintId);
+		_columnOriginalValues.put(
+			"blueprintExternalReferenceCode", _blueprintExternalReferenceCode);
 		_columnOriginalValues.put("audienceType", _audienceType);
 		_columnOriginalValues.put("cohortHash", _cohortHash);
 		_columnOriginalValues.put("requestedSize", _requestedSize);
@@ -1280,19 +1331,21 @@ public class SearchEventModelImpl
 
 		columnBitmasks.put("blueprintId", 4096L);
 
-		columnBitmasks.put("audienceType", 8192L);
+		columnBitmasks.put("blueprintExternalReferenceCode", 8192L);
 
-		columnBitmasks.put("cohortHash", 16384L);
+		columnBitmasks.put("audienceType", 16384L);
 
-		columnBitmasks.put("requestedSize", 32768L);
+		columnBitmasks.put("cohortHash", 32768L);
 
-		columnBitmasks.put("requestedFrom", 65536L);
+		columnBitmasks.put("requestedSize", 65536L);
 
-		columnBitmasks.put("totalHits", 131072L);
+		columnBitmasks.put("requestedFrom", 131072L);
 
-		columnBitmasks.put("loggedHitCount", 262144L);
+		columnBitmasks.put("totalHits", 262144L);
 
-		columnBitmasks.put("sourceType", 524288L);
+		columnBitmasks.put("loggedHitCount", 524288L);
+
+		columnBitmasks.put("sourceType", 1048576L);
 
 		_columnBitmasks = Collections.unmodifiableMap(columnBitmasks);
 	}
@@ -1301,4 +1354,4 @@ public class SearchEventModelImpl
 	private SearchEvent _escapedModel;
 
 }
-// LIFERAY-SERVICE-BUILDER-HASH:-245709914
+// LIFERAY-SERVICE-BUILDER-HASH:1037304473
