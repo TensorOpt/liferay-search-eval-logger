@@ -28,12 +28,13 @@ What is *not* done: every empirical check in DESIGN.md §7 is still open except 
 
 ### Branches
 
-One branch per supported DXP LTS line, the newest on `main`:
+`main` builds for the newest DXP release; each LTS line `main` has moved past keeps a branch of its own. This is `dxp-2026.q1`:
 
-| Branch | DXP | Java EE flavour |
-|---|---|---|
-| `main` | 2026.Q1 LTS | Jakarta EE |
-| `dxp-2025.q1` | 2025.Q1 LTS | Java EE (`javax`) |
+| Branch | Builds for | Runs on | Java EE flavour |
+|---|---|---|---|
+| `main` | 2026.Q3 | 2026.Q3 | Jakarta EE |
+| `dxp-2026.q1` | 2026.Q1 LTS | 2025.Q3 to 2026.Q2 | Jakarta EE |
+| `dxp-2025.q1` | 2025.Q1 LTS | 2025.Q1, 2025.Q2 | Java EE (`javax`) |
 
 - **Work lands on `main`.** Fixes, and anything affecting security or the collected data, are then backported to the older branches by cherry-pick. New features are backported only when asked for.
 - **A backport rarely conflicts.** The code differs between the two branches only where `upgradeJakarta` rewrote it (`javax` and `jakarta` imports, component properties, one JSP taglib URI) and in the e2e harness's handling of portal markup. A conflict means one of those lines; resolve it in the older branch's own form.
@@ -117,7 +118,7 @@ The manifest's `format_version` is the plugin's major.minor (TO-122), derived fr
 
 ## What this project is
 
-A Liferay DXP OSGi plugin (currently targeting DXP 2026.Q1 LTS on `main`, and 2025.Q1 LTS on the `dxp-2025.q1` branch; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
+A Liferay DXP OSGi plugin (this branch, `dxp-2026.q1`, targets DXP 2026.Q1 LTS; `main` targets 2026.Q3 and the `dxp-2025.q1` branch 2025.Q1 LTS; designed against 7.4, whose public search API it still uses unchanged) that passively logs `(query, result[])` search interaction records for offline relevance evaluation. It intercepts the public `Searcher` service (never connector internals, never `portal-impl`), filters out non-user-originated traffic, asynchronously persists admitted events via Message Bus, and lets an admin export a time-ranged JSONL archive. See `DESIGN.md` §1–2 for full scope and the eight settled design constraints (D1–D8) that any implementation must satisfy — in particular: never modify the outgoing `SearchRequest` (D2), never persist raw user identifiers (D3), never re-query to deepen capture (D4), and export is always a manual admin action (D5).
 
 ## Architecture (from DESIGN.md §3.5)
 
