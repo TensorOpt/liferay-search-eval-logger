@@ -318,6 +318,11 @@ def main(argv):
             requires=["content-and-searches"],
         )
         results.run(
+            "blueprint-preview-excluded",
+            lambda case: checks.blueprint_preview_excluded(context, case),
+            requires=["capture"],
+        )
+        results.run(
             "zero-result-panel-seed",
             lambda case: checks.zero_result_panel_seed(context, case),
             requires=["capture"],

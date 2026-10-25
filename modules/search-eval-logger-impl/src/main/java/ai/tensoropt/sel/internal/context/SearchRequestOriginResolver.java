@@ -112,19 +112,21 @@ public class SearchRequestOriginResolver {
 		String path = _getPath(httpServletRequest);
 
 		if (path == null) {
-			return new SearchRequestOrigin(SourceType.OTHER, false, true);
+			return new SearchRequestOrigin(SourceType.OTHER, false, false, true);
 		}
 
 		if (path.startsWith(_HEADLESS_PATH_PREFIX)) {
 			return new SearchRequestOrigin(
-				SourceType.HEADLESS, _isSuggestionPath(path), true);
+				SourceType.HEADLESS, _isSuggestionPath(path),
+				path.startsWith(_SEARCH_EXPERIENCES_PATH_PREFIX), true);
 		}
 
 		if (_hasPortletContext(httpServletRequest)) {
-			return new SearchRequestOrigin(SourceType.WIDGET, false, true);
+			return new SearchRequestOrigin(
+				SourceType.WIDGET, false, false, true);
 		}
 
-		return new SearchRequestOrigin(SourceType.OTHER, false, true);
+		return new SearchRequestOrigin(SourceType.OTHER, false, false, true);
 	}
 
 	private HttpServletRequest _getHttpServletRequest() {
@@ -190,9 +192,18 @@ public class SearchRequestOriginResolver {
 	private static final String _LEGACY_SUGGESTIONS_PATH =
 		"/o/portal-search-rest/v1.0/suggestions";
 
+	/**
+	 * The whole Search Experiences REST application is Blueprint and element
+	 * administration. Its one search endpoint, <code>/search</code>, serves
+	 * the Blueprint and element editors' previews, which apply a Blueprint
+	 * passed inline and so record no Blueprint either (DESIGN.md 7, EC-13). A Blueprint-driven user search
+	 * goes through <code>/o/search/v1.0/search</code> instead.
+	 */
+	private static final String _SEARCH_EXPERIENCES_PATH_PREFIX =
+		"/o/search-experiences-rest/";
+
 	private static final String _SUGGESTIONS_PATH =
 		"/o/search/v1.0/suggestions";
-
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchRequestOriginResolver.class);

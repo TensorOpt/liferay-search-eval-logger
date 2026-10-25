@@ -25,6 +25,7 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-110** The notifications never reached the notifications list, and every restart postponed the daily purge and cycle check by a day.
 - **TO-112** Notification flow fixes.
 - **TO-113** Signup banner and funnel link fixes, the released link addresses, and margins and sections on the export screen.
+- **TO-141** Searches from the Blueprint editor's Preview were logged as user searches, with no Blueprint recorded.
 
 ### Platform
 

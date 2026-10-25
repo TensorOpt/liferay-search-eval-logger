@@ -125,6 +125,12 @@ public class AdmissionFilter {
 	 * Condition 2, plus the web request requirement of DESIGN.md 5.
 	 *
 	 * <p>
+	 * Administrative searches are dropped whatever the settings: the Blueprint
+	 * editor's Preview is an administrator tuning a Blueprint, not a user
+	 * searching, and no setting would make it one (TO-141).
+	 * </p>
+	 *
+	 * <p>
 	 * When suggestion exclusion is on and the origin could not be read, the
 	 * search is dropped rather than admitted. DESIGN.md 5.1 states that
 	 * direction explicitly, and 3.2 generalizes it: absence of context is a
@@ -136,6 +142,10 @@ public class AdmissionFilter {
 	private boolean _hasAdmissibleOrigin(
 		SearchRequestOrigin searchRequestOrigin,
 		SearchEvalLoggerConfiguration configuration) {
+
+		if (searchRequestOrigin.isAdministrative()) {
+			return false;
+		}
 
 		if (configuration.requireWebRequestContext() &&
 			!searchRequestOrigin.isWebRequestPresent()) {
