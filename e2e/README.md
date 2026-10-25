@@ -2,9 +2,12 @@
 
 An unattended, Docker Compose driven functional test of the whole plugin. It
 brings up a database and Liferay DXP, installs the plugin onto the running
-portal, restarts it as DESIGN.md 3.1 requires, creates content, runs real
-searches, generates a scale corpus, then exercises and asserts on the retention
-purge, the export archive and the funnel integration of DESIGN.md 10.
+portal, confirms the automatic rebind of DESIGN.md 3.1 (TO-140) picks up the
+search entry points without a restart, forces a genuine bypass of those same
+entry points, standing in for a rebind that failed, and confirms a restart is
+still what clears that, creates content, runs real searches, generates a
+scale corpus, then exercises and asserts on the retention purge, the export
+archive and the funnel integration of DESIGN.md 10.
 
 It is built for CI first. Every wait is bounded and named, teardown runs on
 failure as well as on success, results come out as JUnit XML, and nothing in
@@ -316,10 +319,11 @@ MySQL on Linux does not.
 | `stack-up` | The stack boots, the portal serves, an administrator can sign in, and the product version and license mode are what was expected |
 | `plugin-absent-baseline` | The SEL tables do not exist before installation, so their later presence means something |
 | `install-onto-running-portal` | All four bundles start on a portal that is already serving, and Service Builder creates both tables and their indexes |
-| `ec3-bypass-detected` | DESIGN.md 3.1: installed onto a running portal, the wrapper is registered and never called, and the plugin says so in the log and on its screen rather than leaving an empty table to be discovered |
+| `install-intercepts-without-restart` | TO-140: SearchConsumerRebinder rebinds the search entry points onto the wrapper automatically, off its own activation thread, with no restart; the registry shows the widget bundle on the wrapper, the admin screen shows no restart warning but does show the secondary-consumer info note, since service-layer consumers that activated before install are never rebound, the log carries the rebind's own INFO summary line and is otherwise clean, and the zero-result panel still renders its empty-log message, since nothing has searched yet |
+| `ec3-bypass-detected` | DESIGN.md 3.1/EC-3: standing in for a rebind that failed, this case forces the entry points off the wrapper itself, from outside the plugin, through the OSGi runtime (disabling the rebinder, then bouncing `LoggingSearcher`), and confirms the plugin still says so on its screen, rather than leaving an empty table to be discovered; nothing is logged on this path, since the rebinder that would log it was disabled first |
 | `stall-grace-period` | TO-112: the stall notification is suppressed while the cycle is within its first 24 hours, the false alarm the grace period exists to prevent |
 | `stall-notification` | DESIGN.md 3.6 condition 1 fires once the grace period has passed, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
-| `restart-clears-bypass` | The restart is what makes Liferay's search consumers bind the wrapper |
+| `restart-clears-bypass` | The restart is what makes the entry points `ec3-bypass-detected` forced onto the portal's own searcher bind the wrapper again, and it also clears the secondary-consumer info note, since a restart moves every consumer, not only the entry points |
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
@@ -343,8 +347,8 @@ MySQL on Linux does not.
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
-| `uninstall-and-reinstall` | TO-111: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled and restarted, interception is active, collection resumes and the collection start date is unchanged |
-| `lpkg-install` | TO-116, last, only with `--lpkg`: the jars removed and an `.lpkg` of the same jars dropped into the deploy folder, the way a Liferay Marketplace download is installed; after the restart Liferay asks for, the plugin's four bundles are Active and loaded from inside the `.lpkg`, interception is active, and searches are recorded |
+| `uninstall-and-reinstall` | TO-111/TO-140: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled, without a restart, the automatic rebind clears the bypass again, and exactly N Search Results widget searches for a distinct term produce exactly N newly captured events through `PortletSharedSearchRequestImpl`, settling the benign bundle-level artifact with evidence rather than assertion for that one entry point component; the legacy `SearchPortlet` and search bar suggestions are not exercised here and rest on their own component DTOs and the bytecode finding that neither bundle acquires a `Searcher` outside Declarative Services, and the collection start date is unchanged |
+| `lpkg-install` | TO-116, last, only with `--lpkg`: the jars removed and an `.lpkg` of the same jars dropped into the deploy folder, the way a Liferay Marketplace download is installed; after the restart Liferay itself requires for an `.lpkg`, the plugin's four bundles are Active and loaded from inside the `.lpkg`, interception is active, and searches are recorded |
 
 ## Reading the EXPORT permission case
 

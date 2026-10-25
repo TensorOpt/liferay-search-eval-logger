@@ -13,6 +13,7 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-133** Ranks are numbered from 1, as stored and as exported.
 - **TO-139** The blueprint driving a search is recorded and exported by external reference code too, Liferay's preferred way to name one, alongside its ID.
 - **TO-135** The export screen shows the share of searches that returned no results, overall and for guests and signed-in users, and the 20 most frequent zero-result queries, cached for an hour.
+- **TO-140** Installing or redeploying the plugin no longer needs a portal restart for the Search Results widget, shared search requests or search bar suggestions: an automatic rebind moves them onto the wrapper on its own. A secondary consumer such as Objects REST still needs a restart to join, and the export screen now says so separately from the "Restart required" banner.
 
 ### Fixes
 
