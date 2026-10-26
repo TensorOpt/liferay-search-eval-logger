@@ -365,6 +365,11 @@ def main(argv):
             requires=["content-and-searches"],
         )
         results.run(
+            "search-overhead",
+            lambda case: checks.search_overhead(context, case),
+            requires=["capture"],
+        )
+        results.run(
             "blueprint-preview-excluded",
             lambda case: checks.blueprint_preview_excluded(context, case),
             requires=["capture"],

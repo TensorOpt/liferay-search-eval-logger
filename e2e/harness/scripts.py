@@ -401,6 +401,85 @@ result = String.valueOf(role.getRoleId())
 # them to a verification screen instead of to the page they asked for, so
 # without this the permission test would read "no export form" as "refused"
 # when the real answer is "never got there".
+# D8: flips the company-scoped @Meta.OCD configuration's "enabled" flag
+# (DESIGN.md 5) for the search-overhead case, through the same
+# ConfigurationProvider.getCompanyConfiguration/saveCompanyConfiguration pair
+# SearchEvalLoggerConfigurationRegistry and the export background task use.
+# Every other attribute is read off the live, typed configuration first and
+# written straight back unchanged, so the round trip changes exactly the one
+# key the case means to change, never resetting captureDepth, retentionDays
+# or anything else to its declared default. The configuration interface is
+# loaded by name from the api bundle's own class loader, the same reason
+# __find looks services up by name: a Groovy script's own class loader does
+# not see plugin classes, only portal-kernel and the OSGi framework. Returns
+# the value "enabled" held before this call, so the caller can restore it.
+SET_CONFIGURATION_ENABLED = _SERVICE_PREAMBLE + """
+long companyId = %(company_id)dL
+boolean enabled = %(enabled)s
+
+def configurationClass = __bundleContext.getBundles().find {
+    it.getSymbolicName() == "ai.tensoropt.sel.api"
+}.loadClass("ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration")
+
+def configurationProvider = __find(
+    "com.liferay.portal.configuration.module.configuration.ConfigurationProvider")
+
+def current = __call(
+    configurationProvider, "getCompanyConfiguration",
+    [Class.class, long.class] as Class[],
+    [configurationClass, companyId] as Object[])
+
+def properties = new Hashtable()
+def previousEnabled = null
+
+for (method in configurationClass.getMethods()) {
+    if (method.getParameterCount() != 0) continue
+
+    def name = method.getName()
+
+    if (name in ["equals", "hashCode", "toString", "annotationType"]) continue
+
+    def value = method.invoke(current)
+
+    if (name == "enabled") previousEnabled = value
+
+    if (value != null) properties.put(name, value)
+}
+
+properties.put("enabled", enabled)
+
+__call(
+    configurationProvider, "saveCompanyConfiguration",
+    [Class.class, long.class, Dictionary.class] as Class[],
+    [configurationClass, companyId, properties] as Object[])
+
+result = String.valueOf(previousEnabled)
+"""
+
+# D8: the read-only half of SET_CONFIGURATION_ENABLED, polled after a toggle
+# so the case waits for the change to actually take effect rather than
+# assuming ConfigurationAdmin's write is visible the instant the call above
+# returns.
+CONFIGURATION_ENABLED = _SERVICE_PREAMBLE + """
+long companyId = %(company_id)dL
+
+def configurationClass = __bundleContext.getBundles().find {
+    it.getSymbolicName() == "ai.tensoropt.sel.api"
+}.loadClass("ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration")
+
+def configurationProvider = __find(
+    "com.liferay.portal.configuration.module.configuration.ConfigurationProvider")
+
+def current = __call(
+    configurationProvider, "getCompanyConfiguration",
+    [Class.class, long.class] as Class[],
+    [configurationClass, companyId] as Object[])
+
+def enabledMethod = configurationClass.getMethod("enabled")
+
+result = String.valueOf(enabledMethod.invoke(current))
+"""
+
 ACTIVATE_USER = """
 long companyId = %(company_id)dL
 

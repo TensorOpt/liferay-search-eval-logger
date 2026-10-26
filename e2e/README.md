@@ -246,6 +246,50 @@ the last 8 days against a threshold of 500. Lowering `--events` below about
 4,000 makes `funnel-readiness` unreachable, and the case says so when it
 fails.
 
+### Search overhead
+
+`search-overhead` is the e2e suite's own check of DESIGN.md 3's "no
+measurable impact on search latency" claim, run on whatever machine the
+suite happens to be on. It flips the plugin's `enabled` setting through
+`ConfigurationProvider.saveCompanyConfiguration`, the same API
+`SearchEvalLoggerConfigurationRegistry` reads, run through the script
+console the same way the daily jobs above are: every other configured
+value is read off the live configuration first and written straight back,
+so toggling `enabled` for this case never resets `captureDepth`,
+`retentionDays` or anything else this run configured.
+
+Searches run as a guest, interleaved in blocks (disabled, enabled,
+disabled, ...) rather than disabled-then-enabled, specifically so machine
+noise, a noisy neighbour on a shared CI runner, a GC pause, a moment of
+disk contention, lands on both states about equally instead of all on
+whichever one happens to run later. The case asserts the enabled median
+is at most 10% over the disabled median; `scripts/loadtest.py` is the
+actual measurement, with a bootstrap confidence interval, meant to be run
+by hand on a quiet, otherwise idle machine (see its own section below).
+
+**Noise risk.** A CI runner is not a quiet machine, and 10% is a coarse
+gate chosen to tolerate that rather than to prove a tight bound: on a
+busy shared runner a handful of searches can land slow for reasons that
+have nothing to do with this plugin, and the case is sized (90 searches
+per state, 6 blocks of 15, under about two minutes total) to keep the
+runtime reasonable rather than to drive the gate's variance down further.
+A failure here is worth re-running once before treating it as a
+regression; a consistent failure across runs is the signal that matters.
+
+### scripts/loadtest.py: the real overhead measurement
+
+Where `search-overhead` is a coarse pass/fail gate, `scripts/loadtest.py`
+(`make loadtest DB=... PORT=...`, same arguments as `make run`) is the
+measurement: it expects a portal `make run` already started, refuses with
+a clear message if none answers, toggles `enabled` the same way, warms
+up, then runs interleaved blocks of a guest Search Results widget search
+(`--blocks`, `--searches`, both configurable) and reports samples,
+median and p90 per state, the overhead ratio, and a 95% confidence
+interval for that ratio from a bootstrap over the per-request samples
+(`--seed` makes a run reproducible). Run it on a quiet, otherwise idle
+machine; a shared or busy one widens the interval without telling you
+anything about the plugin.
+
 ### The export is driven through its own screen
 
 The harness reads the export form's action URL off the rendered admin screen
@@ -329,6 +373,7 @@ MySQL on Linux does not.
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
+| `search-overhead` | DESIGN.md 3: guest Search Results widget searches run in interleaved blocks with collection disabled and enabled; the enabled median must be at most 10% over the disabled median. A coarse gate, not a measurement; see "Search overhead" below |
 | `blueprint-preview-excluded` | TO-141: a search from the Blueprint editor's Preview reaches the wrapper but is not logged; where the headless Search API is open, a Blueprint-driven search through it is logged with its Blueprint |
 | `zero-result-panel-seed` | TO-135: deliberate zero-result searches, as a guest and as a signed-in user, exercising the panel's grouping rule: the ASCII case fold (merged) and the accented trio (kept apart); verified once the `zero-result-panel` case downloads the archive these searches landed in |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
