@@ -43,7 +43,7 @@ from harness import checks, scripts  # noqa: E402
 from harness.portal import Portal  # noqa: E402
 from harness.stack import DATABASES, Stack  # noqa: E402
 from harness.util import log, run  # noqa: E402
-from run_e2e import MODULES, find_jars  # noqa: E402
+from run_e2e import required_jars  # noqa: E402
 
 PROJECT_PREFIX = "sel-dev"
 
@@ -64,10 +64,7 @@ def stack_for(options):
 
 
 def up(options):
-    jars = find_jars()
-
-    if len(jars) != len(MODULES):
-        sys.exit("Expected %d bundles, found %s. Run make build first." % (len(MODULES), jars))
+    jars = required_jars()
 
     stack = stack_for(options)
     portal = Portal(stack)
