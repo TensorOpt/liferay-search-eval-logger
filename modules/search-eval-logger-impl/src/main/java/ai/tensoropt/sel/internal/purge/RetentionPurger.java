@@ -35,15 +35,9 @@ import org.osgi.service.component.annotations.Reference;
  * </p>
  *
  * <p>
- * This replaces a batched, paused loop that deleted a hundred events and their
- * hits per pass. That design was protecting against a long single transaction,
- * which measurement did not support: on 400,000 events and 4,000,000 hits the
- * whole delete takes about thirteen seconds, and a day of the volume section
- * 4.5 projects takes under a fifth of a second. The batching cost far more
- * than it saved. Its per-pass pause meant the job slept for more than
- * ninety-seven percent of its runtime, and its pass cap put a ceiling of a
- * hundred thousand events on a single run, so any real backlog took days to
- * clear while the job spent almost all of that time doing nothing.
+ * This replaces a batched, paused loop that protected against a long
+ * single transaction. Measurement did not support keeping it; see
+ * DESIGN.md 3.4 for the numbers behind dropping it.
  * </p>
  *
  * <p>
@@ -92,14 +86,6 @@ public class RetentionPurger {
 		_clock = clock;
 	}
 
-	/**
-	 * Visible for testing, so a transaction failure can be simulated without
-	 * a running portal.
-	 */
-	void setTransactionInvoker(TransactionInvoker transactionInvoker) {
-		_transactionInvoker = transactionInvoker;
-	}
-
 	private int[] _delete(long companyId, Date cutoffDate) throws Exception {
 		try {
 			return _transactionInvoker.invoke(
@@ -141,6 +127,7 @@ public class RetentionPurger {
 		TransactionConfig.Factory.create(
 			Propagation.REQUIRED, new Class<?>[] {Exception.class});
 
-	private TransactionInvoker _transactionInvoker = TransactionInvokerUtil::invoke;
+	private TransactionInvoker _transactionInvoker =
+		TransactionInvokerUtil::invoke;
 
 }

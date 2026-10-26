@@ -115,14 +115,6 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 			new Date(capturedSearchEvent.getCreateTime()));
 	}
 
-	/**
-	 * Visible for testing, so a transaction failure can be simulated without
-	 * a running portal.
-	 */
-	void setTransactionInvoker(TransactionInvoker transactionInvoker) {
-		_transactionInvoker = transactionInvoker;
-	}
-
 	private void _addSearchEvent(CapturedSearchEvent capturedSearchEvent) {
 		long companyId = capturedSearchEvent.getCompanyId();
 
@@ -287,7 +279,8 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		TransactionConfig.Factory.create(
 			Propagation.REQUIRED, new Class<?>[] {Exception.class});
 
-	private TransactionInvoker _transactionInvoker = TransactionInvokerUtil::invoke;
+	private TransactionInvoker _transactionInvoker =
+		TransactionInvokerUtil::invoke;
 
 	@Reference
 	private UserLocalService _userLocalService;
