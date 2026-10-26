@@ -10,6 +10,27 @@ dependencies {
 	testImplementation group: "com.liferay.portal", name: "release.dxp.api"
 }
 
+// Service Builder 1.0.566 always writes generated files with the header
+// loaded from the classpath resource
+// "com/liferay/portal/tools/service/builder/dependencies/copyright.txt",
+// bundled inside its own jar, with no system property or resourcesDir
+// override for it (confirmed by decompiling ServiceBuilder#_write and
+// ServiceBuilder#_read(String)). The only way to replace it without
+// hand-editing generated code is to put a same-named resource earlier on
+// buildService's own classpath, so the classloader finds ours first. This
+// task copies this module's own copyright.txt, the single source of truth,
+// into that shadow path.
+tasks.register("copyServiceBuilderCopyright", Copy) {
+	from "copyright.txt"
+	into "build/serviceBuilderCopyright/com/liferay/portal/tools/service/builder/dependencies"
+}
+
 buildService {
 	apiDir = "../search-eval-logger-api/src/main/java"
+
+	dependsOn "copyServiceBuilderCopyright"
+
+	doFirst {
+		classpath = files("build/serviceBuilderCopyright") + classpath
+	}
 }
