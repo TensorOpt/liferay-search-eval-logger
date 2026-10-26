@@ -84,48 +84,33 @@ public final class EvaluationServiceLinks {
 	}
 
 	/**
-	 * The base visibility rule of 10.1, shared by the signup banner
-	 * ({@link #isSignupBannerVisible}) that is now the only thing that renders
-	 * it (TO-112): a start date exists, so an event has been persisted, and
-	 * interception is not being bypassed.
+	 * The signup banner of 10.1 (TO-112), which replaces the plain inline link
+	 * the section originally specified. Visible on the base rule a start date
+	 * exists, so an event has been persisted, and interception is not being
+	 * bypassed, plus one more: <code>signupBannerDismissed</code> must not
+	 * already be set, whether that came from an explicit dismissal or from
+	 * the administrator having clicked the banner's own link. Both are
+	 * local, in-portal state; see
+	 * <code>ai.tensoropt.sel.api.SignupBannerDismissal</code>.
 	 *
 	 * <p>
-	 * Both conditions matter for the same reason. The date carried to the
-	 * signup page is the date collection began, so offering the link on an
-	 * instance that is enabled but bypassed (3.1) would schedule a reminder
-	 * against a dataset that will never exist.
+	 * The date and interception conditions matter for the same reason. The
+	 * date carried to the signup page is the date collection began, so
+	 * offering the banner on an instance that is enabled but bypassed (3.1)
+	 * would schedule a reminder against a dataset that will never exist.
 	 * </p>
-	 */
-	public static boolean isCollectionStartLinkVisible(
-		boolean showEvaluationServiceLinks, boolean intercepting,
-		LocalDate collectionStartDate) {
-
-		if (!showEvaluationServiceLinks || !intercepting) {
-			return false;
-		}
-
-		return collectionStartDate != null;
-	}
-
-	/**
-	 * The signup banner of 10.1 (TO-112), which replaces the plain inline link
-	 * the section originally specified. Visible under exactly the same
-	 * conditions as {@link #isCollectionStartLinkVisible}, plus one more:
-	 * <code>signupBannerDismissed</code> must not already be set, whether that
-	 * came from an explicit dismissal or from the administrator having clicked
-	 * the banner's own link. Both are local, in-portal state; see
-	 * <code>ai.tensoropt.sel.api.SignupBannerDismissal</code>.
 	 */
 	public static boolean isSignupBannerVisible(
 		boolean showEvaluationServiceLinks, boolean intercepting,
 		LocalDate collectionStartDate, boolean signupBannerDismissed) {
 
-		if (signupBannerDismissed) {
+		if (signupBannerDismissed || !showEvaluationServiceLinks ||
+			!intercepting) {
+
 			return false;
 		}
 
-		return isCollectionStartLinkVisible(
-			showEvaluationServiceLinks, intercepting, collectionStartDate);
+		return collectionStartDate != null;
 	}
 
 	/**
