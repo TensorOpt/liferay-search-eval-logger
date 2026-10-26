@@ -72,8 +72,8 @@ public final class SearchEvalLoggerConstants {
 	public static final String FIELD_TITLE = "title";
 
 	/**
-	 * Key under which a notification's payload carries which of the two
-	 * conditions in DESIGN.md 3.6 fired.
+	 * Key under which a notification's payload carries which of the three
+	 * notifications in DESIGN.md 3.6 fired.
 	 */
 	public static final String NOTIFICATION_PAYLOAD_KEY_TYPE =
 		"notificationType";
