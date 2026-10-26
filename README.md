@@ -178,7 +178,7 @@ You will also get a "Search logging is now collecting" notification.
 The archive holds:
 
 - `events.jsonl`: one search per line, with its results nested;
-- `manifest.json`: the archive's `format_version` (the plugin's major.minor, e.g. `1.0`; every patch release of it writes the same format), date range, counts, the settings in force, the filtering counters and per-field coverage;
+- `manifest.json`: the archive's `format_version` (the plugin's major.minor, e.g. `1.0`; every patch release of it writes the same format), the company ID, when it was exported, date range, counts, the settings in force, the filtering counters and per-field coverage;
 - `README.md`: the schema and the caveats needed to read the data correctly.
 
 The same screen also shows a **zero-result panel**: the share of searches that returned nothing, overall and separately for guests and signed-in users, plus the 20 most frequent zero-result queries (grouped by trimming spaces and ignoring case). It is computed from the existing log only, for the whole retention window, at most once an hour per virtual instance, so the figures can be up to an hour old; Control Panel > Server Administration > "Clear content cached by this VM" refreshes them sooner. Nothing new is collected and nothing is sent anywhere. It needs the same **Export Search Evaluation Data** permission as the export above, since it shows query text that permission already grants through an export.
