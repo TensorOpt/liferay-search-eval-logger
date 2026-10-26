@@ -48,7 +48,7 @@ Results land in `e2e/results`:
 
 - `junit.xml`, for the CI system
 - `report.txt`, the same thing for a person
-- `logs/`, the Liferay and PostgreSQL container logs, collected on failure
+- `logs/`, the Liferay and database container logs, collected on failure
 - `export.zip` and `export-range.zip`, the archives the export cases produced
 
 ## Prerequisites
@@ -93,8 +93,9 @@ The image ships no activation key, and the portal logs `License registered for
 DXP Development` on startup. Nothing the harness asserts depends on a licensed
 feature: interception, capture, the purge, the export and the funnel links are
 all base DXP. Blueprints run on this license too: EC-6 and EC-13 in DESIGN.md
-section 7 were measured on this stack by hand, though the suite does not
-exercise them.
+section 7 were measured on this stack by hand for the widget-applied case.
+The suite itself exercises the TO-141 Blueprint editor Preview exclusion and
+one headless Blueprint-driven search (`blueprint-preview-excluded`).
 
 ### Collection is enabled from a file, and then proved
 
@@ -123,9 +124,9 @@ and was silently ignored. The rationale lives in this README instead.
 ### The daily jobs are triggered through the script console
 
 The retention purge and the collection cycle check are both
-`SchedulerJobConfiguration` jobs on a one day trigger. A CI run cannot wait a
-day, and neither job has, or should have, a trigger of its own for tests to
-call.
+`SchedulerJobConfiguration` jobs on a daily cron trigger (03:00 and 03:30
+respectively). A CI run cannot wait a day, and neither job has, or should
+have, a trigger of its own for tests to call.
 
 The harness uses Server Administration's Groovy script console, which is a
 stock DXP administration feature, to look each service up in the OSGi registry
@@ -213,9 +214,9 @@ not attempted.
 **`--scale full` is therefore an unverified path.** What can be said is that
 the code it runs is the same code the other two tiers run, with larger numbers
 in three parameters, and that the medium tier figures extrapolate to roughly
-the figures DESIGN.md 3.4 and the repository README already record from the
-developer's own instance (about 13 s to purge a large backlog, about two and a
-half minutes to export 600,000 events).
+the figures DESIGN.md 3.4 (the purge) and DESIGN.md 6.1 (the export) already
+record from the developer's own instance (about 13 s to purge a large
+backlog, about two and a half minutes to export 600,000 events).
 
 Table size is not the only thing to budget for, and probably not the thing that
 would stop it first. The export's query ends
@@ -322,29 +323,31 @@ MySQL on Linux does not.
 | `install-intercepts-without-restart` | TO-140: SearchConsumerRebinder rebinds the search entry points onto the wrapper automatically, off its own activation thread, with no restart; the registry shows the widget bundle on the wrapper, the admin screen shows no restart warning but does show the secondary-consumer info note, since service-layer consumers that activated before install are never rebound, the log carries the rebind's own INFO summary line and is otherwise clean, and the zero-result panel still renders its empty-log message, since nothing has searched yet |
 | `ec3-bypass-detected` | DESIGN.md 3.1/EC-3: standing in for a rebind that failed, this case forces the entry points off the wrapper itself, from outside the plugin, through the OSGi runtime (disabling the rebinder, then bouncing `LoggingSearcher`), and confirms the plugin still says so on its screen, rather than leaving an empty table to be discovered; nothing is logged on this path, since the rebinder that would log it was disabled first |
 | `stall-grace-period` | TO-112: the stall notification is suppressed while the cycle is within its first 24 hours, the false alarm the grace period exists to prevent |
-| `stall-notification` | DESIGN.md 3.6 condition 1 fires once the grace period has passed, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is the runtime half of EC-14 |
+| `stall-notification` | DESIGN.md 3.6 notification 2 (stall) fires once the grace period has passed, the notification reaches `UserNotificationEvent`, and it appears in the administrator's own notifications list, which is EC-14 delivery |
 | `restart-clears-bypass` | The restart is what makes the entry points `ec3-bypass-detected` forced onto the portal's own searcher bind the wrapper again, and it also clears the secondary-consumer info note, since a restart moves every consumer, not only the entry points |
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `blueprint-preview-excluded` | TO-141: a search from the Blueprint editor's Preview reaches the wrapper but is not logged; where the headless Search API is open, a Blueprint-driven search through it is logged with its Blueprint |
+| `zero-result-panel-seed` | TO-135: deliberate zero-result searches, as a guest and as a signed-in user, exercising the panel's case-fold and accent-fold grouping rule so the rows merge correctly once the archive `zero-result-panel` checks is downloaded |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
 | `collection-started-notification` | TO-112: exactly one "collection started" notification per cycle, fired from the persistence path rather than the daily job, none for a later event in the same cycle, and a new cycle re-arms it |
 | `email-delivery-preference` | EC-15 (TO-112): `UserNotificationManagerUtil.fetchUserNotificationDefinition` finds the registered definition and `isDeliver` answers true for email for an administrator who never set a preference. Not evidence of delivery - the stack has no SMTP sink - only of the gate `CollectionNotifier` checks |
 | `scale-data` | The corpus is written, and every hit's duplicated `companyId` and `createDate` match its event's |
 | `retention-purge` | DESIGN.md 3.4: everything past the window goes, everything inside it stays, no orphan hits are left, and a run with nothing to delete finishes inside a loose bound that a delete no longer using its index would break |
-| `funnel-readiness` | DESIGN.md 3.6 condition 2, against the configured thresholds, with the notification stored, shown in the administrator's notifications list, and the banner rendered |
+| `funnel-readiness` | DESIGN.md 3.6 notification 3 (readiness), against the configured thresholds, with the notification stored, shown in the administrator's notifications list, and the banner rendered |
 | `export` | DESIGN.md 6.1: the action starts a background task that completes and offers a download |
 | `export-archive-name` | DESIGN.md 6.2 names the archive for the range that was requested, asserted as an exact string |
 | `export-archive-contents` | DESIGN.md 6.2, entry by entry and key by key, including the effective configuration read back, and every id and count in the manifest a JSON number |
+| `zero-result-panel` | DESIGN.md 6/TO-135: the zero-result panel's own figures against the acceptance recipes, over the whole retention window including every other case's rows, and the one-hour cache proven by emptying it and re-rendering |
 | `export-range-is-honoured` | DESIGN.md 6.1: a narrow window exports exactly the rows that window holds, counted independently in the database |
+| `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-archive-vendor-neutral` | DESIGN.md 10.4: no evaluation service link and no UTM tag inside the archive |
 | `funnel-links` | DESIGN.md 10.1 and 10.3 |
 | `funnel-zero-egress` | D9, as far as a rendered page can be inspected |
 | `signup-banner` | DESIGN.md 10.1/10.2 (TO-112): the signup banner is shown under the same conditions as the link it replaces, and dismissing it through its own resource URL hides it and persists `signupBannerDismissed` |
 | `export-foreign-download` | TO-91: the export's download URL, given another background task's id, does not serve that task's attachment, while its own id still serves the archive |
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
-| `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
 | `uninstall-and-reinstall` | TO-111/TO-140: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR beyond `UNINSTALL_TOLERATED`'s narrowly named rules (see below), and the data is untouched; reinstalled, without a restart, the automatic rebind clears the bypass again, and exactly N Search Results widget searches for a distinct term produce exactly N newly captured events through `PortletSharedSearchRequestImpl`, settling the benign bundle-level artifact with evidence rather than assertion for that one entry point component; the legacy `SearchPortlet` and search bar suggestions are not exercised here and rest on their own component DTOs and the bytecode finding that neither bundle acquires a `Searcher` outside Declarative Services, and the collection start date is unchanged |
@@ -391,10 +394,10 @@ failure, while this says the whiteboard the cascade disturbed came back.
 
 ## Reading the EXPORT permission case
 
-The repository README records that the `EXPORT` permission has only ever been
-exercised by an administrator who holds it, and that refusing a user who does
-not was untested. This case tests it, and the shape of the evidence matters
-because the obvious reading of the result is wrong.
+Until this case existed, the `EXPORT` permission had only ever been exercised
+by an administrator who holds it, and refusing a user who does not was
+untested. This case tests it, and the shape of the evidence matters because
+the obvious reading of the result is wrong.
 
 The direct POST to the export action **answers HTTP 200**. That is not a
 refusal by itself and the case does not treat it as one: Liferay renders a
@@ -457,7 +460,7 @@ disagrees. None of them is rewritten to expect the failure.
 
 ## Testing the tests
 
-`selftest.py` runs 98 discrimination checks in about a second, with no Docker
+`selftest.py` runs 163 discrimination checks (at the time of writing) in about a second, with no Docker
 and no portal. For each assertion the suite makes, it builds a good fixture,
 mutates it in the way the assertion exists to notice, and fails if the
 assertion accepts the mutation.
