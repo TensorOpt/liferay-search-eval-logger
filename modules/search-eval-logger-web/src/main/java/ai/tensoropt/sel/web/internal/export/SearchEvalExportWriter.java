@@ -421,6 +421,26 @@ public class SearchEvalExportWriter {
 		return jsonObject;
 	}
 
+	/**
+	 * Visible for testing, so the writer can be exercised without an OSGi
+	 * container.
+	 */
+	void setJSONFactory(JSONFactory jsonFactory) {
+		_jsonFactory = jsonFactory;
+	}
+
+	void setSearchEvalExportManifestBuilder(
+		SearchEvalExportManifestBuilder searchEvalExportManifestBuilder) {
+
+		_searchEvalExportManifestBuilder = searchEvalExportManifestBuilder;
+	}
+
+	void setSearchEventLocalService(
+		SearchEventLocalService searchEventLocalService) {
+
+		_searchEventLocalService = searchEventLocalService;
+	}
+
 	private static final String _EVENTS_FILE_NAME = "events.jsonl";
 
 	private static final String _EVENT_TEMPLATE =
@@ -447,26 +467,6 @@ public class SearchEvalExportWriter {
 
 	private static final Log _log = LogFactoryUtil.getLog(
 		SearchEvalExportWriter.class);
-
-	/**
-	 * Visible for testing, so the writer can be exercised without an OSGi
-	 * container.
-	 */
-	void setJSONFactory(JSONFactory jsonFactory) {
-		_jsonFactory = jsonFactory;
-	}
-
-	void setSearchEvalExportManifestBuilder(
-		SearchEvalExportManifestBuilder searchEvalExportManifestBuilder) {
-
-		_searchEvalExportManifestBuilder = searchEvalExportManifestBuilder;
-	}
-
-	void setSearchEventLocalService(
-		SearchEventLocalService searchEventLocalService) {
-
-		_searchEventLocalService = searchEventLocalService;
-	}
 
 	@Reference
 	private JSONFactory _jsonFactory;
