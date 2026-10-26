@@ -74,7 +74,7 @@ public class RetentionPurger {
 
 		int[] deleted = _delete(companyId, cutoffDate);
 
-		if ((deleted[0] > 0) && _log.isInfoEnabled()) {
+		if (((deleted[0] + deleted[1]) > 0) && _log.isInfoEnabled()) {
 			_log.info(
 				String.format(
 					"Purged %d search events and %d hits older than %s for " +
