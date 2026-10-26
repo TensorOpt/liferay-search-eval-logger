@@ -95,15 +95,6 @@ def _value(text, path, number):
     if text.startswith('I"') and text.endswith('"'):
         return int(text[2:-1])
 
-    if text.startswith('L"') and text.endswith('"'):
-        return int(text[2:-1])
-
-    if text.startswith('D"') and text.endswith('"'):
-        return float(text[2:-1])
-
-    if text.startswith('"') and text.endswith('"'):
-        return text[1:-1]
-
     raise HarnessError(
         "%s line %d uses a configuration type this reader does not know: %r"
         % (path, number, text)
