@@ -55,8 +55,10 @@ public interface SearchEvalLoggerStatistics {
 	public long getObservedSearchCount();
 
 	/**
-	 * Searches that carried user keywords, the admission filter's strongest
-	 * discriminator (DESIGN.md 3.2, condition 1).
+	 * Searches that passed condition 1, the admission filter's strongest
+	 * discriminator (DESIGN.md 3.2): those carrying user keywords, plus any
+	 * keyword-free search admitted instead because facet-only admission is
+	 * on and facet selections were found.
 	 */
 	public long getKeywordSearchCount();
 
