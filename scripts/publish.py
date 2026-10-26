@@ -17,9 +17,10 @@ in seconds rather than after the e2e suite. It checks everything that could
 stop a release halfway: the tokens, the tag not already fully released on
 both GitLab and GitHub, that tag not already pointing somewhere other than
 HEAD on either side, the commit being on GitHub already (GitLab's push
-mirror puts it there), and the two evaluation service pages plus the
-README's search log guide page answering, since every installed copy
-links to them.
+mirror puts it there), and two groups of pages answering: the two
+evaluation service pages, which every installed copy links to (10.1, 10.3),
+plus the README's own search log guide page, which only the project's
+README links to, not an installed copy of the plugin.
 
 publish is retry-safe: each side skips itself once its own release already
 exists and is complete (see publish_gitlab/publish_github), so a run that

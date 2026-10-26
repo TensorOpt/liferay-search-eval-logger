@@ -73,8 +73,9 @@ GitHub is a distribution channel, reached by GitLab's push mirror and by
   own, already tested, `build/dist`; it never rebuilds or retests. Preflight
   covers the tokens, the tag not already fully released on both GitLab and
   GitHub, that tag not already pinned to some other commit on either side,
-  the commit being on GitHub, and both evaluation service pages answering
-  200. `publish.py` refuses a `build/dist` whose `package-commit.json` marker
+  the commit being on GitHub, and the two evaluation service pages plus the
+  README's own search log guide page all answering 200. `publish.py`
+  refuses a `build/dist` whose `package-commit.json` marker
   is missing, dirty, or not for HEAD. `publish` itself is retry-safe: a side
   already holding a complete release is skipped rather than redone, so a run
   that failed halfway can be re-run unchanged.
