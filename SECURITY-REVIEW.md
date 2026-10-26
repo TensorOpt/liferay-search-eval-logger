@@ -312,8 +312,9 @@ named (`DESIGN.md` §7). The following are explicitly **not** verified, and
 this section does not soften any of them:
 
 - **EC-9 (DXP Cloud).** Never deployed there; verified only against
-  self-managed instances (DXP 2025.Q1.27 and 2026.Q3.8) (`DESIGN.md` §7, EC-9).
-- **The runtime half of EC-14 — whose identity a notification resolves to.**
+  self-managed instances (DXP 2025.Q1.27, 2026.Q1.13 and 2026.Q3.8)
+  (`DESIGN.md` §7, EC-9).
+- **The runtime half of EC-14, whose identity a notification resolves to.**
   Delivery itself is confirmed; whether `PrincipalThreadLocal` reliably
   carries the enabling administrator inside the configuration listener that
   supplies it has not been observed, only reasoned about (`DESIGN.md` §7,
@@ -330,12 +331,12 @@ this section does not soften any of them:
   has never been tested against a second node.
 - **Databases other than PostgreSQL 15, MySQL 8.4 and MariaDB 11.4 (for
   example Oracle, SQL Server, DB2): not run.**
-- **EC-7 — the scheduler actually firing a job.** Both the purge and the
+- **EC-7, the scheduler actually firing a job.** Both the purge and the
   daily collection-cycle check are confirmed scheduled at the right time of
   day, and both jobs' logic is exercised directly, but no test has waited
   until the scheduled time to observe Liferay's own scheduler fire either one
-  (`DESIGN.md` §7, EC-7; README "Requirements", "Not yet verified").
-- **EC-10 — how much of a production instance's traffic is internal.** The
+  (`DESIGN.md` §7, EC-7).
+- **EC-10, how much of a production instance's traffic is internal.** The
   admission filter's keyword condition was measured only on an otherwise idle
   instance (18 searches observed, 8 removed by the keyword condition), where
   the denominator is dominated by test searches rather than real traffic.
