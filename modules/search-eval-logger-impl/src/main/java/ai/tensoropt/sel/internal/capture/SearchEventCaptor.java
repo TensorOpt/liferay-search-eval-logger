@@ -583,12 +583,12 @@ public class SearchEventCaptor {
 		return truncated;
 	}
 
+	// TO-139: Liferay's preferred way to name a blueprint, stable across
+	// instances; the ID attribute is the older one. Both are recorded.
+
 	// Column widths from portlet-model-hints.xml in the service module. Values
 	// are truncated here rather than at the database, so these must move
 	// together with that file.
-
-	// TO-139: Liferay's preferred way to name a blueprint, stable across
-	// instances; the ID attribute is the older one. Both are recorded.
 
 	private static final String
 		_BLUEPRINT_EXTERNAL_REFERENCE_CODE_ATTRIBUTE_NAME =

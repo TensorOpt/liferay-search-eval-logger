@@ -188,14 +188,14 @@ public class LoggingSearcher implements Searcher {
 	 * EC-3 is resolved, and this filter is the judgment call it concerns.
 	 *
 	 * Binding on the absence of this component's own marker property, rather
-	 * than on "(!(service.ranking=100))" as the design doc drafts it, is
-	 * deliberate. Filtering by ranking excludes every service at ranking 100,
-	 * which is both too much and too little: too much, because a second
-	 * plugin that legitimately wraps Searcher at the same ranking would become
-	 * invisible to this one instead of being delegated to, breaking the chain;
-	 * too little, because it stops protecting against self-binding the moment
-	 * this component's own ranking is changed. A marker property cannot match
-	 * this component under any ranking, and leaves any other wrapper reachable.
+	 * than on "(!(service.ranking=100))", is deliberate. Filtering by ranking
+	 * excludes every service at ranking 100, which is both too much and too
+	 * little: too much, because a second plugin that legitimately wraps
+	 * Searcher at the same ranking would become invisible to this one instead
+	 * of being delegated to, breaking the chain; too little, because it stops
+	 * protecting against self-binding the moment this component's own ranking
+	 * is changed. A marker property cannot match this component under any
+	 * ranking, and leaves any other wrapper reachable.
 	 *
 	 * An absent property makes the negation true in OSGi filter semantics, so
 	 * the portal's own unranked Searcher matches.
