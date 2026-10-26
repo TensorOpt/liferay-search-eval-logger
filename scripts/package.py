@@ -46,6 +46,7 @@ import argparse
 import hashlib
 import json
 import os
+import pathlib
 import re
 import shutil
 import subprocess
@@ -144,7 +145,9 @@ def write_deterministic_zip(path, entries):
 
 
 def write_lpkg(path, jars, version):
-    entries = [(os.path.basename(jar), open(jar, "rb").read()) for jar in jars]
+    entries = [
+        (os.path.basename(jar), pathlib.Path(jar).read_bytes()) for jar in jars
+    ]
     entries.append(
         (
             "liferay-marketplace.properties",
@@ -174,7 +177,10 @@ def write_jars_zip(path, files):
     downloads folder does not scatter the files among everything else."""
     folder = os.path.basename(path)[: -len(".zip")]
     entries = [
-        ("%s/%s" % (folder, os.path.basename(file_)), open(file_, "rb").read())
+        (
+            "%s/%s" % (folder, os.path.basename(file_)),
+            pathlib.Path(file_).read_bytes(),
+        )
         for file_ in files
     ]
 
