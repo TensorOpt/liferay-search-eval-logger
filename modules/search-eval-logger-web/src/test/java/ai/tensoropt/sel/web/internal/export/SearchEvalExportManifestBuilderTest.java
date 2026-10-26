@@ -273,11 +273,11 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	/**
-	 * Finding 4 (TO-144 round 2): unlike captured_field_names,
-	 * excluded_entry_class_names must reach the manifest raw. AdmissionFilter
-	 * compares a configured excluded entry class name as-is, with no
-	 * trimming of its own, so a manifest that trimmed it would claim a class
-	 * is excluded that the filter never actually matches.
+	 * Unlike captured_field_names, excluded_entry_class_names must reach the
+	 * manifest raw (TO-144): AdmissionFilter compares a configured excluded
+	 * entry class name as-is, with no trimming of its own, so a manifest
+	 * that trimmed it would claim a class is excluded that the filter never
+	 * actually matches.
 	 */
 	@Test
 	public void excludedEntryClassNamesReachTheManifestUntrimmed() {
@@ -438,10 +438,10 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	/**
-	 * Finding 5: every test above pins that one key is put with its value,
-	 * none of them would fail if a key were renamed or a new one added
-	 * alongside it, since each is a positive verify() against a loosely
-	 * stubbed, shared mock. This backs the built JSONObject with a real map
+	 * Every test above pins that one key is put with its value; none of
+	 * them would fail if a key were renamed or a new one added alongside
+	 * it, since each is a positive verify() against a loosely stubbed,
+	 * shared mock. This backs the built JSONObject with a real map
 	 * (the same fake FacetExtractorTest and SearchEventCaptorTest use, for
 	 * the same reason), so the exact set of keys at both the top level and
 	 * inside "configuration" can be read back and compared, not merely
@@ -487,15 +487,15 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	/**
-	 * Finding 5: AudienceType, SourceType and FacetCaptureStatus each name an
-	 * enum whose {@code name()} is both persisted (SEL_SearchEvent's
+	 * AudienceType, SourceType and FacetCaptureStatus each name an enum
+	 * whose {@code name()} is both persisted (SEL_SearchEvent's
 	 * corresponding column) and exported (events.jsonl's corresponding
 	 * field), so renaming, adding or removing a constant changes data this
 	 * plugin has already written and archives it has already produced, not
 	 * just this test. Pinned here, by name, with the export-format tests,
 	 * rather than back in the api module as a literal-against-itself
-	 * assertion with nothing independent to compare against (round 1,
-	 * fd930ea, deleted the three per-enum tests that did exactly that).
+	 * assertion with nothing independent to compare against (TO-144
+	 * deleted the three per-enum tests that did exactly that).
 	 */
 	@Test
 	public void theEnumNamesPersistedAndExportedAreExactlyThese() {
