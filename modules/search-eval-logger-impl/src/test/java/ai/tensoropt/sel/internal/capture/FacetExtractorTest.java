@@ -7,6 +7,7 @@ package ai.tensoropt.sel.internal.capture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -328,7 +329,7 @@ public class FacetExtractorTest {
 		// absorbed by an unmatched mock call.
 
 		when(
-			jsonArray.put(org.mockito.ArgumentMatchers.nullable(String.class))
+			jsonArray.put(nullable(String.class))
 		).thenAnswer(
 			invocation -> {
 				backing.add(invocation.getArgument(0));

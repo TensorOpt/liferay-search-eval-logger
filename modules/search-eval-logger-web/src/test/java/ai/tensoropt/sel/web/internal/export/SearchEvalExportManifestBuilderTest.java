@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.mockito.invocation.InvocationOnMock;
 import org.osgi.framework.Version;
 
 /**
@@ -426,14 +428,12 @@ public class SearchEvalExportManifestBuilderTest {
 		verify(
 			_jsonObject
 		).put(
-			eq("plugin_version"), org.mockito.ArgumentMatchers.nullable(
-				String.class)
+			eq("plugin_version"), nullable(String.class)
 		);
 		verify(
 			_jsonObject
 		).put(
-			eq("liferay_version"), org.mockito.ArgumentMatchers.nullable(
-				String.class)
+			eq("liferay_version"), nullable(String.class)
 		);
 	}
 
@@ -585,9 +585,7 @@ public class SearchEvalExportManifestBuilderTest {
 			invocation -> _put(backing, jsonObject, invocation)
 		);
 		when(
-			jsonObject.put(
-				anyString(), org.mockito.ArgumentMatchers.nullable(
-					String.class))
+			jsonObject.put(anyString(), nullable(String.class))
 		).thenAnswer(
 			invocation -> _put(backing, jsonObject, invocation)
 		);
@@ -601,23 +599,13 @@ public class SearchEvalExportManifestBuilderTest {
 		).thenAnswer(
 			invocation -> backing.get(invocation.getArgument(0))
 		);
-		when(
-			jsonObject.length()
-		).thenAnswer(
-			invocation -> backing.size()
-		);
-		when(
-			jsonObject.toString()
-		).thenAnswer(
-			invocation -> backing.toString()
-		);
 
 		return jsonObject;
 	}
 
 	private JSONObject _put(
 		Map<String, Object> backing, JSONObject jsonObject,
-		org.mockito.invocation.InvocationOnMock invocation) {
+		InvocationOnMock invocation) {
 
 		backing.put(invocation.getArgument(0), invocation.getArgument(1));
 
@@ -625,9 +613,7 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	private JSONArray _newJSONArray() {
-		JSONArray jsonArray = mock(JSONArray.class, RETURNS_SELF);
-
-		return jsonArray;
+		return mock(JSONArray.class, RETURNS_SELF);
 	}
 
 	private static final Set<String> _CONFIGURATION_KEYS = Set.of(
