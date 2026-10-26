@@ -9,8 +9,6 @@ import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import java.util.Date;
 import java.util.Map;
 
-import org.osgi.service.component.annotations.Component;
-
 /**
  * Builds the archive's <code>README.md</code> (DESIGN.md 6.2).
  *
@@ -21,11 +19,15 @@ import org.osgi.service.component.annotations.Component;
  * disclaimer: each one changes how a metric computed over these rows should be
  * read.
  * </p>
+ *
+ * <p>
+ * Stateless, so it is a plain static method rather than an OSGi component: it
+ * has nothing to inject and nothing a caller would ever need to mock.
+ * </p>
  */
-@Component(service = SearchEvalExportReadmeBuilder.class)
-public class SearchEvalExportReadmeBuilder {
+public final class SearchEvalExportReadmeBuilder {
 
-	public String build(
+	public static String build(
 		Date startDate, Date endDate,
 		SearchEvalExportResult searchEvalExportResult,
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration) {
@@ -83,7 +85,7 @@ public class SearchEvalExportReadmeBuilder {
 	 * would put the word "null" in front of an evaluator as though it were the
 	 * date, so it is named here instead.
 	 */
-	private String _format(Date date) {
+	private static String _format(Date date) {
 		String formattedDate = ExportTimestamps.format(date);
 
 		if (formattedDate == null) {
@@ -93,7 +95,7 @@ public class SearchEvalExportReadmeBuilder {
 		return formattedDate;
 	}
 
-	private String _getCoverageSection(
+	private static String _getCoverageSection(
 		SearchEvalExportResult searchEvalExportResult) {
 
 		Map<String, Double> fieldCoverageRates =
@@ -211,23 +213,23 @@ public class SearchEvalExportReadmeBuilder {
 											"nondeterministic. Segregate or " +
 												"discard those rows.\n\n";
 
-	private static final String _SNIPPET_SHAPE =
-		"`snippet` is an object keyed by locale, or `_default` for a " +
-			"field whose name carries no locale this installation " +
-				"recognises, then by field, each field's fragments an " +
-					"array. ";
-
 	private static final String _FIELD_COVERAGE =
 		"**Field coverage is a property of this installation, not of the " +
 			"collector.** Titles and snippets were recorded only where the " +
 				"search response already contained them, and snippets " +
 					"generally appear only where the search UI had " +
-						"highlighting switched on. " +
-							_SNIPPET_SHAPE +
-								"Check `field_coverage_rates` in `manifest.json` before " +
-									"designing a judging pass. Thin coverage is fixed by " +
-										"changing that installation's search configuration, not " +
-											"the export.\n\n";
+						"highlighting switched on. `snippet` is an object " +
+							"keyed by locale, or `_default` for a field whose " +
+								"name carries no locale this installation " +
+									"recognises, then by field, each field's " +
+										"fragments an array. Check " +
+											"`field_coverage_rates` in " +
+												"`manifest.json` before designing a " +
+													"judging pass. Thin coverage is " +
+														"fixed by changing that " +
+															"installation's search " +
+																"configuration, not the " +
+																	"export.\n\n";
 
 	private static final String _HANDLING =
 		"## Handling\n\nThese rows are user-submitted text from a production " +

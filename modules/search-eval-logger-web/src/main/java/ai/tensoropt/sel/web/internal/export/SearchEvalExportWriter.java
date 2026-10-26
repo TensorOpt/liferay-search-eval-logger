@@ -118,7 +118,7 @@ public class SearchEvalExportWriter {
 
 			_write(
 				zipOutputStream,
-				_searchEvalExportReadmeBuilder.build(
+				SearchEvalExportReadmeBuilder.build(
 					startDate, endDate, searchEvalExportResult,
 					searchEvalLoggerConfiguration));
 
@@ -224,7 +224,6 @@ public class SearchEvalExportWriter {
 		zipOutputStream.write(content.getBytes(StandardCharsets.UTF_8));
 	}
 
-
 	private void _writeEvents(
 			ZipOutputStream zipOutputStream, long companyId, Date startDate,
 			Date endDate, SearchEvalExportResult searchEvalExportResult)
@@ -282,8 +281,7 @@ public class SearchEvalExportWriter {
 			// indistinguishable from no hit at all.
 
 			if (resultSet.getObject("searchHitId") != null) {
-				_currentHitsJSONArray.put(
-					_toHitJSONObject(resultSet, _searchEvalExportResult));
+				_currentHitsJSONArray.put(_toHitJSONObject(resultSet));
 			}
 		}
 
@@ -301,6 +299,76 @@ public class SearchEvalExportWriter {
 
 			_currentEventJSONObject = null;
 			_currentHitsJSONArray = null;
+		}
+
+		private void _countCoverage(
+				ResultSet resultSet, JSONObject snippetJSONObject,
+				JSONObject extraFieldsJSONObject)
+			throws Exception {
+
+			_searchEvalExportResult.incrementHitCount();
+
+			if (Validator.isNotNull(resultSet.getString("title"))) {
+				_searchEvalExportResult.incrementFieldCount(
+					SearchEvalLoggerConstants.FIELD_TITLE);
+			}
+
+			if (snippetJSONObject != null) {
+				_searchEvalExportResult.incrementFieldCount(
+					SearchEvalLoggerConstants.FIELD_SNIPPET);
+			}
+
+			for (String fieldName : extraFieldsJSONObject.keySet()) {
+				if (Validator.isNotNull(
+						extraFieldsJSONObject.getString(fieldName))) {
+
+					_searchEvalExportResult.incrementFieldCount(fieldName);
+				}
+			}
+		}
+
+		private JSONObject _toHitJSONObject(ResultSet resultSet)
+			throws Exception {
+
+			JSONObject jsonObject = _createFromTemplate(_HIT_TEMPLATE);
+
+			jsonObject.put("rank", resultSet.getInt("rank_"));
+			jsonObject.put("score", resultSet.getDouble("score"));
+			_put(jsonObject, "doc_uid", resultSet.getString("docUid"));
+			_put(
+				jsonObject, "entry_class_name",
+				resultSet.getString("entryClassName"));
+			jsonObject.put(
+				"entry_class_pk",
+				Long.valueOf(resultSet.getLong("entryClassPK")));
+			_put(jsonObject, "title", resultSet.getString("title"));
+
+			// Stored as JSON (TO-115: an object keyed by locale then field,
+			// each field's fragments an array), so it is re-embedded the same
+			// way applied_facets and extra_fields are, rather than put as a
+			// string. Parsed once and the parsed object handed to both the
+			// put below and _countCoverage, so a value that fails to parse is
+			// counted the same way it is exported (null), rather than
+			// counted as covered from the raw column while the exported
+			// value is null.
+
+			JSONObject snippetJSONObject = _toJSONObject(
+				resultSet.getString("snippet"));
+
+			_put(jsonObject, "snippet", snippetJSONObject);
+
+			JSONObject extraFieldsJSONObject = _toJSONObject(
+				resultSet.getString("extraFields"));
+
+			if (extraFieldsJSONObject == null) {
+				extraFieldsJSONObject = _jsonFactory.createJSONObject();
+			}
+
+			jsonObject.put("extra_fields", extraFieldsJSONObject);
+
+			_countCoverage(resultSet, snippetJSONObject, extraFieldsJSONObject);
+
+			return jsonObject;
 		}
 
 		private JSONArray _currentHitsJSONArray;
@@ -353,79 +421,6 @@ public class SearchEvalExportWriter {
 		return jsonObject;
 	}
 
-	private JSONObject _toHitJSONObject(
-			ResultSet resultSet,
-			SearchEvalExportResult searchEvalExportResult)
-		throws Exception {
-		JSONObject jsonObject = _createFromTemplate(_HIT_TEMPLATE);
-
-		jsonObject.put("rank", resultSet.getInt("rank_"));
-		jsonObject.put("score", resultSet.getDouble("score"));
-		_put(jsonObject, "doc_uid", resultSet.getString("docUid"));
-		_put(
-			jsonObject, "entry_class_name",
-			resultSet.getString("entryClassName"));
-		jsonObject.put(
-			"entry_class_pk", Long.valueOf(resultSet.getLong("entryClassPK")));
-		_put(jsonObject, "title", resultSet.getString("title"));
-
-		// Stored as JSON (TO-115: an object keyed by locale then field, each
-		// field's fragments an array), so it is re-embedded the same way
-		// applied_facets and extra_fields are, rather than put as a string.
-		// Parsed once and the parsed object handed to both the put below and
-		// _countCoverage, so a value that fails to parse is counted the same
-		// way it is exported (null), rather than counted as covered from the
-		// raw column while the exported value is null.
-
-		JSONObject snippetJSONObject = _toJSONObject(
-			resultSet.getString("snippet"));
-
-		_put(jsonObject, "snippet", snippetJSONObject);
-
-		JSONObject extraFieldsJSONObject = _toJSONObject(
-			resultSet.getString("extraFields"));
-
-		if (extraFieldsJSONObject == null) {
-			extraFieldsJSONObject = _jsonFactory.createJSONObject();
-		}
-
-		jsonObject.put("extra_fields", extraFieldsJSONObject);
-
-		_countCoverage(
-			searchEvalExportResult, resultSet, snippetJSONObject,
-			extraFieldsJSONObject);
-
-		return jsonObject;
-	}
-
-
-	private void _countCoverage(
-			SearchEvalExportResult searchEvalExportResult,
-			ResultSet resultSet, JSONObject snippetJSONObject,
-			JSONObject extraFieldsJSONObject)
-		throws Exception {
-
-		searchEvalExportResult.incrementHitCount();
-
-		if (Validator.isNotNull(resultSet.getString("title"))) {
-			searchEvalExportResult.incrementFieldCount(
-				SearchEvalLoggerConstants.FIELD_TITLE);
-		}
-
-		if (snippetJSONObject != null) {
-			searchEvalExportResult.incrementFieldCount(
-				SearchEvalLoggerConstants.FIELD_SNIPPET);
-		}
-
-		for (String fieldName : extraFieldsJSONObject.keySet()) {
-			if (Validator.isNotNull(
-					extraFieldsJSONObject.getString(fieldName))) {
-
-				searchEvalExportResult.incrementFieldCount(fieldName);
-			}
-		}
-	}
-
 	private static final String _EVENTS_FILE_NAME = "events.jsonl";
 
 	private static final String _EVENT_TEMPLATE =
@@ -460,10 +455,6 @@ public class SearchEvalExportWriter {
 	private SearchEvalExportManifestBuilder _searchEvalExportManifestBuilder;
 
 	@Reference
-	private SearchEvalExportReadmeBuilder _searchEvalExportReadmeBuilder;
-
-	@Reference
 	private SearchEventLocalService _searchEventLocalService;
-
 
 }
