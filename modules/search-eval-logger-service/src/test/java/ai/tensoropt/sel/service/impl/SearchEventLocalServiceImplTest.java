@@ -111,6 +111,15 @@ public class SearchEventLocalServiceImplTest {
 	 * delayedExecutor, which is not worth the flakiness; whether a timeout
 	 * is scheduled at all is the testable, non-flaky half of "cancelled
 	 * after a normal run".
+	 *
+	 * <p>
+	 * The fetch size is pinned here too: DESIGN.md 6.1's streaming
+	 * guarantee is half the fetch size forcing the driver to pull rows in
+	 * bounded batches rather than buffer the whole result set, and half
+	 * autocommit being off so the driver honours it at all (covered by
+	 * autocommitIsRestoredAfterTheRowConsumerThrows and
+	 * autocommitAlreadyFalseIsNeverTouched above).
+	 * </p>
 	 */
 	@Test
 	public void theExportCursorSchedulesNoQueryTimeout() throws Exception {
@@ -121,6 +130,7 @@ public class SearchEventLocalServiceImplTest {
 			1L, null, null, resultSet -> { });
 
 		verify(_preparedStatement, never()).setQueryTimeout(anyInt());
+		verify(_preparedStatement).setFetchSize(1000);
 	}
 
 	@Test
