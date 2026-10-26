@@ -16,15 +16,13 @@ postgres): `make stop` with no DB given uses it, so stopping does not
 silently do nothing just because the stack it is meant to stop happens to be
 on a different database than the default.
 
-up deploys the bundles from modules/*/build/libs and restarts the portal
-once. Since TO-140 the search entry points (the Search Results widget,
-shared search requests, search bar suggestions) rebind onto the wrapper
-automatically on install, with no restart needed for them; the restart here
-is kept for the secondary consumers that still need one to join (DESIGN.md
-3.1), and is harmless for the rest. It deploys the jars rather than the
-.lpkg because Liferay refuses an .lpkg whose version is already installed,
-and a change under development rarely bumps the version; make test covers
-the .lpkg.
+up deploys the bundles from modules/*/build/libs and waits for interception
+to become active, with no restart: since TO-140 the search entry points (the
+Search Results widget, shared search requests, search bar suggestions)
+rebind onto the wrapper automatically on install, off SearchConsumerRebinder's
+own activation thread. It deploys the jars rather than the .lpkg because
+Liferay refuses an .lpkg whose version is already installed, and a change
+under development rarely bumps the version; make test covers the .lpkg.
 
 Without --fresh the database and the portal's data are kept from the last run.
 """
@@ -42,7 +40,7 @@ sys.path.insert(0, E2E)
 from harness import checks, scripts  # noqa: E402
 from harness.portal import Portal  # noqa: E402
 from harness.stack import DATABASES, Stack  # noqa: E402
-from harness.util import log, run  # noqa: E402
+from harness.util import HarnessError, log, run, wait_for  # noqa: E402
 from run_e2e import required_jars  # noqa: E402
 
 PROJECT_PREFIX = "sel-dev"
@@ -87,10 +85,22 @@ def up(options):
     for name in checks.BUNDLE_SYMBOLIC_NAMES:
         stack.wait_for_bundle_started(name, deployed_at, timeout=600)
 
-    stack.restart_liferay()
-    portal.wait_until_serving(timeout=900)
+    # TO-140: no restart. The automatic rebind runs off SearchConsumerRebinder's
+    # own activation thread the moment the wrapper registers, so this polls for
+    # that instead of restarting and asserting outright.
 
-    intercepting = portal.run_script(scripts.INTERCEPTION_STATUS) == "true"
+    def reintercepting():
+        return portal.run_script(scripts.INTERCEPTION_STATUS) == "true"
+
+    try:
+        wait_for(
+            "interception to become active without a restart", reintercepting,
+            timeout=60, interval=1.0,
+        )
+    except HarnessError as error:
+        log("Interception did not become active without a restart: %s" % error)
+
+    intercepting = reintercepting()
 
     print(
         """
