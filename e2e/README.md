@@ -403,7 +403,9 @@ MySQL on Linux does not.
 
 Removing the plugin's bundles unregisters the wrapper and sets off a
 Declarative Services cascade through every component actually bound to it
-(`DESIGN.md` §3.1), measured once in CI at about 22 seconds; it varies.
+(`DESIGN.md` §3.1), measured once in CI at about 22 seconds (the
+after-restart case, the normal production state once the plugin has been
+installed through at least one restart); it varies.
 During that window Liferay's own REST layer is expected to log transient
 errors of its own that it is expected to recover from, so `assert_log_clean`
 accepts exactly three, narrowly named shapes through
@@ -421,9 +423,10 @@ plugin's own code:
   in the CI log, 49 carried both `AopServiceManager` and the vulcan NPE in
   their own trace; the fiftieth, `ObjectDefinitionDeployerImpl`'s own
   `ComponentException`, carried no vulcan NPE, but its trace still carried
-  `AopServiceManager` (registering the component whose activation then
-  failed), which is the only reason the rule tolerated it too, and is also
-  why the rule names the cascade rather than each victim.
+  `AopServiceManager` (its registration of an AOP service set off the
+  deployment whose component activation failed), which is the only reason
+  the rule tolerated it too, and is also why the rule names the cascade
+  rather than each victim.
 - Aries' own Whiteboard logger, not Equinox's `FrameworkEvent` dispatcher,
   reporting `CxfJaxrsServiceRegistrator.rewire` failing on that same vulcan
   NPE (`NestedFieldsWriterInterceptor` seeing a null prototype-scoped
@@ -557,7 +560,8 @@ alongside the unit tests rather than only before a release.
   exercise, and the one place to read is `EvaluationServiceLinks`.
 - **EC-5 on DXP 2025.Q1.** Still unmeasured anywhere (DESIGN.md section 7),
   not just unasserted here: the headless Search API is still behind feature
-  flag `LPS-179669` on that line, and the endpoint has not been reached.
+  flag `LPS-179669` on that line, and the endpoint still answers 404 behind
+  the flag.
 - **The widget-applied Blueprint case for EC-6 and EC-13.** Measured by hand
   (DESIGN.md section 7), not asserted here: no case here applies a Blueprint
   through the Blueprint Options widget. The suite does cover one headless
