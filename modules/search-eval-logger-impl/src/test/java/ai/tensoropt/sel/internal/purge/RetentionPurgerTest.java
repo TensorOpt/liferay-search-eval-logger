@@ -132,11 +132,12 @@ public class RetentionPurgerTest {
 	/**
 	 * The scenario the log line's own fix (TO-144) guards: zero events
 	 * deleted but hits still were, which must not throw and must still
-	 * reach both deletes with the same cutoff. Whether the summary line
-	 * itself was logged is not asserted here: RetentionPurger reads its
-	 * Log through LogFactoryUtil.getLog, a static Liferay facade this unit
-	 * test has no portal-backed way to intercept, so this is limited to the
-	 * behaviour a plain unit test actually can observe.
+	 * reach both deletes with the same cutoff. The log line's own guard,
+	 * {@code (deleted[0] + deleted[1]) > 0}, is deliberately left unpinned
+	 * here: RetentionPurger reads its Log through LogFactoryUtil.getLog, a
+	 * static Liferay facade, and pinning that one log line would need
+	 * log4j-core at test compile scope plus an appender, which CLAUDE.md's
+	 * YAGNI does not justify.
 	 */
 	@Test
 	public void purgeSucceedsWhenOnlyOrphanHitsAreDeleted() throws Exception {
@@ -154,40 +155,6 @@ public class RetentionPurgerTest {
 		).thenReturn(
 			5
 		);
-
-		_retentionPurger.purge(_COMPANY_ID);
-
-		Date expectedCutoff = Date.from(_NOW.minus(Duration.ofDays(90)));
-
-		verify(
-			_searchEventLocalService
-		).deleteByCompanyIdAndCreateDateBefore(
-			_COMPANY_ID, expectedCutoff
-		);
-		verify(
-			_searchHitLocalService
-		).deleteByCompanyIdAndCreateDateBefore(
-			_COMPANY_ID, expectedCutoff
-		);
-	}
-
-	/**
-	 * The other half of the condition purgeSucceedsWhenOnlyOrphanHitsAreDeleted
-	 * covers: both counts zero, so the log line's own guard,
-	 * {@code (deleted[0] + deleted[1]) > 0}, is false rather than true.
-	 * Mockito's default return for an unstubbed int-returning method is
-	 * already zero, which is what every other test in this class that does
-	 * not stub a delete count exercises incidentally; this one names the
-	 * case and pins that it still completes and still reaches both deletes
-	 * with the same cutoff, rather than only being covered by accident.
-	 * Whether the line is logged is, as above, not observable from a plain
-	 * unit test.
-	 */
-	@Test
-	public void bothDeleteCountsZeroStillReachesBothDeletesWithoutThrowing()
-		throws Exception {
-
-		_stubRetentionDays(90);
 
 		_retentionPurger.purge(_COMPANY_ID);
 
