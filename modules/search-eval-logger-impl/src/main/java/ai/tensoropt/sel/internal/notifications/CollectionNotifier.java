@@ -65,11 +65,10 @@ import org.osgi.service.component.annotations.Reference;
  * DXP 2025.Q1.27 instance for the stall and readiness notifications; the
  * collection-started one added by TO-112 uses the same delivery path and is
  * exercised by e2e case {@code collection-started-notification}. A failure
- * here is logged and
- * swallowed, and the cycle is still marked as notified, so a delivery failure
- * degrades to the fallback 3.6 and 10.1 name rather than re-sending daily
- * forever: the same states are rendered on the admin screen, which is the
- * channel that does not depend on any of this.
+ * here is logged and swallowed, and the cycle is still marked as notified, so
+ * a delivery failure degrades to the fallback 3.6 and 10.1 name rather than
+ * re-sending daily forever: the same states are rendered on the admin screen,
+ * which is the channel that does not depend on any of this.
  * </p>
  *
  * <p>
