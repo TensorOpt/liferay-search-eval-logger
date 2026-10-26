@@ -408,32 +408,7 @@ class Portal:
         They are the plugin's own published figures, so reading them here tests
         the same numbers an administrator sees rather than a private counter.
         """
-        text = self.admin_screen()
-
-        labels = {
-            "observed": "Searches observed while enabled",
-            "keywords": "Searches carrying user keywords",
-            "admitted": "Searches admitted (all conditions)",
-            "dispatched": "Events handed to the message bus",
-            "dropped": "Events dropped",
-            "persisted": "Events written to the database",
-        }
-
-        counters = {}
-
-        for key, label in labels.items():
-            match = re.search(
-                re.escape(label) + r"\s*</td>\s*<td>\s*([0-9]+)\s*</td>", text
-            )
-
-            if match is None:
-                raise HarnessError(
-                    "Counter %r not found on the admin screen" % label
-                )
-
-            counters[key] = int(match.group(1))
-
-        return counters
+        return parse_admission_counters(self.admin_screen())
 
     def zero_result_panel(self):
         """The zero-result panel off the admin screen (DESIGN.md 6, TO-135).
@@ -595,36 +570,7 @@ class Portal:
 
         Returns a list of dicts with status, duration and download URL.
         """
-        text = self.admin_screen()
-
-        rows = []
-
-        table = re.search(
-            r"Recent Exports.*?<tbody>(.*?)</tbody>", text, re.S
-        )
-
-        if table is None:
-            return rows
-
-        for row_html in re.findall(r"<tr>(.*?)</tr>", table.group(1), re.S):
-            cells = [
-                re.sub(r"<[^>]+>", " ", cell).strip()
-                for cell in re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
-            ]
-
-            download = re.search(r'<a href="([^"]+)"', row_html)
-
-            rows.append(
-                {
-                    "started": cells[0] if len(cells) > 0 else "",
-                    "finished": cells[1] if len(cells) > 1 else "",
-                    "duration": cells[2] if len(cells) > 2 else "",
-                    "status": cells[3] if len(cells) > 3 else "",
-                    "download_url": html_module.unescape(download.group(1)) if download else None,
-                }
-            )
-
-        return rows
+        return parse_background_tasks(self.admin_screen())
 
     def wait_for_export_result(self, timeout=1800, after=None):
         """Waits for a new export to reach a terminal status, any status.
@@ -763,6 +709,75 @@ def notifications_list_text(html):
     text = html_module.unescape(re.sub(r"<[^>]+>", " ", body))
 
     return re.sub(r"\s+", " ", text)
+
+
+def parse_admission_counters(html):
+    """The six admission funnel counters off the admin screen's own text.
+
+    A module level function, not just a Portal method, so it can be
+    exercised against saved markup without a portal.
+    """
+    labels = {
+        "observed": "Searches observed while enabled",
+        "keywords": "Searches carrying user keywords",
+        "admitted": "Searches admitted (all conditions)",
+        "dispatched": "Events handed to the message bus",
+        "dropped": "Events dropped",
+        "persisted": "Events written to the database",
+    }
+
+    counters = {}
+
+    for key, label in labels.items():
+        match = re.search(
+            re.escape(label) + r"\s*</td>\s*<td>\s*([0-9]+)\s*</td>", html
+        )
+
+        if match is None:
+            raise HarnessError(
+                "Counter %r not found on the admin screen" % label
+            )
+
+        counters[key] = int(match.group(1))
+
+    return counters
+
+
+def parse_background_tasks(html):
+    """The export list off the admin screen's own text.
+
+    Returns a list of dicts with status, duration and download URL. A
+    module level function, not just a Portal method, so it can be
+    exercised against saved markup without a portal.
+    """
+    rows = []
+
+    table = re.search(r"Recent Exports.*?<tbody>(.*?)</tbody>", html, re.S)
+
+    if table is None:
+        return rows
+
+    for row_html in re.findall(r"<tr>(.*?)</tr>", table.group(1), re.S):
+        cells = [
+            re.sub(r"<[^>]+>", " ", cell).strip()
+            for cell in re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
+        ]
+
+        download = re.search(r'<a href="([^"]+)"', row_html)
+
+        rows.append(
+            {
+                "started": cells[0] if len(cells) > 0 else "",
+                "finished": cells[1] if len(cells) > 1 else "",
+                "duration": cells[2] if len(cells) > 2 else "",
+                "status": cells[3] if len(cells) > 3 else "",
+                "download_url": (
+                    html_module.unescape(download.group(1)) if download else None
+                ),
+            }
+        )
+
+    return rows
 
 
 def parse_result_count(html):
