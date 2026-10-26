@@ -3267,10 +3267,11 @@ def lpkg_install(context, case):
     installs it.
 
     Runs last, after uninstall-and-reinstall has left the jars installed and
-    the portal restarted. Takes the jars out, drops the .lpkg into the deploy
-    folder, restarts as Liferay asks, and then asks the framework where the
-    plugin's bundles came from: every one has to be Active and loaded from
-    inside the .lpkg, and searches have to be recorded again.
+    the automatic rebind has cleared the bypass again, with no restart of its
+    own. Takes the jars out, drops the .lpkg into the deploy folder, restarts
+    as Liferay itself requires for an .lpkg, and then asks the framework
+    where the plugin's bundles came from: every one has to be Active and
+    loaded from inside the .lpkg, and searches have to be recorded again.
     """
     lpkg = context.options.lpkg
 
