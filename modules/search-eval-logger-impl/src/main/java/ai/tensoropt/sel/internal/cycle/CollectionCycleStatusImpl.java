@@ -72,6 +72,10 @@ import org.osgi.service.component.annotations.Reference;
  * and the private ones it calls, synchronizes on a lock object scoped to the
  * company id, which is the simplest correct fix: a whole read-modify-write
  * happens as one step with respect to every other caller for that company.
+ * <b>One exception (D14):</b> {@link #_recordCollectionStart} releases the
+ * lock before actually sending the collection-started notification, so that
+ * a slow send cannot make {@link #dismiss}, or any other caller, wait on it;
+ * see that method's own comment for why this is still race-free.
  * </p>
  *
  * <p>
@@ -307,8 +311,45 @@ public class CollectionCycleStatusImpl
 	 * keeps costing a read per event until it stops failing, rather than
 	 * being silently abandoned once the in-memory marker is set regardless.
 	 * </p>
+	 *
+	 * <p>
+	 * <b>The notification itself is sent outside the lock (D14).</b> Everything
+	 * that reads or writes the cycle record, including the decision of whether
+	 * to send, still happens inside one locked region, exactly as before;
+	 * only the actual {@link CollectionNotifier#notifyCollectionStarted} call
+	 * is moved out of it, into the gap between deciding and recording. Nothing
+	 * else needing this company's lock, {@link #dismiss} most notably, should
+	 * have to wait on a notification send, which may resolve a recipient and
+	 * call into Liferay's notification framework and so is not guaranteed to
+	 * be fast. The decision itself is still made exactly once, atomically,
+	 * before the lock is released: <code>shouldSend</code> is computed and
+	 * captured into a local variable while still inside the locked region, so
+	 * releasing the lock before sending cannot let a second thread decide to
+	 * send a second time for the same transition.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>A crash in the gap between sending and recording does not repeat the
+	 * notification.</b> If the JVM stops after a successful send but before
+	 * {@link #_recordCollectionStartedNotified} saves, the cycle is left with
+	 * <code>collectionStartDate</code> set and <code>collectionStartedNotifiedDate</code>
+	 * still unset, exactly the state the comment above this method already
+	 * describes for a plain transient store failure. The very next event
+	 * persisted after a restart reads that state the same way: <code>
+	 * isCollectionStarted()</code> is already true, so <code>justStarted</code>
+	 * is <code>false</code>, so <code>shouldSend</code> is <code>false</code>
+	 * - it records the marker silently rather than sending again. The window
+	 * this leaves is a marker that can lag behind an already-sent
+	 * notification until the next event heals it, not a repeated send; that
+	 * lag is what this design tolerates, not a duplicate notification.
+	 * </p>
 	 */
 	private void _recordCollectionStart(long companyId, Date createDate) {
+		boolean needsNotification;
+		boolean shouldSend = false;
+		LocalDate collectionStartDate = null;
+		long enabledByUserId = 0;
+
 		synchronized (_lockFor(companyId)) {
 			CollectionCycle collectionCycle = _collectionCycleStore.get(
 				companyId);
@@ -336,38 +377,34 @@ public class CollectionCycleStatusImpl
 			boolean justStarted = false;
 
 			if (!collectionCycle.isCollectionStarted()) {
-				LocalDate collectionStartDate = _toLocalDate(createDate);
+				LocalDate newCollectionStartDate = _toLocalDate(createDate);
 
 				if (!_collectionCycleStore.save(
 						collectionCycle.withCollectionStartDate(
-							collectionStartDate))) {
+							newCollectionStartDate))) {
 
 					return;
 				}
 
 				collectionCycle = collectionCycle.withCollectionStartDate(
-					collectionStartDate);
+					newCollectionStartDate);
 				justStarted = true;
 
 				if (_log.isInfoEnabled()) {
 					_log.info(
-						"Collection started on " + collectionStartDate +
+						"Collection started on " + newCollectionStartDate +
 							" for company " + companyId);
 				}
 			}
 
-			if (!collectionCycle.isCollectionStartedNotified()) {
-				if (justStarted) {
+			needsNotification = !collectionCycle.isCollectionStartedNotified();
 
-					// Best effort: CollectionNotifier never throws, by its
-					// own design (see its class comment), so this cannot
-					// leave collectionStartDate set with the notification
-					// silently never attempted.
+			if (needsNotification) {
+				shouldSend = justStarted;
+				collectionStartDate = collectionCycle.getCollectionStartDate();
+				enabledByUserId = collectionCycle.getEnabledByUserId();
 
-					_collectionNotifier.notifyCollectionStarted(
-						companyId, collectionCycle.getEnabledByUserId());
-				}
-				else if (_log.isInfoEnabled()) {
+				if (!shouldSend && _log.isInfoEnabled()) {
 					_log.info(
 						"Collection start date for company " + companyId +
 							" was already recorded by an earlier call; " +
@@ -375,16 +412,31 @@ public class CollectionCycleStatusImpl
 									"without sending a second notification " +
 										"for the same restart");
 				}
+			}
+		}
 
-				if (!_recordCollectionStartedNotified(
-						companyId, collectionCycle.getCollectionStartDate())) {
+		if (needsNotification) {
 
-					return;
-				}
+			// Best effort: CollectionNotifier never throws, by its own
+			// design (see its class comment), so this cannot leave
+			// collectionStartDate set with the notification silently never
+			// attempted. Deliberately outside the lock above; see this
+			// method's own comment for why and for what a crash here does
+			// not do.
+
+			if (shouldSend) {
+				_collectionNotifier.notifyCollectionStarted(
+					companyId, enabledByUserId);
 			}
 
-			_confirm(companyId);
+			if (!_recordCollectionStartedNotified(
+					companyId, collectionStartDate)) {
+
+				return;
+			}
 		}
+
+		_confirm(companyId);
 	}
 
 	/**
