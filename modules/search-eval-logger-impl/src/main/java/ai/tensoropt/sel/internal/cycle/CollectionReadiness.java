@@ -76,14 +76,11 @@ public final class CollectionReadiness {
 	 * </p>
 	 *
 	 * <p>
-	 * <code>cycleOpenedDate</code> is <code>null</code> for a cycle opened
-	 * before TO-112, which this reads as "grace period not over" rather than
-	 * guessing: the cycle is reconciled with a real value the next time
-	 * {@code CollectionCycleStatusImpl} sees it, and erring toward silence here
-	 * costs at least one day's delay on a notification, and up to just under
-	 * two depending on when within a day the backfill happens (DESIGN.md
-	 * 3.6), the same safe direction 3.6 already takes when dispatch drops an
-	 * event.
+	 * <code>cycleOpenedDate</code> is always set by {@code
+	 * CollectionCycleStatusImpl#openCycle}, so a <code>null</code> value here
+	 * should never occur; it is read defensively as "grace period not over"
+	 * rather than guessed at, the same safe direction 3.6 already takes when
+	 * dispatch drops an event.
 	 * </p>
 	 */
 	public static boolean isStalled(
