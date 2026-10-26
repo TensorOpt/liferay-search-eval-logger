@@ -685,6 +685,91 @@ public class CollectionCycleStatusImplTest {
 			"The dismissal itself must not be the one lost instead");
 	}
 
+	/**
+	 * F2-25: the banner is only shown, and the daily job only calls these, on
+	 * an open cycle, so a closed one is nothing to record against.
+	 */
+	@Test
+	public void recordReadinessNotifiedOnAClosedCycleWritesNothing() {
+		_collectionCycleStatusImpl.recordReadinessNotified(
+			_COMPANY_ID, LocalDate.parse("2026-04-01"));
+
+		assertEquals(0, _collectionCycleStore.getWriteCount());
+	}
+
+	@Test
+	public void recordStallNotifiedOnAClosedCycleWritesNothing() {
+		_collectionCycleStatusImpl.recordStallNotified(
+			_COMPANY_ID, LocalDate.parse("2026-04-01"));
+
+		assertEquals(0, _collectionCycleStore.getWriteCount());
+	}
+
+	/**
+	 * F2-25: setting <code>collectionStartDate</code> and recording the
+	 * collection-started notification are two independently guarded steps.
+	 * This drives the second one failing on its own, with the first already
+	 * durably recorded (a legacy-shaped cycle, the same shape
+	 * {@link #aLegacyRecordWithNoNotifiedMarkerIsBackfilledWithoutNotifying}
+	 * uses), so the only write a failure can land on here is the one
+	 * recording the marker itself. The confirming cache must stay unarmed
+	 * until that write actually lands, or a transient failure would leave
+	 * the marker unset for the rest of the cycle's life.
+	 */
+	@Test
+	public void aFailedNotifiedMarkerWriteIsNotArmedAndIsRetried() {
+		LocalDate legacyStartDate = LocalDate.parse("2026-01-01");
+
+		_collectionCycleStore.save(
+			new CollectionCycle(
+				_COMPANY_ID, true, 42L, Instant.parse("2026-01-01T00:00:00Z"),
+				legacyStartDate, null, null, null, false));
+
+		_collectionCycleStore.setFailWrites(true);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		assertNull(
+			_collectionCycleStatusImpl.getCollectionCycle(
+				_COMPANY_ID
+			).getCollectionStartedNotifiedDate(),
+			"A failed save must not leave the marker looking recorded");
+
+		_collectionCycleStore.setFailWrites(false);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:32:00Z"));
+
+		assertEquals(
+			legacyStartDate,
+			_collectionCycleStatusImpl.getCollectionCycle(
+				_COMPANY_ID
+			).getCollectionStartedNotifiedDate(),
+			"Not having armed the marker on failure must mean the next " +
+				"event retries the save rather than skipping it");
+	}
+
+	/**
+	 * F2-25: an open cycle that already carries everything openCycle would
+	 * otherwise set, an enabling user and a cycle-opened date, has nothing
+	 * left to write. Reopening in place must stay a no-op, not merely a
+	 * same-looking save.
+	 */
+	@Test
+	public void openingAnAlreadyPopulatedOpenCycleWritesNothing() {
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStore.resetCounts();
+
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		assertEquals(
+			0, _collectionCycleStore.getWriteCount(),
+			"Every field openCycle would set is already there, so there " +
+				"is nothing left to save");
+	}
+
 	private Date _date(String instant) {
 		return Date.from(Instant.parse(instant));
 	}
