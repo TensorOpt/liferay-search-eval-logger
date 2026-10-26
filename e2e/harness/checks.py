@@ -391,7 +391,7 @@ def install_intercepts_without_restart(context, case):
     """
 
     def rebound():
-        registry = _searcher_registry(context, case)
+        registry = _searcher_registry(context, case, note=False)
 
         wrapper = [entry for entry in registry if entry["marker"]]
 
@@ -3757,11 +3757,17 @@ def _within(predicate, seconds):
         return False
 
 
-def _searcher_registry(context, case):
-    """Parses the Searcher registry dump into one record per service."""
+def _searcher_registry(context, case, note=True):
+    """Parses the Searcher registry dump into one record per service.
+
+    note=False silences the per line diagnostics: a caller inside a one
+    second poll, such as the automatic rebind wait below, would otherwise
+    log the whole registry dump on every single attempt.
+    """
     dump = str(context.portal.run_script(scripts.SEARCHER_REGISTRY))
 
-    case.note("Searcher registry:")
+    if note:
+        case.note("Searcher registry:")
 
     entries = []
 
@@ -3771,7 +3777,8 @@ def _searcher_registry(context, case):
         if not line:
             continue
 
-        case.note("  %s" % line)
+        if note:
+            case.note("  %s" % line)
 
         match = re.match(
             r"^(?P<name>\S+) ranking=(?P<ranking>\S+) marker=(?P<marker>\S+) "
