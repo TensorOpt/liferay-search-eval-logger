@@ -166,9 +166,6 @@ class Results:
 
         return value
 
-    def passed(self, name):
-        return name in self._passed
-
     def _count(self, status):
         return len([case for case in self.cases if case.status == status])
 
