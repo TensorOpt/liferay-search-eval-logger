@@ -47,10 +47,12 @@ public interface SearchInterceptionStatus {
 	 * the automatic rebinder targets actually reach the wrapper.
 	 *
 	 * <p>
-	 * A <code>false</code> result means a portal restart is required before
-	 * anything will be collected from those entry points, however the
-	 * configuration is set: the automatic rebind TO-140 added was attempted
-	 * and did not clear the bypass.
+	 * A <code>false</code> result does not always mean the rebind failed: it
+	 * runs off its own activation thread, so a caller can observe this answer
+	 * in the brief window before that rebind has finished. Once it has run
+	 * and the answer is still <code>false</code>, a portal restart is
+	 * required before anything will be collected from those entry points,
+	 * however the configuration is set.
 	 * </p>
 	 */
 	public boolean isIntercepting();

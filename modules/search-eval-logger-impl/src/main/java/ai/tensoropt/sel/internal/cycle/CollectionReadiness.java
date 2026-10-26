@@ -12,9 +12,9 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 /**
- * The two conditions of DESIGN.md 3.6, kept apart from the job that acts on
- * them so that both can be exercised without a scheduler, a database or a
- * notification framework.
+ * The stall and readiness conditions of DESIGN.md 3.6, kept apart from the
+ * job that acts on them so that both can be exercised without a scheduler, a
+ * database or a notification framework.
  */
 public final class CollectionReadiness {
 
@@ -33,9 +33,9 @@ public final class CollectionReadiness {
 	 * <p>
 	 * The elapsed days are counted from the collection start date, which is the
 	 * first event actually persisted rather than the day logging was switched
-	 * on. On an instance that was never restarted after installation (3.1) the
-	 * two differ by however long the bypass lasted, and anchoring on the toggle
-	 * would announce a dataset that does not exist.
+	 * on. On an instance whose entry points were bypassed (3.1) the two differ
+	 * by however long the bypass lasted, and anchoring on the toggle would
+	 * announce a dataset that does not exist.
 	 * </p>
 	 */
 	public static boolean isReady(
@@ -90,8 +90,10 @@ public final class CollectionReadiness {
 	 * before TO-112, which this reads as "grace period not over" rather than
 	 * guessing: the cycle is reconciled with a real value the next time
 	 * {@code CollectionCycleStatusImpl} sees it, and erring toward silence here
-	 * costs at most one day's delay on a notification, the same safe direction
-	 * 3.6 already takes when dispatch drops an event.
+	 * costs at least one day's delay on a notification, and up to just under
+	 * two depending on when within a day the backfill happens (DESIGN.md
+	 * 3.6), the same safe direction 3.6 already takes when dispatch drops an
+	 * event.
 	 * </p>
 	 */
 	public static boolean isStalled(
