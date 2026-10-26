@@ -68,8 +68,10 @@ public class SearchEventCaptor {
 
 		_captureQueryText(capturedSearchEvent, searchContext, configuration);
 
+		String languageId = _getLanguageId(searchContext);
+
 		capturedSearchEvent.setLocale(
-			_truncate(_getLanguageId(searchContext), _LOCALE_MAX_LENGTH));
+			_truncate(languageId, _LOCALE_MAX_LENGTH));
 		capturedSearchEvent.setScopeGroupIds(
 			_truncateList(
 				_join(searchContext.getGroupIds()), _SCOPE_GROUP_IDS_MAX_LENGTH));
@@ -103,7 +105,7 @@ public class SearchEventCaptor {
 
 		_captureHits(
 			capturedSearchEvent, searchResponse, searchContext, configuration,
-			requestedFrom);
+			requestedFrom, languageId);
 
 		return capturedSearchEvent;
 	}
@@ -111,7 +113,8 @@ public class SearchEventCaptor {
 	private void _captureHits(
 		CapturedSearchEvent capturedSearchEvent, SearchResponse searchResponse,
 		SearchContext searchContext,
-		SearchEvalLoggerConfiguration configuration, int requestedFrom) {
+		SearchEvalLoggerConfiguration configuration, int requestedFrom,
+		String languageId) {
 
 		SearchHits searchHits = searchResponse.getSearchHits();
 
@@ -131,8 +134,8 @@ public class SearchEventCaptor {
 		int captureDepth = Math.min(
 			Math.max(configuration.captureDepth(), 0), hits.size());
 
-		String languageId = _getLanguageId(searchContext);
-		String[] capturedFieldNames = configuration.capturedFieldNames();
+		String[] capturedFieldNames = _trimFieldNames(
+			configuration.capturedFieldNames());
 
 		// Only resolved when the snippet is actually configured to be
 		// captured: every other field is read as named, with no need for
@@ -184,12 +187,6 @@ public class SearchEventCaptor {
 		JSONObject extraFieldsJSONObject = null;
 
 		for (String fieldName : capturedFieldNames) {
-			if (Validator.isNull(fieldName)) {
-				continue;
-			}
-
-			fieldName = StringUtil.trim(fieldName);
-
 			String value;
 
 			if (SearchEvalLoggerConstants.FIELD_SNIPPET.equals(fieldName)) {
@@ -493,19 +490,33 @@ public class SearchEventCaptor {
 	}
 
 	private boolean _containsSnippetFieldName(String[] capturedFieldNames) {
-		if (capturedFieldNames == null) {
-			return false;
-		}
-
 		for (String fieldName : capturedFieldNames) {
-			if (SearchEvalLoggerConstants.FIELD_SNIPPET.equals(
-					StringUtil.trim(fieldName))) {
-
+			if (SearchEvalLoggerConstants.FIELD_SNIPPET.equals(fieldName)) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Trims and drops a blank captured field name once per response, instead
+	 * of once per hit: {@link #_captureHit} ran both over the same
+	 * configured array for every hit it captured.
+	 */
+	private String[] _trimFieldNames(String[] capturedFieldNames) {
+		List<String> trimmedFieldNames = new ArrayList<>(
+			capturedFieldNames.length);
+
+		for (String fieldName : capturedFieldNames) {
+			String trimmedFieldName = StringUtil.trim(fieldName);
+
+			if (Validator.isNotNull(trimmedFieldName)) {
+				trimmedFieldNames.add(trimmedFieldName);
+			}
+		}
+
+		return trimmedFieldNames.toArray(new String[0]);
 	}
 
 	private JSONObject _toSnippetJSONObject(
