@@ -821,9 +821,12 @@ public class SearchEventCaptorTest {
 	@Test
 	public void aLongScopeGroupIdsListIsCutOnASeparator() {
 		long[] groupIds = new long[100];
+		List<String> groupIdStrings = new ArrayList<>();
 
 		for (int i = 0; i < groupIds.length; i++) {
 			groupIds[i] = 1000000000L + i;
+
+			groupIdStrings.add(String.valueOf(groupIds[i]));
 		}
 
 		SearchContext searchContext = new SearchContext();
@@ -839,7 +842,7 @@ public class SearchEventCaptorTest {
 
 		for (String groupId : captured.split(",")) {
 			assertTrue(
-				captured.contains(groupId),
+				groupIdStrings.contains(groupId),
 				groupId + " is a fragment, not a captured group id");
 		}
 	}
@@ -889,7 +892,9 @@ public class SearchEventCaptorTest {
 		// Asserted against the mocked extra_fields JSONObject's own put
 		// calls, the same way the snippet tests read their JSONObject
 		// structure directly, rather than through JSONObject#toString(),
-		// which this fake does not implement (see _snippetJSONObject).
+		// which this fake implements only for the backing map's flat
+		// String values (see _toJSONString), not for the nested structure
+		// a snippet JSONObject builds.
 
 		JSONObject extraFieldsJSONObject = _createdJSONObjects.get(0);
 
@@ -942,8 +947,8 @@ public class SearchEventCaptorTest {
 	}
 
 	/**
-	 * A blank or missing configured field name never reaches extra_fields
-	 * at all: there is no key to put a value under.
+	 * A blank or missing value for a configured field never reaches
+	 * extra_fields at all: there is no value to put under its key.
 	 */
 	@Test
 	public void blankOrMissingConfiguredFieldValuesAreSkipped() {
@@ -1167,8 +1172,10 @@ public class SearchEventCaptorTest {
 	 * CapturedSearchHit#getSnippet()}: each test captures exactly one hit
 	 * with <code>snippet</code> as the only configured field, so the root
 	 * locales object is always the first {@link JSONObject} the factory
-	 * created, and the real {@link JSONObject#toString()} this fake never
-	 * implements is Liferay's contract to honour, not this class's.
+	 * created. Reading the nested structure this way, rather than through
+	 * the real {@link JSONObject#toString()}, is Liferay's contract to
+	 * honour, not this class's, and this fake implements that method only
+	 * for the flat, single-level case {@code _toJSONString} handles.
 	 */
 	private JSONObject _snippetJSONObject() {
 		assertTrue(

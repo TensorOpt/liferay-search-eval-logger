@@ -131,8 +131,7 @@ public class SearchEventCaptor {
 			return;
 		}
 
-		int captureDepth = Math.min(
-			Math.max(configuration.captureDepth(), 0), hits.size());
+		int captureDepth = Math.min(configuration.captureDepth(), hits.size());
 
 		String[] capturedFieldNames = _trimFieldNames(
 			configuration.capturedFieldNames());
@@ -303,8 +302,8 @@ public class SearchEventCaptor {
 	 * fragment Liferay returned, grouped first by the locale its field name
 	 * carries and then by that field, with highlight markup kept exactly as
 	 * returned and fragments always arrays, even a single one. Never joined
-	 * into one string, which is what this column held before and what made
-	 * the locale and field each fragment came from unrecoverable.
+	 * into one string, which would make the locale and field each fragment
+	 * came from unrecoverable.
 	 *
 	 * <p>
 	 * The excerpt a search UI actually shows comes from {@link
