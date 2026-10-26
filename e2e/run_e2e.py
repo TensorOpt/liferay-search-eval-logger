@@ -146,9 +146,14 @@ def parse_arguments(argv):
     return options
 
 
-def find_jars():
-    jars = []
+def _bundles_exist():
+    """Whether every module's build/libs already holds at least one jar.
 
+    Tolerant on purpose, and blind to which jar or how many: this decides
+    only whether an unflagged (``options.build is None``) run needs to
+    build at all. Once that decision is made, required_jars() is the
+    strict check on what actually gets installed, not this.
+    """
     for module in MODULES:
         pattern = os.path.join(REPOSITORY, "modules", module, "build", "libs", "*.jar")
 
@@ -156,18 +161,16 @@ def find_jars():
             match for match in glob.glob(pattern) if not match.endswith("-sources.jar")
         ]
 
-        if matches:
-            jars.append(sorted(matches)[-1])
+        if not matches:
+            return False
 
-    return jars
+    return True
 
 
 def required_jars():
     """Exactly one jar per module, already built by `make build`.
 
-    Unlike find_jars, which this module's own main() uses to decide whether
-    a build is needed at all and so tolerates a module with no jar yet, this
-    is for a caller that expects the build to already be done: it fails
+    For a caller that expects the build to already be done: it fails
     loudly, naming the module, the moment one of them holds anything other
     than exactly one jar, rather than silently taking the newest of several
     or skipping a missing one.
@@ -184,9 +187,14 @@ def required_jars():
         )
 
         if len(matches) != 1:
+            remedy = (
+                "Run make build first." if not matches
+                else "Remove the stale jar(s) and rebuild."
+            )
+
             sys.exit(
-                "Expected one jar in %s, found %s. Run make build first."
-                % (libs, matches or "none")
+                "Expected one jar in %s, found %s. %s"
+                % (libs, matches or "none", remedy)
             )
 
         jars.append(os.path.join(libs, matches[0]))
@@ -261,9 +269,7 @@ def main(argv):
 
         return 2
 
-    jars = find_jars()
-
-    if options.build or (options.build is None and len(jars) != len(MODULES)):
+    if options.build or (options.build is None and not _bundles_exist()):
         if options.build is False:
             log("Missing bundles and --no-build was given")
 
@@ -276,10 +282,10 @@ def main(argv):
 
             return 2
 
-        jars = find_jars()
-
-    if len(jars) != len(MODULES):
-        log("Expected %d bundles, found %d: %s" % (len(MODULES), len(jars), jars))
+    try:
+        jars = required_jars()
+    except SystemExit as error:
+        log(str(error))
 
         return 2
 
