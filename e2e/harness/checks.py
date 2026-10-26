@@ -330,8 +330,8 @@ def install_onto_running_portal(context, case):
     """Installs the four bundles onto a portal that is already serving.
 
     This is the case DESIGN.md 3.1 warns about, and the harness reproduces it
-    on purpose rather than avoiding it: the next step asserts that the plugin
-    notices.
+    on purpose rather than avoiding it: the next case asserts the automatic
+    rebind.
     """
     # One anchor for every bundle, taken before the first jar lands. See
     # Stack.wait_for_bundle_started.
