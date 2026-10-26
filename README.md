@@ -138,7 +138,7 @@ Settings you may want to review:
 
 | Setting | Default | What it does |
 |---|---|---|
-| Retention Window (Days) | 90 | Deletes records older than this, nightly at 03:00 UTC |
+| Retention Window (Days) | 90 | Deletes records older than this, nightly at 03:00 portal time (UTC on a stock DXP install) |
 | Captured Fields | `title`, `snippet` | Result fields to record, if the response already has them |
 | Exclude Suggestion Traffic | on | Leaves typeahead requests out |
 | Require Web Request Context | off | Tightens the filter if internal searches show up |
@@ -165,7 +165,7 @@ You will also get a "Search logging is now collecting" notification.
 | Your search log is ready to export | At least 30 days since collection started and at least 500 searches on record. Both thresholds are configurable |
 
 - **Recipient.** Notifications go to the administrator who switched logging on. If that person cannot be determined, they go to the instance administrators.
-- **Schedule.** The second and third are checked once a day, at 03:30 UTC. The readiness state also shows as a banner on the Search Eval Export screen.
+- **Schedule.** The second and third are checked once a day, at 03:30 portal time. The readiness state also shows as a banner on the Search Eval Export screen.
 - **Channels.** Each appears in the Liferay notifications list. It is also emailed through your portal's own mail server, if the instance has a mail server and a sender address configured (Instance Settings > Email), and the recipient has not turned email off. The switch is in the notifications list's Configuration, under **Search Eval Export**.
 - **Links.** None contains an external link.
 
@@ -213,7 +213,7 @@ Search Eval Logger is written and maintained by TensorOpt (Crafting Software Dev
 
 **Remove the recorded data.**
 - Switch logging off and set **Retention Window (Days)** to 1.
-- Within two nightly purges (03:00 UTC), the tables are empty.
+- Within two nightly purges (03:00 portal time), the tables are empty.
 
 **Uninstall.**
 - Delete the four `ai.tensoropt.sel.*.jar` files from `[Liferay Home]/osgi/modules`.
