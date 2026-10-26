@@ -2,7 +2,8 @@ subprojects {
 	group = "ai.tensoropt.sel"
 
 	// Pinned to the level the target platform itself is built at. DXP 2025.Q1
-	// LTS ships Java 17 bytecode, so the build JDK must be 17 or newer, and
+	// LTS and every release since ship Java 17 bytecode, so the build JDK
+	// must be 17 or newer, and
 	// there is no longer an older runtime to stay compatible with: this was 1.8
 	// while the target was DXP 7.4, which supported JDK 8. bnd derives the
 	// bundle's osgi.ee requirement from the class file version, so this is also
