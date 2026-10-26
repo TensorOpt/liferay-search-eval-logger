@@ -156,12 +156,13 @@ public final class SearchEvalExportReadmeBuilder {
 
 	private static final String _COHORT_HASH_SUFFIX =
 		" days and is never exported. Rows sharing a value within one " +
-			"rotation window are the same signed-in user; guest rows " +
-				"share a value too, one per guest identity Liferay " +
-					"assigns, so guests cannot be told apart from one " +
-						"another. Across windows, signed-in users are " +
-							"unrelated too. A single cohort cannot be " +
-								"followed across the whole range.\n\n";
+			"rotation window are the same signed-in user; a guest row " +
+				"carries one of at most two values (no user ID, or the " +
+					"instance's guest user), so guests cannot be told " +
+						"apart from one another. Across windows, " +
+							"signed-in users are unrelated too. A single " +
+								"cohort cannot be followed across the " +
+									"whole range.\n\n";
 
 	private static final String _CONTENTS =
 		"## Contents\n\n- `events.jsonl` - one JSON object per line: a " +
