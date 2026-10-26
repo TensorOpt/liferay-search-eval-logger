@@ -4,14 +4,8 @@
 
 package ai.tensoropt.sel.internal.context;
 
-import com.liferay.portal.kernel.log.Log;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.security.auth.CompanyThreadLocal;
-import com.liferay.portal.kernel.security.auth.PrincipalThreadLocal;
-import com.liferay.portal.kernel.security.permission.PermissionThreadLocal;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.service.ServiceContextThreadLocal;
-import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.theme.ThemeDisplay;
 import com.liferay.portal.kernel.util.WebKeys;
 
@@ -43,62 +37,10 @@ public class SearchRequestOriginResolver {
 
 	public SearchRequestOrigin resolve() {
 		try {
-			SearchRequestOrigin searchRequestOrigin = _doResolve();
-
-			_probeThreadLocals(searchRequestOrigin);
-
-			return searchRequestOrigin;
+			return _doResolve();
 		}
 		catch (Throwable throwable) {
 			return SearchRequestOrigin.UNKNOWN;
-		}
-	}
-
-	/**
-	 * EC-11 in DESIGN.md section 7: which ThreadLocals are actually populated
-	 * differs per search path, and everything context-dependent this plugin
-	 * records depends on the answer. Reported per resolved origin so the paths
-	 * can be told apart, and read defensively: a probe that throws must not
-	 * change what the caller sees.
-	 */
-	private void _probeThreadLocals(SearchRequestOrigin searchRequestOrigin) {
-		if (!_log.isDebugEnabled()) {
-			return;
-		}
-
-		try {
-			HttpServletRequest httpServletRequest = _getHttpServletRequest();
-
-			Object themeDisplay = null;
-
-			if (httpServletRequest != null) {
-				themeDisplay = httpServletRequest.getAttribute(
-					WebKeys.THEME_DISPLAY);
-			}
-
-			_log.debug(
-				StringBundler.concat(
-					"EC-11 sourceType=", String.valueOf(
-						searchRequestOrigin.getSourceType()),
-					" suggestion=", String.valueOf(
-						searchRequestOrigin.isSuggestion()),
-					" httpServletRequest=", String.valueOf(
-						httpServletRequest != null),
-					" themeDisplay=", String.valueOf(themeDisplay != null),
-					" serviceContext=", String.valueOf(
-						ServiceContextThreadLocal.getServiceContext() != null),
-					" companyId=", String.valueOf(
-						CompanyThreadLocal.getCompanyId()),
-					" principalUserId=", String.valueOf(
-						PrincipalThreadLocal.getUserId()),
-					" permissionChecker=", String.valueOf(
-						PermissionThreadLocal.getPermissionChecker() != null),
-					" path=", String.valueOf(
-						(httpServletRequest == null) ? null :
-							_getPath(httpServletRequest))));
-		}
-		catch (Throwable throwable) {
-			_log.debug("EC-11 probe failed", throwable);
 		}
 	}
 
@@ -204,8 +146,5 @@ public class SearchRequestOriginResolver {
 
 	private static final String _SUGGESTIONS_PATH =
 		"/o/search/v1.0/suggestions";
-
-	private static final Log _log = LogFactoryUtil.getLog(
-		SearchRequestOriginResolver.class);
 
 }
