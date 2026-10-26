@@ -7,7 +7,6 @@ what this run created.
 """
 
 import hashlib
-import json
 import math
 import os
 import re
@@ -49,7 +48,6 @@ _PORT_MOVE_HINT = (
 class Stack:
     def __init__(
         self, directory, project, http_port, database_port, database="postgres",
-        image=None,
     ):
         if database not in DATABASES:
             raise HarnessError("Unknown database %r" % database)
@@ -60,7 +58,6 @@ class Stack:
         self.database_port = database_port
         self.database = database
         self.dialect = "postgres" if database == "postgres" else "mysql"
-        self.image = image
         # 127.0.0.1 on a workstation, matching SEL_E2E_BIND's own default
         # below, so the harness and the browser always reach the same socket
         # the stack actually published; "localhost" can resolve to ::1 first,
@@ -309,15 +306,6 @@ class Stack:
         run(["docker", "wait", self.liferay_container], timeout=600)
         self._compose("start", "liferay", timeout=600)
 
-    def container_running(self, container):
-        code, stdout, _ = run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", container],
-            check=False,
-            timeout=60,
-        )
-
-        return code == 0 and stdout.strip() == "true"
-
     # Logs
 
     def liferay_log(self, since=None):
@@ -531,30 +519,6 @@ class Stack:
             "where taskExecutorClassName = '%s'" % executor_class_name,
             timeout=300,
         )
-
-    def compose_ps(self):
-        _, stdout, _ = self._compose("ps", "--format", "json", check=False, timeout=120)
-
-        entries = []
-
-        for line in stdout.splitlines():
-            line = line.strip()
-
-            if not line:
-                continue
-
-            try:
-                parsed = json.loads(line)
-            except ValueError:
-                continue
-
-            if isinstance(parsed, list):
-                entries.extend(parsed)
-            else:
-                entries.append(parsed)
-
-        return entries
-
 
 class _TableLock:
 

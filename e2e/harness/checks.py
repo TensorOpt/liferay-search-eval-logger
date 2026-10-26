@@ -423,9 +423,10 @@ def install_intercepts_without_restart(context, case):
         % SEARCH_CONSUMER_BUNDLE,
     )
 
-    # Not asserted here: that the widget bundle has dropped out of
-    # _users_of_portal_searcher(registry) entirely. Measured on a running
-    # stack (TO-140): forcing the rebind through disableComponent/
+    # Not asserted here: that the widget bundle has dropped out of the set
+    # of users listed against every non-wrapper entry in the registry
+    # entirely. Measured on a running stack (TO-140): forcing the rebind
+    # through disableComponent/
     # enableComponent, rather than a real restart, leaves that bundle listed
     # against the portal's own Searcher as well, in Bundle#getServicesInUse,
     # even though a real search immediately afterwards is captured and the
@@ -3794,16 +3795,6 @@ def _searcher_registry(context, case):
     assert_true(entries, "No Searcher service is registered at all")
 
     return entries
-
-
-def _users_of_portal_searcher(registry):
-    users = set()
-
-    for entry in registry:
-        if not entry["marker"]:
-            users.update(entry["users"])
-
-    return users
 
 
 def _read_cycle(context):
