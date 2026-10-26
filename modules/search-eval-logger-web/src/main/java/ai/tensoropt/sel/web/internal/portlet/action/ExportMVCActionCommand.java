@@ -72,28 +72,21 @@ public class ExportMVCActionCommand extends BaseMVCActionCommand {
 				SearchEvalLoggerPortletKeys.ACTION_EXPORT);
 		}
 
-		Date startDate = null;
-		Date endDate = null;
+		Date[] dateRange;
 
 		try {
-			startDate = _getDate(
-				ParamUtil.getString(actionRequest, "startDate"), false);
-			endDate = _getDate(
-				ParamUtil.getString(actionRequest, "endDate"), true);
+			dateRange = parseDateRange(
+				ParamUtil.getString(actionRequest, "startDate"),
+				ParamUtil.getString(actionRequest, "endDate"));
 		}
-		catch (DateTimeParseException dateTimeParseException) {
+		catch (DateTimeParseException | IllegalArgumentException exception) {
 			SessionErrors.add(actionRequest, "invalid-date-range");
 
 			return;
 		}
 
-		if ((startDate != null) && (endDate != null) &&
-			endDate.before(startDate)) {
-
-			SessionErrors.add(actionRequest, "invalid-date-range");
-
-			return;
-		}
+		Date startDate = dateRange[0];
+		Date endDate = dateRange[1];
 
 		Map<String, Serializable> taskContextMap = new HashMap<>();
 
@@ -112,12 +105,50 @@ public class ExportMVCActionCommand extends BaseMVCActionCommand {
 	}
 
 	/**
+	 * Parses both bounds and validates the range they form.
+	 *
+	 * <p>
+	 * Validation happens here, against the same exclusive end bound the rest
+	 * of the export path uses, rather than against the raw submitted day: the
+	 * exclusive end of a one-day range (start and end submitted as the same
+	 * day) lands one day after the start, so comparing it with
+	 * {@link Date#before} alone would also accept a submitted end one day
+	 * <em>before</em> the start, since its exclusive bound then equals the
+	 * start exactly and "before" is false for equal instants. Rejecting
+	 * anything whose exclusive end does not come after the start catches that
+	 * case while still accepting the equal-day one.
+	 * </p>
+	 *
+	 * <p>
+	 * Package-private so the validation can be exercised without an action
+	 * command.
+	 * </p>
+	 *
+	 * @throws DateTimeParseException if either bound does not parse
+	 * @throws IllegalArgumentException if the range is empty or reversed
+	 */
+	static Date[] parseDateRange(String startDateString, String endDateString) {
+		Date startDate = _parseDate(startDateString, false);
+		Date endDate = _parseDate(endDateString, true);
+
+		if ((startDate != null) && (endDate != null) &&
+			!endDate.after(startDate)) {
+
+			throw new IllegalArgumentException(
+				"endDate " + endDateString + " is before startDate " +
+					startDateString);
+		}
+
+		return new Date[] {startDate, endDate};
+	}
+
+	/**
 	 * Interprets the submitted day in UTC, and treats the end day as exclusive
 	 * by taking the start of the following day, so an export "to the 14th"
 	 * includes everything logged on the 14th. Events are stored in UTC, so
 	 * reading the range in any other zone would silently shift the window.
 	 */
-	private Date _getDate(String value, boolean exclusiveEnd) {
+	private static Date _parseDate(String value, boolean exclusiveEnd) {
 		if (Validator.isNull(value)) {
 			return null;
 		}
