@@ -219,7 +219,11 @@ public class LoggingSearcherTest {
 			SearchEvalLoggerConfiguration.class);
 
 		when(_registry.getConfiguration(111L)).thenReturn(_configuration);
-		when(_registry.getConfiguration(222L)).thenReturn(disabledConfiguration);
+		when(
+			_registry.getConfiguration(222L)
+		).thenReturn(
+			disabledConfiguration
+		);
 
 		_loggingSearcher.search(mock(SearchRequest.class));
 
