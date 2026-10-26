@@ -41,11 +41,6 @@ import java.util.Map;
 public class ZeroResultPanel {
 
 	/**
-	 * Top 20, matching the acceptance jq recipe's <code>.[:20]</code>.
-	 */
-	public static final int TOP_QUERY_LIMIT = 20;
-
-	/**
 	 * @param firstPageSearchCountsByAudienceType as returned by
 	 *        <code>SearchEventLocalService#getFirstPageSearchCountsByAudienceType</code>:
 	 *        stored <code>audienceType</code> value to
@@ -85,7 +80,7 @@ public class ZeroResultPanel {
 
 		if (overallZeroResultSearches > 0) {
 			topQueries = ZeroResultQueryNormalizer.topZeroResultQueries(
-				normalizedZeroResultFirstPageQueryCounts, TOP_QUERY_LIMIT);
+				normalizedZeroResultFirstPageQueryCounts, _TOP_QUERY_LIMIT);
 		}
 
 		return new ZeroResultPanel(
@@ -147,10 +142,6 @@ public class ZeroResultPanel {
 		return _overallSearches == 0;
 	}
 
-	public boolean isHasTopQueries() {
-		return !_topQueries.isEmpty();
-	}
-
 	private Object[] _messageArguments(long zeroResultSearches, long searches) {
 		return new String[] {
 			String.valueOf(zeroResultSearches), String.valueOf(searches),
@@ -174,6 +165,11 @@ public class ZeroResultPanel {
 	}
 
 	private static final long[] _NO_COUNTS = {0, 0};
+
+	/**
+	 * Top 20, matching the acceptance jq recipe's <code>.[:20]</code>.
+	 */
+	private static final int _TOP_QUERY_LIMIT = 20;
 
 	private final long _guestSearches;
 	private final long _guestZeroResultSearches;
