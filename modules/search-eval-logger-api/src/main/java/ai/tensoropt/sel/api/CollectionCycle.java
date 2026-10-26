@@ -121,10 +121,11 @@ public final class CollectionCycle {
 	 * <code>null</code> while nothing has been collected yet.
 	 *
 	 * <p>
-	 * This is deliberately not the day logging was enabled. Because of the
-	 * restart requirement in 3.1, an instance can have logging enabled and
-	 * collect nothing at all, so a date anchored on the toggle would be wrong
-	 * exactly in the failure case that matters most.
+	 * This is deliberately not the day logging was enabled. Because
+	 * interception can still be bypassed (3.1: a failed rebind, or a
+	 * secondary consumer awaiting restart), an instance can have logging
+	 * enabled and collect nothing at all, so a date anchored on the toggle
+	 * would be wrong exactly in the failure case that matters most.
 	 * </p>
 	 */
 	public LocalDate getCollectionStartDate() {

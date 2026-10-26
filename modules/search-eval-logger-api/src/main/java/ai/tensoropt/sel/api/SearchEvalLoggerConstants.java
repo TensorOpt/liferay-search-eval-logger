@@ -81,7 +81,7 @@ public final class SearchEvalLoggerConstants {
 	/**
 	 * Fired once per cycle from the persistence path the moment
 	 * <code>collectionStartDate</code> is first set (TO-112), rather than from
-	 * the daily job, so an administrator learns the restart worked without
+	 * the daily job, so an administrator learns collection is working without
 	 * waiting up to 24 hours for the next run.
 	 */
 	public static final String NOTIFICATION_TYPE_COLLECTION_STARTED =
