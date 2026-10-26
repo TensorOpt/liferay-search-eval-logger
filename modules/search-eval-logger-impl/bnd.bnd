@@ -1,4 +1,3 @@
 Bundle-Name: TensorOpt Search Eval Logger Impl
 Bundle-SymbolicName: ai.tensoropt.sel.impl
 Bundle-Version: 1.0.0
--dsannotations-options: inherit
