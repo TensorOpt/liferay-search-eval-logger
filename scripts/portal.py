@@ -20,9 +20,12 @@ up deploys the bundles from modules/*/build/libs and waits for interception
 to become active, with no restart: since TO-140 the search entry points (the
 Search Results widget, shared search requests, search bar suggestions)
 rebind onto the wrapper automatically on install, off SearchConsumerRebinder's
-own activation thread. It deploys the jars rather than the .lpkg because
-Liferay refuses an .lpkg whose version is already installed, and a change
-under development rarely bumps the version; make test covers the .lpkg.
+own activation thread. Secondary consumers such as Objects still only join
+at the next restart (DESIGN.md's "why only those two bundles" note): they
+are deliberately excluded from the automatic rebind, not merely unrebound
+yet. It deploys the jars rather than the .lpkg because Liferay refuses an
+.lpkg whose version is already installed, and a change under development
+rarely bumps the version; make test covers the .lpkg.
 
 Without --fresh the database and the portal's data are kept from the last run.
 """
