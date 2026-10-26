@@ -499,7 +499,9 @@ public class SearchEvalExportManifestBuilderTest {
 	 */
 	@Test
 	public void theEnumNamesPersistedAndExportedAreExactlyThese() {
-		assertEquals(Set.of("AUTHENTICATED", "GUEST"), _namesOf(AudienceType.values()));
+		assertEquals(
+			Set.of("AUTHENTICATED", "GUEST"),
+			_namesOf(AudienceType.values()));
 		assertEquals(
 			Set.of("HEADLESS", "OTHER", "UNKNOWN", "WIDGET"),
 			_namesOf(SourceType.values()));
