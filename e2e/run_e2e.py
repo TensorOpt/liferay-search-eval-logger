@@ -365,11 +365,6 @@ def main(argv):
             requires=["content-and-searches"],
         )
         results.run(
-            "search-overhead",
-            lambda case: checks.search_overhead(context, case),
-            requires=["capture"],
-        )
-        results.run(
             "blueprint-preview-excluded",
             lambda case: checks.blueprint_preview_excluded(context, case),
             requires=["capture"],
@@ -478,6 +473,21 @@ def main(argv):
             "queue-overflow",
             lambda case: checks.queue_overflow(context, case),
             requires=["capture"],
+        )
+
+        # Runs after every cycle- and notification-dependent case
+        # (collection-started-notification, signup-banner and the rest):
+        # it toggles the plugin's "enabled" setting a dozen times, which
+        # closes and reopens the collection cycle and sends a
+        # "collection started" notification on each reopen (DESIGN.md
+        # 3.6). Running it earlier inflated collection-started-
+        # notification's own count of exactly one. It snapshots and
+        # restores the cycle record itself either way; see
+        # checks.search_overhead.
+        results.run(
+            "search-overhead",
+            lambda case: checks.search_overhead(context, case),
+            requires=["capture", "signup-banner", "queue-overflow"],
         )
 
         # Last: it uninstalls the plugin and restarts the portal.
