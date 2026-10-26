@@ -35,8 +35,13 @@ from harness import util as harness_util  # noqa: E402
 
 harness_util.log = lambda message: None
 
-from harness import checks, zeroresult  # noqa: E402
-from harness.portal import parse_result_count, parse_zero_result_panel  # noqa: E402
+from harness import checks, pluginconfig, zeroresult  # noqa: E402
+from harness.portal import (  # noqa: E402
+    parse_admission_counters,
+    parse_background_tasks,
+    parse_result_count,
+    parse_zero_result_panel,
+)
 from harness.results import Results  # noqa: E402
 from harness.util import HarnessError  # noqa: E402
 
@@ -2122,6 +2127,168 @@ def check_xml_sanitising():
     _assert("\x00" not in xml_safe("a\x00b"))
 
 
+def check_result_count_parsing():
+    """parse_result_count: the thousands separator and the two renderings
+    the Search Results widget uses when it shows no total label at all."""
+    expect_accepted(
+        "a result count with a thousands separator is read as one integer",
+        lambda: _assert(
+            parse_result_count(
+                '<span class="search-total-label">1,234 Results for '
+                "<strong>annual report</strong></span>"
+            )
+            == 1234
+        ),
+    )
+
+    expect_accepted(
+        "no results were found renders as zero, not as a missing count",
+        lambda: _assert(
+            parse_result_count("<p>No results were found.</p>") == 0
+        ),
+    )
+
+    expect_accepted(
+        "a page with neither rendering is None, distinct from an honest zero",
+        lambda: _assert(
+            parse_result_count("<p>This is not a search results page.</p>")
+            is None
+        ),
+    )
+
+
+def check_admission_counters_and_background_tasks_parsing():
+    """parse_admission_counters and parse_background_tasks: the two admin
+    screen parsers that used to be inline Portal methods reachable only
+    through a live screen, now module level functions driven here against
+    saved markup."""
+    counters_html = """
+    <table>
+    <tr><td>Searches observed while enabled</td><td>18</td></tr>
+    <tr><td>Searches carrying user keywords</td><td>10</td></tr>
+    <tr><td>Searches admitted (all conditions)</td><td>9</td></tr>
+    <tr><td>Events handed to the message bus</td><td>9</td></tr>
+    <tr><td>Events dropped</td><td>1</td></tr>
+    <tr><td>Events written to the database</td><td>8</td></tr>
+    </table>
+    """
+
+    expect_accepted(
+        "every admission counter label is read off the admin screen",
+        lambda: _assert(
+            parse_admission_counters(counters_html)
+            == {
+                "observed": 18,
+                "keywords": 10,
+                "admitted": 9,
+                "dispatched": 9,
+                "dropped": 1,
+                "persisted": 8,
+            }
+        ),
+    )
+
+    expect_rejected(
+        "a missing admission counter label raises rather than returning a"
+        " partial result",
+        lambda: parse_admission_counters("<table></table>"),
+    )
+
+    tasks_html = """
+    <h3>Recent Exports</h3>
+    <table>
+    <tbody>
+    <tr>
+    <td>2026-09-24 10:00</td><td>2026-09-24 10:01</td><td>1m</td>
+    <td>Completed</td>
+    <td><a href="/download?a=1&amp;b=2">Download</a></td>
+    </tr>
+    </tbody>
+    </table>
+    """
+
+    expect_accepted(
+        "an export row's cells and escaped download URL are read back",
+        lambda: _assert(
+            parse_background_tasks(tasks_html)
+            == [
+                {
+                    "started": "2026-09-24 10:00",
+                    "finished": "2026-09-24 10:01",
+                    "duration": "1m",
+                    "status": "Completed",
+                    "download_url": "/download?a=1&b=2",
+                }
+            ]
+        ),
+    )
+
+    expect_accepted(
+        "no Recent Exports table at all reads as no rows, not an error",
+        lambda: _assert(parse_background_tasks("<p>Nothing here.</p>") == []),
+    )
+
+
+def check_pluginconfig_reading():
+    """pluginconfig.read: Felix's typed configuration syntax, the entry
+    format it insists on, and the manifest key mapping it hands back."""
+
+    counter = [0]
+
+    def _config(contents):
+        counter[0] += 1
+
+        directory = os.path.join(TMP, "pluginconfig-%d" % counter[0])
+
+        path = os.path.join(directory, pluginconfig.CONFIGURATION_FILE)
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        with open(path, "w", encoding="utf-8") as file_:
+            file_.write(contents)
+
+        return directory
+
+    expect_accepted(
+        "a boolean and an integer entry are read with their real types",
+        lambda: _assert(
+            pluginconfig.read(
+                _config('enabled=B"true"\ncaptureDepth=I"100"\n')
+            )
+            == {"enabled": True, "captureDepth": 100}
+        ),
+    )
+
+    expect_rejected(
+        "a value typed with a code this reader does not know raises",
+        lambda: pluginconfig.read(_config('retentionDays=L"90"\n')),
+    )
+
+    expect_rejected(
+        "a line that is not a configuration entry raises",
+        lambda: pluginconfig.read(_config('enabled=B"true"\nnot an entry\n')),
+    )
+
+    expect_rejected(
+        "a configuration file that sets nothing raises",
+        lambda: pluginconfig.read(_config("")),
+    )
+
+    expect_accepted(
+        "manifest_expectations maps only the attributes the manifest reports",
+        lambda: _assert(
+            pluginconfig.manifest_expectations(
+                {
+                    "enabled": True,
+                    "captureDepth": 100,
+                    "readinessMinimumDays": 30,
+                }
+            )
+            == {"enabled": True, "capture_depth": 100}
+        ),
+    )
+
+
 def _assert(condition, message="assertion failed"):
     if not condition:
         raise AssertionError(message)
@@ -2166,6 +2333,9 @@ def main():
         check_collection_start_date()
         check_expected_failures()
         check_xml_sanitising()
+        check_result_count_parsing()
+        check_admission_counters_and_background_tasks_parsing()
+        check_pluginconfig_reading()
 
     for line in CHECKED:
         sys.stdout.write("  ok    %s\n" % line)
