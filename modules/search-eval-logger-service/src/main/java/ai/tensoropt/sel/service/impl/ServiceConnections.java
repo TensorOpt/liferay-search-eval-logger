@@ -4,6 +4,7 @@
 
 package ai.tensoropt.sel.service.impl;
 
+import com.liferay.petra.function.UnsafeFunction;
 import com.liferay.portal.kernel.dao.jdbc.CurrentConnectionUtil;
 import com.liferay.portal.kernel.exception.SystemException;
 
@@ -61,7 +62,7 @@ final class ServiceConnections {
 		throws E {
 
 		try {
-			Connection currentConnection = CurrentConnectionUtil.getConnection(
+			Connection currentConnection = _currentConnectionResolver.apply(
 				dataSource);
 
 			if (currentConnection != null) {
@@ -77,11 +78,31 @@ final class ServiceConnections {
 		}
 	}
 
+	/**
+	 * Visible for testing. <code>CurrentConnectionUtil</code>'s static field
+	 * is only ever set by a running portal's own OSGi component, so a plain
+	 * unit test cannot make it return anything, and calling it directly
+	 * throws a <code>NullPointerException</code> rather than the "no bound
+	 * transaction" <code>null</code> every real call site relies on. A test
+	 * substitutes a resolver that never touches that static field, and must
+	 * restore the default afterward, since this is shared, mutable state
+	 * across every test in the same JVM.
+	 */
+	static void setCurrentConnectionResolver(
+		UnsafeFunction<DataSource, Connection, SQLException>
+			currentConnectionResolver) {
+
+		_currentConnectionResolver = currentConnectionResolver;
+	}
+
 	interface ConnectionFunction<T, E extends Throwable> {
 
 		T apply(Connection connection) throws E, SQLException;
 
 	}
+
+	private static UnsafeFunction<DataSource, Connection, SQLException>
+		_currentConnectionResolver = CurrentConnectionUtil::getConnection;
 
 	private ServiceConnections() {
 	}
