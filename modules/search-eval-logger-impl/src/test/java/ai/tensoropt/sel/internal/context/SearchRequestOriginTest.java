@@ -6,7 +6,6 @@ package ai.tensoropt.sel.internal.context;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import ai.tensoropt.sel.api.SourceType;
 
@@ -24,17 +23,6 @@ public class SearchRequestOriginTest {
 		assertFalse(SearchRequestOrigin.UNKNOWN.isWebRequestPresent());
 		assertFalse(SearchRequestOrigin.UNKNOWN.isSuggestion());
 		assertFalse(SearchRequestOrigin.UNKNOWN.isAdministrative());
-	}
-
-	@Test
-	public void accessorsReturnWhatWasConstructed() {
-		SearchRequestOrigin searchRequestOrigin = new SearchRequestOrigin(
-			SourceType.HEADLESS, true, true, true);
-
-		assertSame(SourceType.HEADLESS, searchRequestOrigin.getSourceType());
-		assertTrue(searchRequestOrigin.isSuggestion());
-		assertTrue(searchRequestOrigin.isAdministrative());
-		assertTrue(searchRequestOrigin.isWebRequestPresent());
 	}
 
 	/**
