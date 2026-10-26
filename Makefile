@@ -29,7 +29,7 @@ FRESH ?= 0
 VOLUMES ?= 0
 PORT ?= 8080
 
-.PHONY: help build package run stop e2e e2e-run test preflight publish release
+.PHONY: help build package run stop loadtest e2e e2e-run test preflight publish release
 
 help: ## List the targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
@@ -56,6 +56,9 @@ stop: ## Stop the portal started by make run. DB=<db> stops just that one; omitt
 	else \
 		python3 scripts/portal.py down --all $(if $(filter 1,$(VOLUMES)),--volumes); \
 	fi
+
+loadtest: ## Measure collection's search overhead, with a confidence interval, against a portal already started by make run
+	python3 scripts/loadtest.py --database $(DB) --http-port $(PORT)
 
 e2e-run: ## Run the e2e suite on DB against jars/.lpkg already built (no rebuild)
 	rm -rf "e2e/results/$(DB)"

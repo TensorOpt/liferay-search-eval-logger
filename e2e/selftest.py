@@ -2362,6 +2362,69 @@ def check_stats_helpers():
     )
 
 
+def check_stats_percentile_and_bootstrap():
+    """D8: stats.percentile (linear interpolation, numpy's default method)
+    and stats.bootstrap_ratio_ci, with fixtures small and regular enough to
+    reason about by hand."""
+
+    expect_accepted(
+        "percentile at the exact middle sample of an odd-length list is "
+        "that sample",
+        lambda: _assert(stats.percentile([1, 2, 3, 4, 5], 0.5) == 3),
+    )
+
+    expect_accepted(
+        "p90 of 1..10 interpolates nine tenths of the way from the 9th to "
+        "the 10th sample",
+        lambda: _assert(stats.percentile(list(range(1, 11)), 0.9) == 9.1),
+    )
+
+    expect_rejected(
+        "a percentile that rounded instead of interpolating is caught",
+        lambda: _assert(stats.percentile(list(range(1, 11)), 0.9) == 9),
+    )
+
+    expect_accepted(
+        "a single-value list returns that value at any fraction",
+        lambda: _assert(stats.percentile([42], 0.975) == 42),
+    )
+
+    # A degenerate but hand-computable bootstrap: every disabled sample is
+    # 60 and every enabled sample is 66, so every resample's medians are
+    # exactly 60 and 66 regardless of which indices random.choices draws,
+    # and the whole interval collapses to the single true ratio, 1.1.
+
+    expect_accepted(
+        "a bootstrap over constant samples collapses to the true ratio at "
+        "both ends",
+        lambda: _assert(
+            stats.bootstrap_ratio_ci(
+                [0.066] * 30, [0.060] * 30, resamples=50, seed=1
+            )
+            == (1.1, 1.1)
+        ),
+    )
+
+    low, high = stats.bootstrap_ratio_ci(
+        [0.060, 0.066, 0.072] * 10, [0.054, 0.060, 0.066] * 10,
+        resamples=500, seed=1,
+    )
+
+    expect_accepted(
+        "a bootstrap over varying samples brackets the ratio of the whole "
+        "samples' own medians",
+        lambda: _assert(low <= stats.ratio(
+            stats.median([0.060, 0.066, 0.072] * 10),
+            stats.median([0.054, 0.060, 0.066] * 10),
+        ) <= high),
+    )
+
+    expect_rejected(
+        "a reversed interval (high quoted as the low end) is caught",
+        lambda: _assert(low > high),
+    )
+
+
 def check_results_trim_and_junit_outcomes():
     """results._trim's line budget, and that write_junit reports an
     EXPECTED_FAILURE as a skip carrying the whole traceback and an
@@ -2756,6 +2819,7 @@ def main():
         check_zeroresult_none_handling()
         check_pluginconfig_reading()
         check_stats_helpers()
+        check_stats_percentile_and_bootstrap()
         check_results_trim_and_junit_outcomes()
         check_wait_for_stability_and_exceptions()
         check_remaining_harness_parsers()

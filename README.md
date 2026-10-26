@@ -251,6 +251,7 @@ make build                      # compile, unit tests, e2e selftest
 make package                    # release jars, SHA256SUMS and a jars.zip in build/dist/<version>-<line>/
 make run DB=mysql FRESH=1       # a portal on http://127.0.0.1:8080 with the plugin installed
 make stop DB=mysql              # stop it; VOLUMES=1 also deletes its data
+make loadtest DB=mysql          # measures collection's search overhead against that portal, with a confidence interval
 make test                       # unit tests, then the e2e suite on all four databases
 make release                    # releases the bundles' Bundle-Version: checks, clean build, make test, publish
 make publish                    # publishes the jars already in build/dist, untested here; what the GitLab release job runs
