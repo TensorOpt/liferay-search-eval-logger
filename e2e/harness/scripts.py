@@ -212,6 +212,28 @@ if (refs != null) {
 result = lines.join("\\n")
 """
 
+# TO-144: the OSGi JAX-RS whiteboard's own view of its health, read through
+# the standard org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime service
+# (OSGi Compendium 151), not through anything this plugin owns. Used as the
+# positive recovery check around uninstall_and_reinstall: UNINSTALL_TOLERATED
+# accepts the vulcan/Cxf rewire errors that cascade sets off (DESIGN.md 3.1),
+# and this is what proves the whiteboard actually settles back down rather
+# than the tolerance rule silently hiding a portal left broken.
+JAXRS_WHITEBOARD_HEALTH = """
+def bundleContext =
+    com.liferay.portal.kernel.module.util.SystemBundleUtil.getBundleContext()
+
+def reference = bundleContext.getServiceReference(
+    org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime)
+
+def dto = bundleContext.getService(reference).getRuntimeDTO()
+
+result = JsonOutput.toJson([
+    failedApplications: dto.failedApplicationDTOs.length,
+    failedResources: dto.failedResourceDTOs.length,
+    failedExtensions: dto.failedExtensionDTOs.length])
+"""
+
 # Closes and reopens the collection cycle, through the same service the
 # configuration listener and the daily job call (TO-112's re-arm test):
 # CollectionCycleStatusImpl.closeCycle then .openCycle. Reflective for the
