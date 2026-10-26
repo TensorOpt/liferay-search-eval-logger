@@ -35,7 +35,7 @@ from harness import util as harness_util  # noqa: E402
 
 harness_util.log = lambda message: None
 
-from harness import checks, pluginconfig, zeroresult  # noqa: E402
+from harness import checks, pluginconfig, stats, zeroresult  # noqa: E402
 from harness.portal import (  # noqa: E402
     parse_admission_counters,
     parse_background_tasks,
@@ -2330,6 +2330,38 @@ def check_pluginconfig_reading():
     )
 
 
+def check_stats_helpers():
+    """D8: stats.median (the standard library's own, re-exported) and
+    stats.ratio, with fixtures small enough to compute by hand."""
+
+    expect_accepted(
+        "median of an odd-length list is its middle value",
+        lambda: _assert(stats.median([3, 1, 2]) == 2),
+    )
+
+    expect_accepted(
+        "median of an even-length list averages the two middle values",
+        lambda: _assert(stats.median([1, 2, 3, 4]) == 2.5),
+    )
+
+    expect_rejected(
+        "a median that used the unsorted order instead of the sorted one "
+        "is caught",
+        lambda: _assert(stats.median([4, 1, 2, 3]) == 4),
+    )
+
+    expect_accepted(
+        "ratio is enabled's median over disabled's, not the other way round",
+        lambda: _assert(stats.ratio(66, 60) == 1.1),
+    )
+
+    expect_rejected(
+        "a ratio computed the other way round (disabled over enabled) is "
+        "caught",
+        lambda: _assert(stats.ratio(60, 66) == 1.1),
+    )
+
+
 def check_results_trim_and_junit_outcomes():
     """results._trim's line budget, and that write_junit reports an
     EXPECTED_FAILURE as a skip carrying the whole traceback and an
@@ -2723,6 +2755,7 @@ def main():
         check_admission_counters_and_background_tasks_parsing()
         check_zeroresult_none_handling()
         check_pluginconfig_reading()
+        check_stats_helpers()
         check_results_trim_and_junit_outcomes()
         check_wait_for_stability_and_exceptions()
         check_remaining_harness_parsers()

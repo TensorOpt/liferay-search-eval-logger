@@ -21,7 +21,7 @@ import zipfile
 
 from datetime import datetime, timedelta, timezone
 
-from . import pluginconfig, scripts, zeroresult
+from . import pluginconfig, scripts, stats, zeroresult
 from .generate import SNIPPET_COVERAGE, TITLE_COVERAGE, Generator
 from .portal import ADMIN_PORTLET_ID
 from .util import HarnessError, Stopwatch, TimeoutError_, log, wait_for
@@ -997,6 +997,133 @@ def capture(context, case):
     )
 
     assert_equal(orphans, 0, "Captured hits with no event")
+
+
+# How many interleaved blocks search_overhead runs, and how many guest
+# searches per state within each block. Chosen to keep the whole case under
+# about two minutes: 6 blocks of 15 is 90 searches per state, 180 total,
+# plus 12 configuration toggles.
+_OVERHEAD_BLOCKS = 6
+_OVERHEAD_SEARCHES_PER_BLOCK = 15
+_OVERHEAD_WARMUP_SEARCHES = 5
+
+# DESIGN.md 3: "no measurable impact on search latency." This is the coarse
+# gate the e2e suite can assert without a quiet machine; scripts/loadtest.py
+# (D8) is the real measurement, with a bootstrap confidence interval, run by
+# hand on a quiet one.
+_OVERHEAD_MAX_RATIO = 1.10
+
+
+def _set_collection_enabled(context, enabled):
+    """Flips the plugin's "enabled" setting (DESIGN.md 5) through
+    scripts.SET_CONFIGURATION_ENABLED, which reads every other attribute off
+    the live configuration first and writes it straight back, so nothing
+    else this run configured is disturbed. Waits for the change to be
+    visible before returning, and returns the value "enabled" held before
+    this call, so a caller can restore it when done.
+    """
+    wanted = "true" if enabled else "false"
+
+    previous = context.portal.run_script(
+        scripts.SET_CONFIGURATION_ENABLED % {
+            "company_id": context.company_id,
+            "enabled": wanted,
+        }
+    ) == "true"
+
+    wait_for(
+        "the configuration change to %s collection to take effect"
+        % ("enable" if enabled else "disable"),
+        lambda: context.portal.run_script(
+            scripts.CONFIGURATION_ENABLED % {"company_id": context.company_id}
+        ) == wanted,
+        timeout=15,
+        interval=1.0,
+    )
+
+    return previous
+
+
+def search_overhead(context, case):
+    """DESIGN.md 3: collection must have no measurable impact on search
+    latency.
+
+    Runs the same guest Search Results widget search many times with
+    collection disabled and enabled, interleaved in blocks (disabled block,
+    enabled block, disabled block, ...) so that drift on the machine running
+    this suite, a noisy neighbour, a GC pause, disk contention, falls on
+    both states about equally rather than all on whichever one happens to
+    run first or last. Asserts the enabled median is at most 10% over the
+    disabled median.
+    """
+    from .portal import Portal
+
+    guest = Portal(context.stack)
+
+    original_enabled = (
+        context.portal.run_script(
+            scripts.CONFIGURATION_ENABLED % {"company_id": context.company_id}
+        )
+        == "true"
+    )
+
+    try:
+        for _ in range(_OVERHEAD_WARMUP_SEARCHES):
+            guest.search(MARKER_TERM)
+
+        disabled_samples = []
+        enabled_samples = []
+
+        for _ in range(_OVERHEAD_BLOCKS):
+            _set_collection_enabled(context, False)
+
+            for _ in range(_OVERHEAD_SEARCHES_PER_BLOCK):
+                started = time.monotonic()
+                response = guest.search(MARKER_TERM)
+                disabled_samples.append(time.monotonic() - started)
+
+                assert_equal(
+                    response.status, 200,
+                    "A disabled-collection search did not answer",
+                )
+
+            _set_collection_enabled(context, True)
+
+            for _ in range(_OVERHEAD_SEARCHES_PER_BLOCK):
+                started = time.monotonic()
+                response = guest.search(MARKER_TERM)
+                enabled_samples.append(time.monotonic() - started)
+
+                assert_equal(
+                    response.status, 200,
+                    "An enabled-collection search did not answer",
+                )
+    finally:
+        _set_collection_enabled(context, original_enabled)
+
+    disabled_median = stats.median(disabled_samples)
+    enabled_median = stats.median(enabled_samples)
+    overhead_ratio = stats.ratio(enabled_median, disabled_median)
+
+    case.note(
+        "%d searches per state (%d blocks of %d): disabled median %.1f ms, "
+        "enabled median %.1f ms, ratio %.3f"
+        % (
+            len(disabled_samples), _OVERHEAD_BLOCKS,
+            _OVERHEAD_SEARCHES_PER_BLOCK, disabled_median * 1000,
+            enabled_median * 1000, overhead_ratio,
+        )
+    )
+
+    assert_true(
+        overhead_ratio <= _OVERHEAD_MAX_RATIO,
+        "Collection's overhead ratio %.3f exceeds the %.2f gate (disabled "
+        "median %.1f ms, enabled median %.1f ms)"
+        % (
+            overhead_ratio, _OVERHEAD_MAX_RATIO, disabled_median * 1000,
+            enabled_median * 1000,
+        ),
+    )
 
 
 def assert_funnel_adds_up(counters):
