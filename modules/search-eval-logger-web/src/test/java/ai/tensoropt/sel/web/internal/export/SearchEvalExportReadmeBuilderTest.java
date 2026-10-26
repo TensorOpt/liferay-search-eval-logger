@@ -91,10 +91,7 @@ public class SearchEvalExportReadmeBuilderTest {
 		when(searchEvalLoggerConfiguration.cohortSaltRotationDays()).thenReturn(
 			7);
 
-		SearchEvalExportReadmeBuilder searchEvalExportReadmeBuilder =
-			new SearchEvalExportReadmeBuilder();
-
-		return searchEvalExportReadmeBuilder.build(
+		return SearchEvalExportReadmeBuilder.build(
 			startDate, endDate, new SearchEvalExportResult(),
 			searchEvalLoggerConfiguration);
 	}
