@@ -24,6 +24,7 @@ alongside the unit tests rather than only before a release:
 import io
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -1362,6 +1363,223 @@ def check_daily_schedule():
         lambda: checks.assert_daily_schedule(
             jobs("2026-09-26T03:00:00Z", "2026-09-27T03:00:00Z"), now),
     )
+
+
+class _FakeOverheadAdminPortal:
+    """Just enough of harness.portal.Portal.run_script for
+    checks.search_overhead's admin calls: toggling the plugin's "enabled"
+    setting and reading/writing the collection cycle record, without a
+    portal. The enabled toggle also simulates
+    SearchEvalLoggerConfigurationModelListener closing and reopening the
+    cycle (DESIGN.md 3.6) on every actual flip, so a test that skips
+    restoring the cycle has something to notice.
+    """
+
+    def __init__(self, enabled=True, cycle=None, fail_cycle_write=False):
+        self.enabled = enabled
+        self.cycle = dict(cycle or {
+            "open": "true",
+            "enabledByUserId": "20121",
+            "cycleOpenedDate": "2026-09-01T00:00:00Z",
+            "collectionStartDate": "2026-09-01",
+            "collectionStartedNotifiedDate": "2026-09-01T00:05:00Z",
+            "readinessNotifiedDate": "",
+            "stallNotifiedDate": "",
+            "signupBannerDismissed": "false",
+        })
+        self.fail_cycle_write = fail_cycle_write
+        self._toggle_count = 0
+
+    def run_script(self, body):
+        if "preferences.setValue(" in body:
+            if self.fail_cycle_write:
+                raise HarnessError("simulated: writing the cycle record failed")
+
+            for key, value in re.findall(
+                r'preferences\.setValue\("([^"]+)", "([^"]*)"\)', body
+            ):
+                self.cycle[key] = value
+
+            return "ok"
+
+        if "values.put(key," in body:
+            return dict(self.cycle)
+
+        if "boolean enabled = " in body:
+            wanted = "boolean enabled = true" in body
+            previous = self.enabled
+            self.enabled = wanted
+
+            if wanted != previous:
+                self._toggle_count += 1
+                self.cycle["open"] = "true" if wanted else "false"
+                self.cycle["cycleOpenedDate"] = "toggle-%d" % self._toggle_count
+                self.cycle["collectionStartDate"] = ""
+                self.cycle["collectionStartedNotifiedDate"] = ""
+                self.cycle["readinessNotifiedDate"] = ""
+                self.cycle["stallNotifiedDate"] = ""
+
+            return "true" if previous else "false"
+
+        if 'getMethod("enabled")' in body:
+            return "true" if self.enabled else "false"
+
+        raise AssertionError("Unexpected script in fake: %s" % body[:120])
+
+
+class _FakeOverheadGuestPortal:
+    """Stands in for the harness.portal.Portal instance
+    checks.search_overhead creates for guest.search(...)."""
+
+    def __init__(self, stack=None, fail_after=None):
+        self.calls = 0
+        self.fail_after = fail_after
+
+    def search(self, keywords):
+        self.calls += 1
+
+        status = (
+            500
+            if self.fail_after is not None and self.calls > self.fail_after
+            else 200
+        )
+
+        return type("Response", (), {"status": status})()
+
+
+def check_search_overhead_order_and_restore():
+    """BLOCKER finding 1 (TO-144, round 4): search-overhead toggles the
+    plugin's "enabled" setting a dozen times; every toggle closes and
+    reopens the collection cycle (DESIGN.md 3.6), and the first event of
+    each reopened cycle sends its own "collection started" notification.
+    Running it right after `capture`, before
+    collection-started-notification asserted its own cycle had sent
+    exactly one, inflated that count (observed 7 in a postgres run). Two
+    things are checked: the case runs after every cycle- and
+    notification-dependent case in run_e2e.py's registration order, and it
+    restores both "enabled" and the whole cycle record no matter how the
+    benchmark itself comes out.
+    """
+    source = open(
+        os.path.join(DIRECTORY, "run_e2e.py"), encoding="utf-8"
+    ).read()
+
+    def case_positions(text):
+        return {
+            name: text.index('"%s",' % name)
+            for name in (
+                "capture", "signup-banner", "queue-overflow",
+                "search-overhead", "uninstall-and-reinstall",
+            )
+        }
+
+    positions = case_positions(source)
+
+    expect_accepted(
+        "search-overhead is registered after signup-banner and "
+        "queue-overflow, and before uninstall-and-reinstall",
+        lambda: _assert(
+            positions["signup-banner"] < positions["search-overhead"]
+            and positions["queue-overflow"] < positions["search-overhead"]
+            and positions["search-overhead"] < positions["uninstall-and-reinstall"]
+        ),
+    )
+
+    # The mutation, done by hand: move the registration back to right after
+    # "capture", which is where it ran before this fix and which is what
+    # produced the inflated notification count.
+    overhead_block = source[
+        source.index("        results.run(\n            \"search-overhead\""):
+        source.index("        # Last: it uninstalls")
+    ]
+
+    reverted = (
+        source.replace(overhead_block, "")
+        .replace(
+            '        results.run(\n            "blueprint-preview-excluded",',
+            overhead_block + '        results.run(\n            "blueprint-preview-excluded",',
+        )
+    )
+
+    reverted_positions = case_positions(reverted)
+
+    expect_rejected(
+        "reverting the registration to right after capture is caught",
+        lambda: _assert(
+            reverted_positions["signup-banner"] < reverted_positions["search-overhead"]
+        ),
+    )
+
+    from harness import portal as portal_module
+
+    original_portal_class = portal_module.Portal
+
+    try:
+        # 1. The benchmark itself fails partway through. The failure must be
+        # what propagates, and both "enabled" and the cycle record must
+        # still come back to what they were beforehand.
+
+        admin = _FakeOverheadAdminPortal(enabled=True)
+        snapshot = dict(admin.cycle)
+
+        portal_module.Portal = lambda stack: _FakeOverheadGuestPortal(
+            stack, fail_after=3
+        )
+
+        context = FakeContext()
+        context.stack = None
+        context.portal = admin
+
+        expect_rejected(
+            "search_overhead propagates the benchmark's own failure "
+            "rather than a restore outcome",
+            lambda: checks.search_overhead(context, FakeCase()),
+        )
+
+        expect_accepted(
+            "a failed run still restores \"enabled\" to what it was",
+            lambda: _assert(admin.enabled is True),
+        )
+
+        expect_accepted(
+            "a failed run still restores the whole cycle record, not just "
+            "\"enabled\" (the mutation this guards: dropping the cycle "
+            "restore leaves \"open\"/cycleOpenedDate/etc. at whatever the "
+            "last toggle left them at)",
+            lambda: _assert(admin.cycle == snapshot),
+        )
+
+        # 2. The benchmark itself succeeds, but restoring the cycle record
+        # fails. That must not be swallowed: it is the only problem this
+        # run has, so it must surface as the case's own failure, with a
+        # note identifying which restore step failed.
+
+        admin2 = _FakeOverheadAdminPortal(enabled=True, fail_cycle_write=True)
+
+        portal_module.Portal = lambda stack: _FakeOverheadGuestPortal(stack)
+
+        context2 = FakeContext()
+        context2.stack = None
+        context2.portal = admin2
+
+        case2 = FakeCase()
+
+        expect_rejected(
+            "a cycle-restore failure surfaces when the benchmark passed",
+            lambda: checks.search_overhead(context2, case2),
+        )
+
+        expect_accepted(
+            "the surfaced failure names the restore step that failed",
+            lambda: _assert(
+                any(
+                    "restore the collection cycle" in line
+                    for line in case2.stdout
+                )
+            ),
+        )
+    finally:
+        portal_module.Portal = original_portal_class
 
 
 def check_foreign_download():
@@ -3076,6 +3294,7 @@ def main():
         check_zero_result_panel_xss_escaping()
         check_notification_listed()
         check_daily_schedule()
+        check_search_overhead_order_and_restore()
         check_foreign_download()
         check_queue_overflow()
         check_log_clean()

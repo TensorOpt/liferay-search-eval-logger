@@ -276,6 +276,33 @@ runtime reasonable rather than to drive the gate's variance down further.
 A failure here is worth re-running once before treating it as a
 regression; a consistent failure across runs is the signal that matters.
 
+**The "disabled" baseline is not "plugin absent."** `LoggingSearcher`
+stays registered and wrapping `Searcher` (DESIGN.md 3.1) regardless of
+the setting; disabling it only skips dispatch and persistence past the
+admission filter, after one configuration lookup per search. So this
+case compares logging on against logging off on an installed plugin, not
+the plugin installed against not installed; `plugin-absent-baseline`
+earlier in the run is the comparison against no plugin at all, for a
+different purpose (DESIGN.md 3.1's failure-isolation claim, not latency).
+
+**The case resets and restores the collection cycle, and sends
+notifications of its own.** Every `SET_CONFIGURATION_ENABLED` save runs
+`SearchEvalLoggerConfigurationModelListener`, which closes the running
+collection cycle on a disable and opens a new one on an enable
+(DESIGN.md 3.6); the first event persisted in each newly opened cycle
+sends its own "collection started" notification. Twelve toggles per run
+(two per block) means a run of this case sends twelve such
+notifications and advances the cycle six times. That is why it runs
+last among the cycle- and notification-dependent cases, immediately
+before `uninstall-and-reinstall`, rather than right after `capture`
+where it ran before: running it earlier inflated
+`collection-started-notification`'s own assertion of exactly one
+notification for the cycle that case expects to still be open. The case
+snapshots the cycle record (`_read_cycle`) before it starts and restores
+it (`_write_cycle`) in a `finally` regardless of outcome, alongside
+restoring `enabled` to its original value, so neither a passing nor a
+failing run leaves the cycle advanced for whatever runs after it.
+
 ### scripts/loadtest.py: the real overhead measurement
 
 Where `search-overhead` is a coarse pass/fail gate, `scripts/loadtest.py`
@@ -373,7 +400,6 @@ MySQL on Linux does not.
 | `daily-jobs-scheduled` | After that restart, the retention purge and the collection cycle check are scheduled at 03:00 and 03:30 and then daily, not one day after the portal started |
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
-| `search-overhead` | DESIGN.md 3: guest Search Results widget searches run in interleaved blocks with collection disabled and enabled; the enabled median must be at most 10% over the disabled median. A coarse gate, not a measurement; see "Search overhead" below |
 | `blueprint-preview-excluded` | TO-141: a search from the Blueprint editor's Preview reaches the wrapper but is not logged; where the headless Search API is open, a Blueprint-driven search through it is logged with its Blueprint |
 | `zero-result-panel-seed` | TO-135: deliberate zero-result searches, as a guest and as a signed-in user, exercising the panel's grouping rule: the ASCII case fold (merged) and the accented trio (kept apart); verified once the `zero-result-panel` case downloads the archive these searches landed in |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
@@ -396,6 +422,7 @@ MySQL on Linux does not.
 | `export-permission-refused` | DESIGN.md 6.1: a user who can open the screen but does not hold `EXPORT` is refused, on the screen and on a direct action post. See below for what counts as evidence there |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
+| `search-overhead` | DESIGN.md 3: guest Search Results widget searches run in interleaved blocks with collection disabled and enabled; the enabled median must be at most 10% over the disabled median. A coarse gate, not a measurement; see "Search overhead" below. Runs last among the cycle- and notification-dependent cases: it resets and restores the collection cycle itself and sends "collection started" notifications of its own, which would otherwise inflate `collection-started-notification`'s own count |
 | `uninstall-and-reinstall` | TO-111/TO-140: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR beyond `UNINSTALL_TOLERATED`'s narrowly named rules (see below), and the data is untouched; reinstalled, without a restart, the automatic rebind clears the bypass again, and exactly N Search Results widget searches for a distinct term produce exactly N newly captured events through `PortletSharedSearchRequestImpl`, settling the benign bundle-level artifact with evidence rather than assertion for that one entry point component; the legacy `SearchPortlet` and search bar suggestions are not exercised here and rest on their own component DTOs and the bytecode finding that neither bundle acquires a `Searcher` outside Declarative Services, and the collection start date is unchanged |
 | `lpkg-install` | TO-116, last, only with `--lpkg`: the jars removed and an `.lpkg` of the same jars dropped into the deploy folder, the way a Liferay Marketplace download is installed; after the restart Liferay itself requires for an `.lpkg`, the plugin's four bundles are Active and loaded from inside the `.lpkg`, interception is active, and searches are recorded |
 

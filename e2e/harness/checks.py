@@ -1061,6 +1061,26 @@ def search_overhead(context, case):
     both states about equally rather than all on whichever one happens to
     run first or last. Asserts the enabled median is at most 10% over the
     disabled median.
+
+    The "disabled" state still runs the wrapper and one configuration
+    lookup per search (DESIGN.md 3.1: the wrapper is always registered once
+    the plugin is installed); flipping the setting only skips dispatch and
+    persistence. So this compares logging on against logging off, not the
+    plugin installed against not installed.
+
+    Every save through SET_CONFIGURATION_ENABLED runs
+    SearchEvalLoggerConfigurationModelListener, which closes the running
+    collection cycle on a disable and opens a new one on an enable
+    (DESIGN.md 3.6); the first event persisted in each newly opened cycle
+    sends its own "collection started" notification. Twelve toggles per run
+    (two per block) means this case sends notifications and advances the
+    cycle on every run, which is exactly why it runs last among the
+    cycle- and notification-dependent cases, after collection-started-
+    notification and signup-banner have already made their own assertions
+    about notification counts, rather than before them. The cycle record
+    is snapshotted before the case and restored afterward regardless, so a
+    run of this case does not leave the cycle in a state later cases (or a
+    second run) would misread.
     """
     from .portal import Portal
 
@@ -1072,6 +1092,8 @@ def search_overhead(context, case):
         )
         == "true"
     )
+
+    original_cycle = _read_cycle(context)
 
     try:
         for _ in range(_OVERHEAD_WARMUP_SEARCHES):
@@ -1105,7 +1127,33 @@ def search_overhead(context, case):
                     "An enabled-collection search did not answer",
                 )
     finally:
-        _set_collection_enabled(context, original_enabled)
+        # Restore first, note any failure, and never raise over an
+        # exception already propagating from the benchmark above: a
+        # restore problem noted alongside the real failure is useful, a
+        # restore problem that replaces and hides the real failure is not.
+        # When the benchmark itself did not raise, a restore failure here
+        # is the only problem this case has to report, so it is raised
+        # below rather than swallowed.
+        restore_error = None
+
+        try:
+            _set_collection_enabled(context, original_enabled)
+        except Exception as error:  # noqa: BLE001 - reported, not hidden
+            restore_error = error
+            case.note(
+                "Failed to restore \"enabled\" to %s: %r"
+                % (original_enabled, error)
+            )
+
+        try:
+            _write_cycle(context, original_cycle)
+        except Exception as error:  # noqa: BLE001 - reported, not hidden
+            if restore_error is None:
+                restore_error = error
+            case.note("Failed to restore the collection cycle record: %r" % error)
+
+    if restore_error is not None:
+        raise restore_error
 
     disabled_median = stats.median(disabled_samples)
     enabled_median = stats.median(enabled_samples)
