@@ -162,6 +162,38 @@ def find_jars():
     return jars
 
 
+def required_jars():
+    """Exactly one jar per module, already built by `make build`.
+
+    Unlike find_jars, which this module's own main() uses to decide whether
+    a build is needed at all and so tolerates a module with no jar yet, this
+    is for a caller that expects the build to already be done: it fails
+    loudly, naming the module, the moment one of them holds anything other
+    than exactly one jar, rather than silently taking the newest of several
+    or skipping a missing one.
+    """
+    jars = []
+
+    for module in MODULES:
+        libs = os.path.join(REPOSITORY, "modules", module, "build", "libs")
+
+        matches = sorted(
+            name
+            for name in (os.listdir(libs) if os.path.isdir(libs) else [])
+            if name.endswith(".jar") and not name.endswith("-sources.jar")
+        )
+
+        if len(matches) != 1:
+            sys.exit(
+                "Expected one jar in %s, found %s. Run make build first."
+                % (libs, matches or "none")
+            )
+
+        jars.append(os.path.join(libs, matches[0]))
+
+    return jars
+
+
 def build_bundles(project):
     """Builds in a container, so the harness needs no JDK on the host.
 

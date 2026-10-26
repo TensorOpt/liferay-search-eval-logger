@@ -57,7 +57,7 @@ REPOSITORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.insert(0, os.path.join(REPOSITORY, "e2e"))
 
-from run_e2e import MODULES  # noqa: E402 - the one list of the four modules
+from run_e2e import required_jars  # noqa: E402 - shared with scripts/portal.py
 
 PACKAGE_NAME = "liferay-search-eval-logger"
 LPKG_NAME = PACKAGE_NAME + ".lpkg"
@@ -96,29 +96,6 @@ def dxp_title(line):
     title = line.replace("dxp-", "DXP ").replace(".q", ".Q")
 
     return title + " LTS" if line.endswith(".q1") else title
-
-
-def built_jars():
-    jars = []
-
-    for module in MODULES:
-        libs = os.path.join(REPOSITORY, "modules", module, "build", "libs")
-
-        matches = sorted(
-            name
-            for name in (os.listdir(libs) if os.path.isdir(libs) else [])
-            if name.endswith(".jar") and not name.endswith("-sources.jar")
-        )
-
-        if len(matches) != 1:
-            sys.exit(
-                "Expected one jar in %s, found %s. Run make build first."
-                % (libs, matches or "none")
-            )
-
-        jars.append(os.path.join(libs, matches[0]))
-
-    return jars
 
 
 def bundle_version(jar):
@@ -297,7 +274,7 @@ def main(argv):
     )
     options = parser.parse_args(argv)
 
-    jars = built_jars()
+    jars = required_jars()
     versions = {os.path.basename(jar): bundle_version(jar) for jar in jars}
 
     if len(set(versions.values())) != 1:
