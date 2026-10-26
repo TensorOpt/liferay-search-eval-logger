@@ -12,7 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.liferay.portal.search.searcher.Searcher;
 
-import java.lang.reflect.Field;
+import ai.tensoropt.sel.internal.TestInjection;
 
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +77,8 @@ public class SearchInterceptionStatusImplTest {
 			List.of(portalSearcherReference, secondWrapperReference)
 		);
 
-		_inject("_bundleContext", bundleContext);
+		TestInjection.set(
+			_searchInterceptionStatusImpl, "_bundleContext", bundleContext);
 
 		assertFalse(
 			_searchInterceptionStatusImpl.hasOtherConsumersAwaitingRestart(),
@@ -226,7 +227,8 @@ public class SearchInterceptionStatusImplTest {
 			new InvalidSyntaxException("unreadable", null)
 		);
 
-		_inject("_bundleContext", bundleContext);
+		TestInjection.set(
+			_searchInterceptionStatusImpl, "_bundleContext", bundleContext);
 
 		assertFalse(
 			_searchInterceptionStatusImpl.hasOtherConsumersAwaitingRestart(),
@@ -316,10 +318,6 @@ public class SearchInterceptionStatusImplTest {
 		return bundleContext;
 	}
 
-	private void _inject(String name, Object value) throws Exception {
-		_set(_searchInterceptionStatusImpl, name, value);
-	}
-
 	private ComponentDescriptionDTO _searcherComponent(String name) {
 		ComponentDescriptionDTO description = new ComponentDescriptionDTO();
 
@@ -364,17 +362,6 @@ public class SearchInterceptionStatusImplTest {
 		return serviceReference;
 	}
 
-	private void _set(Object target, String name, Object value)
-		throws Exception {
-
-		Field field = SearchInterceptionStatusImpl.class.getDeclaredField(
-			name);
-
-		field.setAccessible(true);
-
-		field.set(target, value);
-	}
-
 	/**
 	 * Stubs a non-marker {@code Searcher} service reference whose single
 	 * using bundle is some bundle other than this plugin's own, named by
@@ -414,7 +401,8 @@ public class SearchInterceptionStatusImplTest {
 			List.of(serviceReference)
 		);
 
-		_inject("_bundleContext", bundleContext);
+		TestInjection.set(
+			_searchInterceptionStatusImpl, "_bundleContext", bundleContext);
 	}
 
 	private SearchInterceptionStatusImpl _newInjected() {
@@ -422,8 +410,9 @@ public class SearchInterceptionStatusImplTest {
 			new SearchInterceptionStatusImpl();
 
 		try {
-			_set(impl, "_serviceComponentRuntime", _serviceComponentRuntime);
-			_set(impl, "_bundleContext", _entryPointBundleContext());
+			TestInjection.set(
+				impl, "_serviceComponentRuntime", _serviceComponentRuntime);
+			TestInjection.set(impl, "_bundleContext", _entryPointBundleContext());
 		}
 		catch (Exception exception) {
 			throw new RuntimeException(exception);

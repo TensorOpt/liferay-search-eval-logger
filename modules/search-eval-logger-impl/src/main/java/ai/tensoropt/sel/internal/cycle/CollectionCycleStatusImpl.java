@@ -274,34 +274,6 @@ public class CollectionCycleStatusImpl
 		_clock = clock;
 	}
 
-	/**
-	 * Visible for testing. The runtime binds the field directly; there is no
-	 * production caller.
-	 */
-	void setCollectionCycleStore(CollectionCycleStore collectionCycleStore) {
-		_collectionCycleStore = collectionCycleStore;
-	}
-
-	/**
-	 * Visible for testing. The runtime binds the field directly; there is no
-	 * production caller.
-	 */
-	void setCollectionNotifier(CollectionNotifier collectionNotifier) {
-		_collectionNotifier = collectionNotifier;
-	}
-
-	/**
-	 * Visible for testing. The runtime binds the field directly; there is no
-	 * production caller.
-	 */
-	void setSearchEvalLoggerConfigurationRegistry(
-		SearchEvalLoggerConfigurationRegistry
-			searchEvalLoggerConfigurationRegistry) {
-
-		_searchEvalLoggerConfigurationRegistry =
-			searchEvalLoggerConfigurationRegistry;
-	}
-
 	private void _confirm(long companyId) {
 		_collectionStartConfirmed.put(
 			companyId, _clock.millis() + _CONFIRM_INTERVAL_MILLIS);

@@ -17,8 +17,7 @@ import com.liferay.portal.configuration.module.configuration.ConfigurationProvid
 import com.liferay.portal.kernel.module.configuration.ConfigurationException;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
-
-import java.lang.reflect.Field;
+import ai.tensoropt.sel.internal.TestInjection;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,12 +44,8 @@ public class SearchEvalLoggerConfigurationRegistryTest {
 			new ConfigurationException("unreadable")
 		);
 
-		Field field = SearchEvalLoggerConfigurationRegistry.class.
-			getDeclaredField("_configurationProvider");
-
-		field.setAccessible(true);
-
-		field.set(_registry, configurationProvider);
+		TestInjection.set(
+			_registry, "_configurationProvider", configurationProvider);
 	}
 
 	/**

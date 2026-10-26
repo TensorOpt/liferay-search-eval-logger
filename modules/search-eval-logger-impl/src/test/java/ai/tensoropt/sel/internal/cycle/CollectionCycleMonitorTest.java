@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import ai.tensoropt.sel.api.CollectionCycle;
 import ai.tensoropt.sel.api.SearchInterceptionStatus;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegistry;
 import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 import ai.tensoropt.sel.service.SearchEventLocalService;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.Test;
 public class CollectionCycleMonitorTest {
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		_collectionCycleStatusImpl = mock(CollectionCycleStatusImpl.class);
 		_collectionNotifier = mock(CollectionNotifier.class);
 		_searchEventLocalService = mock(SearchEventLocalService.class);
@@ -85,9 +86,21 @@ public class CollectionCycleMonitorTest {
 
 		_collectionCycleMonitor.setClock(
 			Clock.fixed(Instant.parse("2026-06-01T02:00:00Z"), ZoneOffset.UTC));
-		_collectionCycleMonitor.setCollaborators(
-			_collectionCycleStatusImpl, _collectionNotifier,
-			searchEvalLoggerConfigurationRegistry, _searchEventLocalService,
+		TestInjection.set(
+			_collectionCycleMonitor, "_collectionCycleStatusImpl",
+			_collectionCycleStatusImpl);
+		TestInjection.set(
+			_collectionCycleMonitor, "_collectionNotifier",
+			_collectionNotifier);
+		TestInjection.set(
+			_collectionCycleMonitor,
+			"_searchEvalLoggerConfigurationRegistry",
+			searchEvalLoggerConfigurationRegistry);
+		TestInjection.set(
+			_collectionCycleMonitor, "_searchEventLocalService",
+			_searchEventLocalService);
+		TestInjection.set(
+			_collectionCycleMonitor, "_searchInterceptionStatus",
 			_searchInterceptionStatus);
 	}
 
