@@ -164,15 +164,6 @@ public class CollectionCycleStatusImpl
 	 * is never replaced, so an unrelated save cannot re-attribute a cycle
 	 * somebody else started.
 	 * </p>
-	 *
-	 * <p>
-	 * An open cycle with no <code>cycleOpenedDate</code> is one carried over
-	 * from before TO-112 added the stall grace period. It is backfilled with
-	 * now rather than left null, which would otherwise suppress the stall
-	 * notification for that cycle's whole remaining life (3.6 is called once a
-	 * day, this is the only other place that moves the cycle, and there is
-	 * nowhere else a real value could come from).
-	 * </p>
 	 */
 	public void openCycle(long companyId, long enabledByUserId) {
 		synchronized (_lockFor(companyId)) {
@@ -180,22 +171,11 @@ public class CollectionCycleStatusImpl
 				companyId);
 
 			if (collectionCycle.isOpen()) {
-				CollectionCycle updatedCollectionCycle = collectionCycle;
-
 				if ((enabledByUserId > 0) &&
 					(collectionCycle.getEnabledByUserId() <= 0)) {
 
-					updatedCollectionCycle = updatedCollectionCycle.
-						withEnabledByUserId(enabledByUserId);
-				}
-
-				if (updatedCollectionCycle.getCycleOpenedDate() == null) {
-					updatedCollectionCycle = updatedCollectionCycle.
-						withCycleOpenedDate(_clock.instant());
-				}
-
-				if (updatedCollectionCycle != collectionCycle) {
-					_collectionCycleStore.save(updatedCollectionCycle);
+					_collectionCycleStore.save(
+						collectionCycle.withEnabledByUserId(enabledByUserId));
 				}
 
 				return;
@@ -305,25 +285,19 @@ public class CollectionCycleStatusImpl
 	 * <p>
 	 * <b>The notification fires only when this call is the one that set
 	 * <code>collectionStartDate</code>, not merely when it finds the marker
-	 * unset.</b> An instance upgraded from before TO-112 has an open cycle
-	 * whose <code>collectionStartDate</code> is weeks old and whose
-	 * <code>collectionStartedNotifiedDate</code> does not exist yet, because
-	 * the field did not exist to have one. Without this distinction, the
-	 * first event persisted after the upgrade restart would find
-	 * <code>collectionStartDate</code> already set and
-	 * <code>collectionStartedNotifiedDate</code> unset - indistinguishable,
-	 * on that reading alone, from a cycle whose start date this very call
-	 * just set - and would send "collection started, confirming the restart
-	 * worked" for a restart that happened weeks ago.
-	 * <code>justStarted</code> is <code>true</code> only when the branch
-	 * above actually transitioned the date
-	 * from unset to set in this call; a legacy record backfills the marker
-	 * silently instead. This also covers the ordering {@link #openCycle}'s
-	 * own backfill does not need to duplicate: whichever of the two runs
-	 * first on a legacy cycle - this method, from a persisted event arriving
-	 * before any reconciliation, or <code>openCycle</code> itself - the
-	 * decision here is self-contained and does not depend on which one it
-	 * was.
+	 * unset.</b> The two steps are saved separately, so a run that sets
+	 * <code>collectionStartDate</code> and then fails to save
+	 * <code>collectionStartedNotifiedDate</code> (a transient store failure)
+	 * leaves a cycle in exactly the state a later event sees:
+	 * <code>collectionStartDate</code> already set,
+	 * <code>collectionStartedNotifiedDate</code> still unset. Without this
+	 * distinction, that later event would read the unset marker as "just
+	 * started" and send "collection started, confirming the restart worked" a
+	 * second time, for a restart that already happened and was already
+	 * reported. <code>justStarted</code> is <code>true</code> only when the
+	 * branch above actually transitioned the date from unset to set in this
+	 * very call; any other call finding the marker unset records it silently
+	 * instead, without sending again.
 	 * </p>
 	 *
 	 * <p>
@@ -396,10 +370,10 @@ public class CollectionCycleStatusImpl
 				else if (_log.isInfoEnabled()) {
 					_log.info(
 						"Collection start date for company " + companyId +
-							" predates TO-112; backfilling " +
-								"collectionStartedNotifiedDate without " +
-									"sending a notification for a restart " +
-										"that already happened");
+							" was already recorded by an earlier call; " +
+								"recording collectionStartedNotifiedDate " +
+									"without sending a second notification " +
+										"for the same restart");
 				}
 
 				if (!_recordCollectionStartedNotified(

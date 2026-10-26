@@ -171,23 +171,23 @@ public class CollectionCycleStatusImplTest {
 	}
 
 	/**
-	 * TO-112: an instance upgraded from before TO-112 has an
-	 * open cycle whose <code>collectionStartDate</code> is weeks old and
-	 * whose <code>collectionStartedNotifiedDate</code> does not exist, since
-	 * the field did not exist to have one. The first event persisted after
-	 * the upgrade restart must not read that as "just started" and send a
-	 * false "collection started, confirming the restart worked" for a
-	 * restart that happened weeks ago; it must backfill the marker silently
+	 * A run that sets <code>collectionStartDate</code> and then fails to
+	 * save <code>collectionStartedNotifiedDate</code> (a transient store
+	 * failure between the two saves) leaves a cycle with the start date set
+	 * and the notified marker unset, exactly the state built directly here.
+	 * The next event persisted must not read that as "just started" and
+	 * send a second "collection started, confirming the restart worked" for
+	 * a restart already reported; it must record the marker silently
 	 * instead.
 	 */
 	@Test
-	public void aLegacyRecordWithNoNotifiedMarkerIsBackfilledWithoutNotifying() {
-		LocalDate legacyStartDate = LocalDate.parse("2026-01-01");
+	public void aStartDateWithNoNotifiedMarkerRecordsTheMarkerWithoutNotifyingAgain() {
+		LocalDate startDate = LocalDate.parse("2026-01-01");
 
 		_collectionCycleStore.save(
 			new CollectionCycle(
 				_COMPANY_ID, true, 42L, Instant.parse("2026-01-01T00:00:00Z"),
-				legacyStartDate, null, null, null, false));
+				startDate, null, null, null, false));
 
 		_collectionCycleStatusImpl.recordPersistedEvent(
 			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
@@ -202,21 +202,21 @@ public class CollectionCycleStatusImplTest {
 			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
 
 		assertEquals(
-			legacyStartDate, collectionCycle.getCollectionStartDate(),
-			"A legacy collection start date must never move to a later " +
+			startDate, collectionCycle.getCollectionStartDate(),
+			"A recorded collection start date must never move to a later " +
 				"event's date");
 		assertEquals(
-			legacyStartDate,
+			startDate,
 			collectionCycle.getCollectionStartedNotifiedDate(),
-			"The marker should be backfilled rather than left null forever");
+			"The marker should be recorded rather than left null forever");
 	}
 
 	/**
-	 * The backfill must not repeat the notification check on every
-	 * subsequent event either, once the marker is durably recorded.
+	 * Recording the marker this way must not repeat the notification check
+	 * on every subsequent event either, once the marker is durably recorded.
 	 */
 	@Test
-	public void aLegacyRecordIsBackfilledOnlyOnceAcrossMultipleEvents() {
+	public void aStartDateWithNoNotifiedMarkerIsRecordedOnlyOnceAcrossMultipleEvents() {
 		_collectionCycleStore.save(
 			new CollectionCycle(
 				_COMPANY_ID, true, 42L, Instant.parse("2026-01-01T00:00:00Z"),
@@ -234,7 +234,7 @@ public class CollectionCycleStatusImplTest {
 
 		assertEquals(
 			0, _collectionCycleStore.getReadCount(),
-			"Once the marker is backfilled, later events must not reach " +
+			"Once the marker is recorded, later events must not reach " +
 				"the store either, the same guarantee a normally started " +
 					"cycle already gets");
 		verify(
@@ -374,26 +374,6 @@ public class CollectionCycleStatusImplTest {
 	 */
 	@Test
 	public void openingACycleRecordsWhenItOpened() {
-		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
-
-		CollectionCycle collectionCycle =
-			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
-
-		assertEquals(_now, collectionCycle.getCycleOpenedDate());
-	}
-
-	/**
-	 * An open cycle carried over from before TO-112 has no recorded open
-	 * instant. It is backfilled with now rather than left null, or the stall
-	 * notification would be suppressed for that cycle's whole remaining life.
-	 */
-	@Test
-	public void anOpenCycleWithNoRecordedOpenInstantIsBackfilled() {
-		_collectionCycleStore.save(
-			new CollectionCycle(
-				_COMPANY_ID, true, 42L, null, null, null, null, null,
-				false));
-
 		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
 
 		CollectionCycle collectionCycle =
