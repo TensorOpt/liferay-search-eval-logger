@@ -62,3 +62,4 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-109** End-to-end case for the export download check.
 - **TO-111** End-to-end case for uninstalling and reinstalling the plugin.
 - **TO-116** `make` targets, the GitLab pipeline and release tooling, an end-to-end stack without bind mounts, and an `.lpkg` install case.
+- **TO-144** A narrowly named tolerance for the uninstall cascade's Aries Whiteboard/vulcan error (distinct from the existing AopServiceManager rule it does not cover), and a positive recovery check that the OSGi JAX-RS whiteboard settles back to its pre-uninstall baseline after uninstalling and after reinstalling.

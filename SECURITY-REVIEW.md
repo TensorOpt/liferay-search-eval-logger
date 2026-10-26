@@ -258,6 +258,21 @@ bypassing after the automatic rebind, is the only one that gets the danger
 banner and the log warning; the secondary gap gets a quieter informational
 note on the same admin screen, and nothing in the log.
 
+**Uninstalling, or redeploying, the impl bundle still cascades, briefly.**
+TO-140 removed the restart requirement for installing and redeploying; it did
+not remove, and could not remove, the deactivate and reactivate cascade that
+Declarative Services itself runs through every component holding a static
+reference to `Searcher` when the wrapper is unregistered (`DESIGN.md` §3.1).
+Measured in CI at about 22 seconds, during which Liferay's own REST layer can
+log, and recover from, transient errors of its own; search keeps answering
+throughout, and none of this plugin's own code appears in those traces. The
+e2e case `uninstall-and-reinstall` (`checks.uninstall_and_reinstall`) asserts
+both that search keeps answering during the cascade and, separately, that the
+OSGi JAX-RS whiteboard's own health (`JaxrsServiceRuntime#getRuntimeDTO()`)
+recovers to at least its pre-uninstall baseline afterward, so a tolerance rule
+for the cascade's known, transient log lines can never stand in for a portal
+actually left broken.
+
 ## 8. Data protection
 
 Once enabled, the plugin creates a table of user-submitted text on a

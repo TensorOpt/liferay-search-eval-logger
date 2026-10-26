@@ -347,8 +347,47 @@ MySQL on Linux does not.
 | `export-jsonl-number-types` | DESIGN.md 6.2 types `total_hits`, `entry_class_pk` and each of `scope_group_ids` as JSON numbers |
 | `export-unbounded-range` | DESIGN.md 6.1: an export with either date left empty, in all three combinations, each one asserted against the rows its range holds, the range its manifest reports and the range line in its README |
 | `queue-overflow` | TO-92: with `SEL_SearchEvent` locked so the listener cannot write, 2,600 searches from 16 clients all answer HTTP 200, the events past the queue's 2,000 are dropped, each counted once (dispatched equals persisted), and the funnel adds up once the lock is released. Search latency is recorded with the queue draining and with it full |
-| `uninstall-and-reinstall` | TO-111/TO-140: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR and the data is untouched; reinstalled, without a restart, the automatic rebind clears the bypass again, and exactly N Search Results widget searches for a distinct term produce exactly N newly captured events through `PortletSharedSearchRequestImpl`, settling the benign bundle-level artifact with evidence rather than assertion for that one entry point component; the legacy `SearchPortlet` and search bar suggestions are not exercised here and rest on their own component DTOs and the bytecode finding that neither bundle acquires a `Searcher` outside Declarative Services, and the collection start date is unchanged |
+| `uninstall-and-reinstall` | TO-111/TO-140: with the four bundles removed from the running portal, search still answers, nothing is logged at ERROR beyond `UNINSTALL_TOLERATED`'s narrowly named rules (see below), and the data is untouched; reinstalled, without a restart, the automatic rebind clears the bypass again, and exactly N Search Results widget searches for a distinct term produce exactly N newly captured events through `PortletSharedSearchRequestImpl`, settling the benign bundle-level artifact with evidence rather than assertion for that one entry point component; the legacy `SearchPortlet` and search bar suggestions are not exercised here and rest on their own component DTOs and the bytecode finding that neither bundle acquires a `Searcher` outside Declarative Services, and the collection start date is unchanged |
 | `lpkg-install` | TO-116, last, only with `--lpkg`: the jars removed and an `.lpkg` of the same jars dropped into the deploy folder, the way a Liferay Marketplace download is installed; after the restart Liferay itself requires for an `.lpkg`, the plugin's four bundles are Active and loaded from inside the `.lpkg`, interception is active, and searches are recorded |
+
+## Reading the uninstall-and-reinstall case
+
+Removing the plugin's bundles unregisters the wrapper and sets off a
+Declarative Services cascade through every other component bound to
+`Searcher` (`DESIGN.md` §3.1), measured in CI at about 22 seconds. During that
+window Liferay's own REST layer can log transient errors of its own that it
+recovers from, so `assert_log_clean` accepts exactly two, narrowly named
+shapes through `checks.UNINSTALL_TOLERATED`, never an error whose trace runs
+through this plugin's own code:
+
+- `[PortletTracker: ... is already in use`, with no trace requirement: the
+  new portlet instance registers before the old one is fully gone.
+- A `FrameworkEvent ERROR` whose trace carries
+  `com.liferay.portal.aop.internal.AopServiceManager`: AOP re-registration
+  failing a tracker downstream of it on a service that is already gone.
+  Which component it fails on varies run to run (Objects' own component
+  activation and, separately, Liferay's own vulcan NPE further down the same
+  cascade have both been seen), so the rule names the cascade rather than
+  each victim.
+- Aries' own Whiteboard logger, not Equinox's `FrameworkEvent` dispatcher,
+  reporting `CxfJaxrsServiceRegistrator.rewire` failing on that same vulcan
+  NPE (`NestedFieldsWriterInterceptor` seeing a null prototype-scoped
+  resource): a line shape the `AopServiceManager` rule above cannot see,
+  because it carries no `FrameworkEvent` marker at all. Added for TO-144
+  after it failed a CI run (`mysql-mariadb-driver`, `dxp-2025.q1`) that a
+  slower, Docker-in-Docker runner exposed and 24 local runs across three
+  branches and four databases never did.
+
+Tolerating those log lines is not the same as the whiteboard actually having
+recovered, so the case also polls
+`org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime#getRuntimeDTO()`, through
+the script console, for `failedApplicationDTOs`, `failedResourceDTOs` and
+`failedExtensionDTOs`, both after the uninstall settles and again after the
+reinstall, and compares each against a baseline taken before the uninstall
+rather than asserting the counts are zero, since a stock portal can carry its
+own pre-existing failures. A tolerance rule can never stand in for this
+positive check: it only says a known, transient log line is not itself a
+failure, while this says the whiteboard the cascade disturbed came back.
 
 ## Reading the EXPORT permission case
 
