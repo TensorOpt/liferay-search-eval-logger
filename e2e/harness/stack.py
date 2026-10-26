@@ -93,9 +93,8 @@ class Stack:
 
     def preflight(self):
         """Fails early and specifically, rather than halfway through a run."""
-        for tool in ("docker",):
-            if shutil.which(tool) is None:
-                raise HarnessError("%s is not on PATH" % tool)
+        if shutil.which("docker") is None:
+            raise HarnessError("docker is not on PATH")
 
         code, _, stderr = run(["docker", "info"], check=False, timeout=60)
 
