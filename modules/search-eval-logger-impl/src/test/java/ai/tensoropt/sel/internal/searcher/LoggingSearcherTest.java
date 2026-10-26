@@ -6,6 +6,7 @@ package ai.tensoropt.sel.internal.searcher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.liferay.portal.kernel.search.SearchContext;
+import com.liferay.portal.kernel.security.auth.CompanyThreadLocal;
 import com.liferay.portal.search.searcher.SearchRequest;
 import com.liferay.portal.search.searcher.SearchRequestBuilder;
 import com.liferay.portal.search.searcher.SearchRequestBuilderFactory;
@@ -30,6 +32,7 @@ import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 import ai.tensoropt.sel.internal.messaging.SearchEventDispatcher;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,15 +46,17 @@ public class LoggingSearcherTest {
 
 	@BeforeEach
 	public void setUp() throws Exception {
-		SearchEvalLoggerConfiguration configuration = mock(
-			SearchEvalLoggerConfiguration.class);
+		CompanyThreadLocal.setCompanyId(0L);
 
-		when(configuration.enabled()).thenReturn(true);
+		_configuration = mock(SearchEvalLoggerConfiguration.class);
 
-		SearchEvalLoggerConfigurationRegistry registry = mock(
-			SearchEvalLoggerConfigurationRegistry.class);
+		when(_configuration.enabled()).thenReturn(true);
 
-		when(registry.getConfiguration(anyLong())).thenReturn(configuration);
+		_registry = mock(SearchEvalLoggerConfigurationRegistry.class);
+
+		when(_registry.getConfiguration(anyLong())).thenReturn(_configuration);
+
+		_searchContext = new SearchContext();
 
 		SearchRequestBuilder searchRequestBuilder = mock(
 			SearchRequestBuilder.class);
@@ -59,41 +64,41 @@ public class LoggingSearcherTest {
 		when(
 			searchRequestBuilder.withSearchContextGet(any())
 		).thenReturn(
-			new SearchContext()
+			_searchContext
 		);
 
-		SearchRequestBuilderFactory searchRequestBuilderFactory = mock(
-			SearchRequestBuilderFactory.class);
+		_searchRequestBuilderFactory = mock(SearchRequestBuilderFactory.class);
 
 		when(
-			searchRequestBuilderFactory.builder(any(SearchRequest.class))
+			_searchRequestBuilderFactory.builder(any(SearchRequest.class))
 		).thenReturn(
 			searchRequestBuilder
 		);
 
-		AdmissionFilter admissionFilter = mock(AdmissionFilter.class);
+		_admissionFilter = mock(AdmissionFilter.class);
 
 		when(
-			admissionFilter.admit(any(), any(), any())
+			_admissionFilter.admit(any(), any(), any())
 		).thenReturn(
 			new SearchRequestOrigin(SourceType.WIDGET, false, false, true)
 		);
 
 		_searchResponse = mock(SearchResponse.class);
 
-		Searcher searcher = mock(Searcher.class);
+		_searcher = mock(Searcher.class);
 
-		when(searcher.search(any())).thenReturn(_searchResponse);
+		when(_searcher.search(any())).thenReturn(_searchResponse);
 
 		_searchEventCaptor = mock(SearchEventCaptor.class);
 		_searchEventDispatcher = mock(SearchEventDispatcher.class);
 		_statistics = new SearchEvalLoggerStatisticsImpl();
 
-		TestInjection.set(_loggingSearcher, "_admissionFilter", admissionFilter);
-		TestInjection.set(_loggingSearcher, "_searcher", searcher);
+		TestInjection.set(
+			_loggingSearcher, "_admissionFilter", _admissionFilter);
+		TestInjection.set(_loggingSearcher, "_searcher", _searcher);
 		TestInjection.set(
 			_loggingSearcher, "_searchEvalLoggerConfigurationRegistry",
-			registry);
+			_registry);
 		TestInjection.set(
 			_loggingSearcher, "_searchEvalLoggerStatisticsImpl", _statistics);
 		TestInjection.set(
@@ -103,7 +108,12 @@ public class LoggingSearcherTest {
 			_searchEventDispatcher);
 		TestInjection.set(
 			_loggingSearcher, "_searchRequestBuilderFactory",
-			searchRequestBuilderFactory);
+			_searchRequestBuilderFactory);
+	}
+
+	@AfterEach
+	public void tearDown() {
+		CompanyThreadLocal.setCompanyId(0L);
 	}
 
 	@Test
@@ -134,9 +144,131 @@ public class LoggingSearcherTest {
 		verify(_searchEventDispatcher).dispatch(any());
 	}
 
+	/**
+	 * F2-9: the cheapest possible exit for the install default. Nothing is
+	 * observed, and the admission filter is never reached, let alone called.
+	 */
+	@Test
+	public void disabledLoggingSkipsObservedCountAndNeverCallsAdmit() {
+		CompanyThreadLocal.setCompanyId(42L);
+
+		when(_configuration.enabled()).thenReturn(false);
+
+		SearchResponse searchResponse = _loggingSearcher.search(
+			mock(SearchRequest.class));
+
+		assertSame(_searchResponse, searchResponse);
+		assertEquals(0, _statistics.getObservedSearchCount());
+
+		verify(_admissionFilter, never()).admit(any(), any(), any());
+	}
+
+	/**
+	 * _getSearchContext wraps the builder call and returns null on any
+	 * failure; the response still comes back, and nothing downstream of
+	 * the search context is ever counted.
+	 */
+	@Test
+	public void aBuilderFailureStillReturnsTheResponseAndCountsNothing() {
+		when(
+			_searchRequestBuilderFactory.builder(any(SearchRequest.class))
+		).thenThrow(
+			new IllegalStateException("builder failed")
+		);
+
+		SearchResponse searchResponse = _loggingSearcher.search(
+			mock(SearchRequest.class));
+
+		assertSame(_searchResponse, searchResponse);
+		assertEquals(0, _statistics.getObservedSearchCount());
+
+		verify(_admissionFilter, never()).admit(any(), any(), any());
+	}
+
+	/**
+	 * The thread's company settles the cheap early exit; a search context
+	 * for a different company (a background job running one company's
+	 * reindex while serving another's request, for instance) has to be
+	 * re-checked against its own configuration rather than the thread's.
+	 */
+	@Test
+	public void aDifferentSearchContextCompanyReQueriesTheRegistry() {
+		CompanyThreadLocal.setCompanyId(111L);
+
+		_searchContext.setCompanyId(222L);
+
+		when(_registry.getConfiguration(111L)).thenReturn(_configuration);
+		when(_registry.getConfiguration(222L)).thenReturn(_configuration);
+
+		_loggingSearcher.search(mock(SearchRequest.class));
+
+		verify(_registry).getConfiguration(111L);
+		verify(_registry).getConfiguration(222L);
+		verify(_admissionFilter).admit(any(), any(), any());
+	}
+
+	/**
+	 * No thread company at all (CompanyThreadLocal never set) skips the
+	 * early exit entirely rather than reading a stale or default company;
+	 * the search context's own company is what gets checked.
+	 */
+	@Test
+	public void noThreadCompanyUsesTheSearchContextsOwnCompany() {
+		_searchContext.setCompanyId(333L);
+
+		when(_registry.getConfiguration(333L)).thenReturn(_configuration);
+
+		_loggingSearcher.search(mock(SearchRequest.class));
+
+		verify(_registry).getConfiguration(333L);
+		verify(_admissionFilter).admit(any(), any(), any());
+	}
+
+	@Test
+	public void anUnadmittedSearchNeverReachesTheCaptor() {
+		when(
+			_admissionFilter.admit(any(), any(), any())
+		).thenReturn(
+			null
+		);
+
+		SearchResponse searchResponse = _loggingSearcher.search(
+			mock(SearchRequest.class));
+
+		assertSame(_searchResponse, searchResponse);
+
+		verify(_searchEventCaptor, never()).capture(
+			any(), any(), any(), any(), any());
+		verify(_searchEventDispatcher, never()).dispatch(any());
+	}
+
+	/**
+	 * D2 and the class's own contract: only the delegate's own exceptions
+	 * propagate. A capture failure is caught (see
+	 * aCaptureThatFailsAfterAdmissionIsDropped); the delegate's is not.
+	 */
+	@Test
+	public void aDelegateFailurePropagates() {
+		when(
+			_searcher.search(any())
+		).thenThrow(
+			new IllegalStateException("search failed")
+		);
+
+		assertThrows(
+			IllegalStateException.class,
+			() -> _loggingSearcher.search(mock(SearchRequest.class)));
+	}
+
+	private AdmissionFilter _admissionFilter;
+	private SearchEvalLoggerConfiguration _configuration;
 	private final LoggingSearcher _loggingSearcher = new LoggingSearcher();
+	private SearchEvalLoggerConfigurationRegistry _registry;
+	private Searcher _searcher;
+	private SearchContext _searchContext;
 	private SearchEventCaptor _searchEventCaptor;
 	private SearchEventDispatcher _searchEventDispatcher;
+	private SearchRequestBuilderFactory _searchRequestBuilderFactory;
 	private SearchResponse _searchResponse;
 	private SearchEvalLoggerStatisticsImpl _statistics;
 
