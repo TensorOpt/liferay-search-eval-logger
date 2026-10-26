@@ -53,7 +53,7 @@ None of these stores each query together with the results it returned. Without t
 
 - **Records user searches.** It wraps Liferay's public `Searcher` service. Each search that carries user keywords is recorded together with the results shown.
 - **Ignores internal traffic.** Liferay runs many searches for its own purposes (Asset Publisher, Control Panel lists, workflow). Searches without user keywords are dropped, and typeahead suggestions are excluded by default.
-- **Stays out of the way.** Recording is asynchronous and never alters a search. If recording fails, it records nothing; it never breaks a search. With collection on, median search round trip rose by 4 ms (64 ms against 60 ms, 180 searches each way).
+- **Stays out of the way.** Recording is asynchronous and never alters a search. If recording fails, it records nothing; it never breaks a search. The e2e suite asserts the median search round trip with collection on stays within 10% of collection off.
 - **Keeps the data in your database.** Two tables in the portal database. Records older than 90 days are deleted automatically.
 - **Tells you its state.** It notifies you when collection starts, if it is stuck, and when there is enough data to export.
 - **Exports on request.** An administrator exports a date range as a zip file. Nothing is ever sent anywhere.
