@@ -1633,14 +1633,7 @@ def funnel_readiness(context, case):
         - timedelta(days=context.readiness_minimum_days + 1)
     ).isoformat()
 
-    context.portal.run_script(
-        scripts.CYCLE_BACKDATE
-        % {
-            "company_id": context.company_id,
-            "portlet_id": CYCLE_PORTLET_ID,
-            "collection_start_date": backdated,
-        }
-    )
+    _write_cycle(context, {"collectionStartDate": backdated})
 
     context.collection_start_date = backdated
 
@@ -3824,8 +3817,7 @@ def _write_cycle(context, values):
     """Writes preference values into the collection cycle record directly,
     through the same service the plugin itself writes with. Used to backdate
     a value to its real threshold rather than lowering the threshold to suit
-    the test; see funnel_readiness for the same idea applied to
-    collectionStartDate.
+    the test, such as funnel_readiness backdating collectionStartDate.
     """
     assignments = "\n".join(
         'preferences.setValue("%s", "%s")' % (key, value)
