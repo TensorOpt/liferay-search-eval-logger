@@ -3028,6 +3028,41 @@ def _wait_for_settled_funnel(context):
     return wait_for("the funnel to settle", settled, timeout=900, interval=5.0)
 
 
+def _jaxrs_whiteboard_counts(context):
+    """The OSGi JAX-RS whiteboard's own view of its health: how many
+    applications, resources and extensions it currently has registered with a
+    failure, per org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime#getRuntimeDTO().
+    """
+    return json.loads(context.portal.run_script(scripts.JAXRS_WHITEBOARD_HEALTH))
+
+
+def _assert_jaxrs_whiteboard_recovered(context, baseline, while_doing, timeout=120):
+    """TO-144: a positive check that the whiteboard actually settles back
+    down, so UNINSTALL_TOLERATED tolerating the vulcan/Cxf rewire errors
+    (DESIGN.md 3.1) can never hide a portal left with a genuinely broken
+    JAX-RS whiteboard afterwards.
+
+    Aries rewires applications and resources on SystemExecutorServiceUtil
+    threads well after the bundles are logged STOPPED, so this polls rather
+    than reading the counts once right after the cascade. A stock portal can
+    carry its own pre-existing failures unrelated to this plugin, so the
+    comparison is against the baseline taken before the uninstall, never
+    against zero.
+    """
+    def recovered():
+        counts = _jaxrs_whiteboard_counts(context)
+
+        if all(counts[key] <= baseline[key] for key in counts):
+            return counts
+
+        return None
+
+    return wait_for(
+        "the JAX-RS whiteboard to recover while %s" % while_doing,
+        recovered, timeout=timeout, interval=2.0,
+    )
+
+
 def uninstall_and_reinstall(context, case):
     """TO-111: removing the plugin leaves search and the data intact, and
     installing it again picks both up, without a restart (TO-140).
@@ -3050,6 +3085,13 @@ def uninstall_and_reinstall(context, case):
         "before: %d events, collection start %s"
         % (events_before, cycle_before.get("collectionStartDate"))
     )
+
+    # TO-144: a stock portal can carry its own pre-existing JAX-RS whiteboard
+    # failures, so the recovery check below compares against this baseline
+    # rather than asserting the counts are zero.
+    jaxrs_baseline = _jaxrs_whiteboard_counts(context)
+
+    case.note("jaxrs whiteboard baseline: %s" % jaxrs_baseline)
 
     widgets_before = _search_widgets_deployed(context)
 
@@ -3088,6 +3130,12 @@ def uninstall_and_reinstall(context, case):
         "Search stopped answering when the plugin was uninstalled",
     )
 
+    jaxrs_after_uninstall = _assert_jaxrs_whiteboard_recovered(
+        context, jaxrs_baseline, "uninstalling"
+    )
+
+    case.note("jaxrs whiteboard after uninstalling: %s" % jaxrs_after_uninstall)
+
     assert_log_clean(
         context.stack.liferay_log(
             since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
@@ -3111,6 +3159,12 @@ def uninstall_and_reinstall(context, case):
         context.stack.wait_for_bundle_started(
             symbolic_name, reinstalled_at, timeout=context.options.deploy_timeout
         )
+
+    jaxrs_after_reinstall = _assert_jaxrs_whiteboard_recovered(
+        context, jaxrs_baseline, "reinstalling"
+    )
+
+    case.note("jaxrs whiteboard after reinstalling: %s" % jaxrs_after_reinstall)
 
     # The uninstall's own errors can still be arriving: on a GitLab runner
     # PortletTracker's "already in use" landed 4s after STOPPED, past the
