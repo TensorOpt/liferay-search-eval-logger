@@ -4,7 +4,12 @@
 
 package ai.tensoropt.sel.web.internal.export;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,19 +19,28 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.liferay.portal.kernel.json.JSONArray;
 import com.liferay.portal.kernel.json.JSONException;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
 
+import ai.tensoropt.sel.api.AudienceType;
+import ai.tensoropt.sel.api.FacetCaptureStatus;
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
+import ai.tensoropt.sel.api.SourceType;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -422,6 +436,210 @@ public class SearchEvalExportManifestBuilderTest {
 				String.class)
 		);
 	}
+
+	/**
+	 * Finding 5: every test above pins that one key is put with its value,
+	 * none of them would fail if a key were renamed or a new one added
+	 * alongside it, since each is a positive verify() against a loosely
+	 * stubbed, shared mock. This backs the built JSONObject with a real map
+	 * (the same fake FacetExtractorTest and SearchEventCaptorTest use, for
+	 * the same reason), so the exact set of keys at both the top level and
+	 * inside "configuration" can be read back and compared, not merely
+	 * queried for one key's presence.
+	 */
+	@Test
+	public void topLevelAndConfigurationKeysAreExactlyThese()
+		throws JSONException {
+
+		JSONFactory jsonFactory = _newJSONFactory();
+
+		SearchEvalExportManifestBuilder searchEvalExportManifestBuilder =
+			new SearchEvalExportManifestBuilder();
+
+		searchEvalExportManifestBuilder.setClock(
+			Clock.fixed(Instant.parse("2026-09-21T10:00:00Z"), ZoneOffset.UTC));
+		searchEvalExportManifestBuilder.setJSONFactory(jsonFactory);
+		searchEvalExportManifestBuilder.setSearchEvalLoggerStatistics(
+			mock(SearchEvalLoggerStatistics.class));
+
+		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
+			SearchEvalLoggerConfiguration.class);
+
+		when(
+			searchEvalLoggerConfiguration.capturedFieldNames()
+		).thenReturn(
+			new String[] {"title"}
+		);
+		when(
+			searchEvalLoggerConfiguration.excludedEntryClassNames()
+		).thenReturn(
+			new String[0]
+		);
+
+		JSONObject jsonObject = searchEvalExportManifestBuilder.build(
+			1L, new Date(0), new Date(1), new SearchEvalExportResult(),
+			searchEvalLoggerConfiguration);
+
+		assertEquals(_TOP_LEVEL_KEYS, jsonObject.keySet());
+		assertEquals(
+			_CONFIGURATION_KEYS,
+			jsonObject.getJSONObject("configuration").keySet());
+	}
+
+	/**
+	 * Finding 5: AudienceType, SourceType and FacetCaptureStatus each name an
+	 * enum whose {@code name()} is both persisted (SEL_SearchEvent's
+	 * corresponding column) and exported (events.jsonl's corresponding
+	 * field), so renaming, adding or removing a constant changes data this
+	 * plugin has already written and archives it has already produced, not
+	 * just this test. Pinned here, by name, with the export-format tests,
+	 * rather than back in the api module as a literal-against-itself
+	 * assertion with nothing independent to compare against (round 1,
+	 * fd930ea, deleted the three per-enum tests that did exactly that).
+	 */
+	@Test
+	public void theEnumNamesPersistedAndExportedAreExactlyThese() {
+		assertEquals(Set.of("AUTHENTICATED", "GUEST"), _namesOf(AudienceType.values()));
+		assertEquals(
+			Set.of("HEADLESS", "OTHER", "UNKNOWN", "WIDGET"),
+			_namesOf(SourceType.values()));
+		assertEquals(
+			Set.of("CAPTURED", "NONE_APPLIED", "UNAVAILABLE"),
+			_namesOf(FacetCaptureStatus.values()));
+	}
+
+	private Set<String> _namesOf(Enum<?>[] values) {
+		return Arrays.stream(
+			values
+		).map(
+			Enum::name
+		).collect(
+			Collectors.toSet()
+		);
+	}
+
+	/**
+	 * Backed by real maps rather than Liferay's own JSONObjectImpl, which
+	 * needs the portal's property bootstrap (PropsUtil) just to construct,
+	 * the same approach SearchEventCaptorTest and FacetExtractorTest use for
+	 * the same reason. Unlike the RETURNS_SELF mock {@code setUp} wires up
+	 * for every other test in this class, each object this factory creates
+	 * is its own, distinct mock with its own backing map, so a key set read
+	 * back from one is never polluted by another object's puts.
+	 */
+	private JSONFactory _newJSONFactory() throws JSONException {
+		JSONFactory jsonFactory = mock(JSONFactory.class);
+
+		when(
+			jsonFactory.createJSONObject()
+		).thenAnswer(
+			invocation -> _newJSONObject()
+		);
+		when(
+			jsonFactory.createJSONObject(anyString())
+		).thenAnswer(
+			invocation -> _newJSONObject()
+		);
+		when(
+			jsonFactory.createJSONArray()
+		).thenAnswer(
+			invocation -> _newJSONArray()
+		);
+
+		return jsonFactory;
+	}
+
+	private JSONObject _newJSONObject() {
+		Map<String, Object> backing = new LinkedHashMap<>();
+
+		JSONObject jsonObject = mock(JSONObject.class);
+
+		when(
+			jsonObject.put(anyString(), anyBoolean())
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(anyString(), anyDouble())
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(anyString(), anyInt())
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(anyString(), any(JSONArray.class))
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(anyString(), any(JSONObject.class))
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(anyString(), any(Object.class))
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.put(
+				anyString(), org.mockito.ArgumentMatchers.nullable(
+					String.class))
+		).thenAnswer(
+			invocation -> _put(backing, jsonObject, invocation)
+		);
+		when(
+			jsonObject.keySet()
+		).thenAnswer(
+			invocation -> backing.keySet()
+		);
+		when(
+			jsonObject.getJSONObject(anyString())
+		).thenAnswer(
+			invocation -> backing.get(invocation.getArgument(0))
+		);
+		when(
+			jsonObject.length()
+		).thenAnswer(
+			invocation -> backing.size()
+		);
+		when(
+			jsonObject.toString()
+		).thenAnswer(
+			invocation -> backing.toString()
+		);
+
+		return jsonObject;
+	}
+
+	private JSONObject _put(
+		Map<String, Object> backing, JSONObject jsonObject,
+		org.mockito.invocation.InvocationOnMock invocation) {
+
+		backing.put(invocation.getArgument(0), invocation.getArgument(1));
+
+		return jsonObject;
+	}
+
+	private JSONArray _newJSONArray() {
+		JSONArray jsonArray = mock(JSONArray.class, RETURNS_SELF);
+
+		return jsonArray;
+	}
+
+	private static final Set<String> _CONFIGURATION_KEYS = Set.of(
+		"enabled", "capture_depth", "retention_days", "captured_field_names",
+		"exclude_suggestion_traffic", "admit_facet_only_searches",
+		"require_web_request_context", "query_text_cap", "sampling_rate",
+		"excluded_entry_class_names", "cohort_salt_rotation_days");
+
+	private static final Set<String> _TOP_LEVEL_KEYS = Set.of(
+		"company_id", "exported_at", "export_range", "counts",
+		"format_version", "plugin_version", "liferay_version",
+		"configuration", "admission_counters", "field_coverage_rates");
 
 	private void _build() {
 		_build(new Date(0), new Date(1));
