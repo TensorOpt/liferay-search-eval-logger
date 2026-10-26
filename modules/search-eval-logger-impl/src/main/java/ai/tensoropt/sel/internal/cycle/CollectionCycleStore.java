@@ -27,7 +27,7 @@ import org.osgi.service.component.annotations.Reference;
  * instance.
  *
  * <p>
- * The three values 3.6 names are state, not settings. Putting them in the
+ * The eight values 3.6 names are state, not settings. Putting them in the
  * <code>&#64;Meta.OCD</code> configuration would have been the shortest route
  * to per-instance persistence, and it would have been wrong: Liferay renders
  * every declared attribute on the System Settings screen, so the collection
