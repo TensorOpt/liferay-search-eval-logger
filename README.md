@@ -108,7 +108,7 @@ The outcomes:
 - **Database.** Tested end to end on PostgreSQL 15, MySQL 8.4 and MariaDB 11.4.
   - **MySQL with MySQL Connector/J:** add `useCursorFetch=true` to the JDBC URL. Without it, Connector/J loads an entire export into memory. The DXP image does not include Connector/J; copy it to `[Liferay Home]/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib`.
   - **MariaDB, or MySQL with the MariaDB driver the DXP image ships:** no extra setting is needed.
-- **Not yet verified:** Blueprints, the headless Search API, DXP Cloud, clusters, and databases other than the three above. See [SECURITY-REVIEW.md, section 9](SECURITY-REVIEW.md#9-what-is-not-verified).
+- **Not yet verified:** DXP Cloud, clusters, email delivery to an inbox, and databases other than the three above. See [SECURITY-REVIEW.md, section 9](SECURITY-REVIEW.md#9-what-is-not-verified).
 
 ## Install
 
