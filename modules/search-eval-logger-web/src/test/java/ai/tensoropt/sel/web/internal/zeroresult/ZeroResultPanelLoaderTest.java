@@ -6,8 +6,10 @@ package ai.tensoropt.sel.web.internal.zeroresult;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -111,6 +113,79 @@ public class ZeroResultPanelLoaderTest {
 		assertNull(
 			ZeroResultPanelLoader.load(
 				_emptyPortalCache(), searchEventLocalService, 123L));
+	}
+
+	/**
+	 * D11 (TO-144): a distinct normalized query past
+	 * {@link ZeroResultQueryCounts#MAX_DISTINCT_QUERIES} must be dropped, not
+	 * merely tolerated, and the table must say so. The dropped key is
+	 * searched far more than any admitted one so that, if it were wrongly
+	 * kept, it would be impossible to miss at the top of the table; this is
+	 * what makes its absence below evidence of the cap rather than a
+	 * coincidence of row counts.
+	 */
+	@Test
+	public void aDistinctQueryPastTheCapIsDroppedAndTheTableIsMarkedApproximate() {
+		SearchEventLocalService searchEventLocalService = mock(
+			SearchEventLocalService.class);
+
+		String droppedQuery = "query one too many";
+
+		doAnswer(
+			invocation -> {
+				UnsafeConsumer<String, ?> queryConsumer =
+					invocation.getArgument(1);
+
+				for (int i = 0; i < ZeroResultQueryCounts.MAX_DISTINCT_QUERIES;
+					 i++) {
+
+					queryConsumer.accept("query-" + i);
+				}
+
+				for (int i = 0; i < 50; i++) {
+					queryConsumer.accept(droppedQuery);
+				}
+
+				return null;
+			}
+		).when(
+			searchEventLocalService
+		).forEachZeroResultFirstPageQuery(anyLong(), any());
+
+		when(
+			searchEventLocalService.getFirstPageSearchCountsByAudienceType(
+				anyLong())
+		).thenReturn(
+			Map.of(
+				AudienceType.GUEST.name(),
+				new long[] {
+					ZeroResultQueryCounts.MAX_DISTINCT_QUERIES + 50,
+					ZeroResultQueryCounts.MAX_DISTINCT_QUERIES + 50
+				})
+		);
+
+		ZeroResultPanel zeroResultPanel = ZeroResultPanelLoader.load(
+			_emptyPortalCache(), searchEventLocalService, 123L);
+
+		assertTrue(
+			zeroResultPanel.isTopQueriesApproximate(),
+			"A distinct query past the cap must mark the table approximate");
+
+		boolean droppedQuerySurfaced = false;
+
+		for (ZeroResultQuery zeroResultQuery :
+				zeroResultPanel.getTopQueries()) {
+
+			if (droppedQuery.equals(zeroResultQuery.getQuery())) {
+				droppedQuerySurfaced = true;
+			}
+		}
+
+		assertFalse(
+			droppedQuerySurfaced,
+			"The dropped key must not appear in the table even though it " +
+				"was searched far more than any admitted key, which would " +
+					"otherwise place it at the top");
 	}
 
 	@Test
