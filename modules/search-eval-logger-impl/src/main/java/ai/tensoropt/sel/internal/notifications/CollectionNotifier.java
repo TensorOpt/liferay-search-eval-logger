@@ -221,7 +221,7 @@ public class CollectionNotifier {
 		long companyId, User user, String notificationType) {
 
 		try {
-			if (!_emailDelivery.isWanted(user.getUserId(), companyId)) {
+			if (!_emailDelivery.isWanted(user.getUserId())) {
 				return;
 			}
 
