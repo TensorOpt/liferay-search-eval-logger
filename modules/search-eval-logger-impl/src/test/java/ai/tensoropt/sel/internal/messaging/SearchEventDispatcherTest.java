@@ -21,10 +21,9 @@ import com.liferay.portal.kernel.messaging.MessageBus;
 import com.liferay.portal.kernel.messaging.MessageListener;
 import com.liferay.portal.kernel.messaging.MessageListenerRegistry;
 
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.capture.CapturedSearchEvent;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
-
-import java.lang.reflect.Field;
 
 import java.util.Collections;
 import java.util.List;
@@ -54,11 +53,11 @@ public class SearchEventDispatcherTest {
 
 		_searchEventDispatcher = new SearchEventDispatcher();
 
-		_inject(_searchEventDispatcher, "_messageBus", _messageBus);
-		_inject(
+		TestInjection.set(_searchEventDispatcher, "_messageBus", _messageBus);
+		TestInjection.set(
 			_searchEventDispatcher, "_messageListenerRegistry",
 			_messageListenerRegistry);
-		_inject(
+		TestInjection.set(
 			_searchEventDispatcher, "_searchEvalLoggerStatisticsImpl",
 			_statistics);
 	}
@@ -138,10 +137,10 @@ public class SearchEventDispatcherTest {
 			searchEvalLogDestinationConfigurator =
 				new SearchEvalLogDestinationConfigurator();
 
-		_inject(
+		TestInjection.set(
 			searchEvalLogDestinationConfigurator, "_destinationFactory",
 			destinationFactory);
-		_inject(
+		TestInjection.set(
 			searchEvalLogDestinationConfigurator,
 			"_searchEvalLoggerStatisticsImpl", _statistics);
 
@@ -161,16 +160,6 @@ public class SearchEventDispatcherTest {
 			argumentCaptor.getValue();
 
 		return destinationConfiguration.getRejectedExecutionHandler();
-	}
-
-	private void _inject(Object target, String name, Object value)
-		throws Exception {
-
-		Field field = target.getClass().getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(target, value);
 	}
 
 	private void _setListeners(List<MessageListener> messageListeners) {

@@ -16,11 +16,10 @@ import com.liferay.portal.search.searcher.SearchRequest;
 
 import ai.tensoropt.sel.api.SourceType;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 import ai.tensoropt.sel.internal.context.SearchRequestOriginResolver;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
-
-import java.lang.reflect.Field;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,8 +37,10 @@ public class AdmissionFilterTest {
 
 		_searchContext.setKeywords("annual report");
 
-		_inject("_searchEvalLoggerStatisticsImpl", _statistics);
-		_inject("_searchRequestOriginResolver", _resolver);
+		TestInjection.set(
+			_admissionFilter, "_searchEvalLoggerStatisticsImpl", _statistics);
+		TestInjection.set(
+			_admissionFilter, "_searchRequestOriginResolver", _resolver);
 	}
 
 	@Test
@@ -86,14 +87,6 @@ public class AdmissionFilterTest {
 	private SearchRequestOrigin _admit() {
 		return _admissionFilter.admit(
 			_searchContext, mock(SearchRequest.class), _configuration);
-	}
-
-	private void _inject(String name, Object value) throws Exception {
-		Field field = AdmissionFilter.class.getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(_admissionFilter, value);
 	}
 
 	private final AdmissionFilter _admissionFilter = new AdmissionFilter();

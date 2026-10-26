@@ -22,14 +22,13 @@ import com.liferay.portal.search.searcher.Searcher;
 
 import ai.tensoropt.sel.api.SourceType;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.admission.AdmissionFilter;
 import ai.tensoropt.sel.internal.capture.SearchEventCaptor;
 import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegistry;
 import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 import ai.tensoropt.sel.internal.messaging.SearchEventDispatcher;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
-
-import java.lang.reflect.Field;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,13 +89,21 @@ public class LoggingSearcherTest {
 		_searchEventDispatcher = mock(SearchEventDispatcher.class);
 		_statistics = new SearchEvalLoggerStatisticsImpl();
 
-		_inject("_admissionFilter", admissionFilter);
-		_inject("_searcher", searcher);
-		_inject("_searchEvalLoggerConfigurationRegistry", registry);
-		_inject("_searchEvalLoggerStatisticsImpl", _statistics);
-		_inject("_searchEventCaptor", _searchEventCaptor);
-		_inject("_searchEventDispatcher", _searchEventDispatcher);
-		_inject("_searchRequestBuilderFactory", searchRequestBuilderFactory);
+		TestInjection.set(_loggingSearcher, "_admissionFilter", admissionFilter);
+		TestInjection.set(_loggingSearcher, "_searcher", searcher);
+		TestInjection.set(
+			_loggingSearcher, "_searchEvalLoggerConfigurationRegistry",
+			registry);
+		TestInjection.set(
+			_loggingSearcher, "_searchEvalLoggerStatisticsImpl", _statistics);
+		TestInjection.set(
+			_loggingSearcher, "_searchEventCaptor", _searchEventCaptor);
+		TestInjection.set(
+			_loggingSearcher, "_searchEventDispatcher",
+			_searchEventDispatcher);
+		TestInjection.set(
+			_loggingSearcher, "_searchRequestBuilderFactory",
+			searchRequestBuilderFactory);
 	}
 
 	@Test
@@ -125,14 +132,6 @@ public class LoggingSearcherTest {
 		assertEquals(0, _statistics.getDroppedEventCount());
 
 		verify(_searchEventDispatcher).dispatch(any());
-	}
-
-	private void _inject(String name, Object value) throws Exception {
-		Field field = LoggingSearcher.class.getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(_loggingSearcher, value);
 	}
 
 	private final LoggingSearcher _loggingSearcher = new LoggingSearcher();
