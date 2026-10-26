@@ -143,7 +143,16 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		AudienceType audienceType = _getAudienceType(userId);
 
 		searchEvent.setAudienceType(audienceType.name());
-		searchEvent.setCohortHash(_getCohortHash(companyId, userId));
+
+		// D9: a guest's cohortHash is null, not a hash of a non-existent
+		// user. The salt hash exists to partition authenticated users by a
+		// permission-comparable, non-identifying value (4.3); guests share
+		// one permission set already, so there is nothing for it to
+		// partition, and hashing userId=0 would produce a stable value every
+		// guest row shares forever, a cohort rotation never actually caps.
+		searchEvent.setCohortHash(
+			(audienceType == AudienceType.GUEST) ? null :
+				_getCohortHash(companyId, userId));
 
 		searchEvent.setRequestedSize(capturedSearchEvent.getRequestedSize());
 		searchEvent.setRequestedFrom(capturedSearchEvent.getRequestedFrom());
