@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1` for DXP 2025.Q3 to 2026.Q2 (built for 2026.Q1 LTS) and `dxp-2025.q1` for DXP 2025.Q1 LTS and 2025.Q2 (Java EE). All three contain the tickets below; TO-138 concerns `main` only.
+The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1` for DXP 2025.Q3 to 2026.Q2 (built for 2026.Q1 LTS) and `dxp-2025.q1` for DXP 2025.Q1 LTS and 2025.Q2 (Java EE). All three contain the tickets below; TO-85 concerns the two Jakarta branches and TO-138 `main` only.
 
 ### Features
 
@@ -11,8 +11,8 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-115** Snippets are stored and exported as JSON keyed by locale, then field.
 - **TO-122** The export manifest names its format, `format_version`, as the plugin's major.minor.
 - **TO-133** Ranks are numbered from 1, as stored and as exported.
-- **TO-139** The blueprint driving a search is recorded and exported by external reference code too, Liferay's preferred way to name one, alongside its ID.
 - **TO-135** The export screen shows the share of searches that returned no results, overall and for guests and signed-in users, and the 20 most frequent zero-result queries, cached for an hour.
+- **TO-139** The blueprint driving a search is recorded and exported by external reference code too, Liferay's preferred way to name one, alongside its ID.
 - **TO-140** Installing or redeploying the plugin no longer needs a portal restart for the Search Results widget, shared search requests or search bar suggestions: an automatic rebind moves them onto the wrapper on its own. A secondary consumer such as Objects REST still needs a restart to join, and the export screen now says so separately from the "Restart required" banner.
 
 ### Fixes
