@@ -2329,6 +2329,324 @@ def check_pluginconfig_reading():
     )
 
 
+def check_results_trim_and_junit_outcomes():
+    """results._trim's line budget, and that write_junit reports an
+    EXPECTED_FAILURE as a skip carrying the whole traceback and an
+    UNEXPECTED_PASS as a failure, the two outcomes write_text and write_junit
+    agree about nowhere else in this file."""
+    from harness.results import _REPORT_FAILURE_LINES, _trim
+
+    short = ["line %d" % index for index in range(5)]
+
+    _assert(
+        _trim("\n".join(short)) == short,
+        "a failure within the line budget must be returned unchanged",
+    )
+
+    CHECKED.append("accepted: a short failure is not trimmed at all")
+
+    long_failure = ["line %d" % index for index in range(_REPORT_FAILURE_LINES + 10)]
+
+    trimmed = _trim("\n".join(long_failure))
+
+    _assert(trimmed[:6] == long_failure[:6], "the first six lines must survive")
+    _assert(
+        trimmed[-(_REPORT_FAILURE_LINES - 6):]
+        == long_failure[-(_REPORT_FAILURE_LINES - 6):],
+        "the last lines must survive",
+    )
+    _assert(
+        "lines omitted" in trimmed[6],
+        "an omission marker must separate the head and the tail",
+    )
+
+    CHECKED.append(
+        "accepted: a long failure keeps its first six and last lines, with "
+        "an omission marker between them"
+    )
+
+    import xml.etree.ElementTree as ElementTree
+
+    results = Results(expected_failures={"known": "D-1, a known defect"})
+
+    def fails(case):
+        raise AssertionError("boom")
+
+    def passes(case):
+        return True
+
+    results.run("known", fails)
+    results.run("healthy", fails)
+
+    path = os.path.join(TMP, "junit-outcomes.xml")
+
+    results.write_junit(path)
+
+    tree = ElementTree.parse(path)
+    root = tree.getroot()
+
+    by_name = {element.get("name"): element for element in root.findall("testcase")}
+
+    known_element = by_name["known"]
+    healthy_element = by_name["healthy"]
+
+    _assert(
+        known_element.find("skipped") is not None
+        and known_element.find("failure") is None,
+        "an EXPECTED_FAILURE must be reported as skipped, not as a failure",
+    )
+    _assert(
+        "boom" in (known_element.find("system-out").text or ""),
+        "an EXPECTED_FAILURE's traceback must survive in system-out",
+    )
+    _assert(
+        healthy_element.find("failure") is not None,
+        "a genuine failure must still be reported as a failure",
+    )
+
+    CHECKED.append(
+        "accepted: write_junit reports an expected failure as skipped with "
+        "its traceback kept, and a genuine failure as a failure"
+    )
+
+    results = Results(expected_failures={"known": "D-1, a known defect"})
+
+    results.run("known", passes)
+
+    path = os.path.join(TMP, "junit-unexpected-pass.xml")
+
+    results.write_junit(path)
+
+    tree = ElementTree.parse(path)
+
+    known_element = tree.getroot().find("testcase")
+
+    _assert(
+        known_element.find("failure") is not None,
+        "an UNEXPECTED_PASS must be reported as a failure, not silently",
+    )
+
+    CHECKED.append(
+        "accepted: write_junit reports an unexpected pass as a failure"
+    )
+
+
+def check_wait_for_stability_and_exceptions():
+    """util.wait_for: stable requires consecutive successes, a flap resets
+    the count, and an exception from the predicate is reported on timeout
+    rather than swallowed."""
+    from harness.util import TimeoutError_, wait_for
+
+    calls = []
+
+    def flapping():
+        calls.append(1)
+
+        # True, False, True, True: stable=2 must not accept the first True,
+        # since the very next call flaps back to False.
+
+        return [True, False, True, True][len(calls) - 1]
+
+    value = wait_for(
+        "a flapping condition", flapping, timeout=5, interval=0.01, stable=2
+    )
+
+    _assert(value is True)
+    _assert(
+        len(calls) == 4,
+        "stable=2 must not accept the first success before the flap",
+    )
+
+    CHECKED.append(
+        "accepted: a condition is not accepted until it holds for every "
+        "required consecutive check"
+    )
+
+    def always_raises():
+        raise RuntimeError("boom from the predicate")
+
+    try:
+        wait_for(
+            "a predicate that always raises", always_raises, timeout=0.05,
+            interval=0.01,
+        )
+
+        FAILURES.append(
+            "NOT CAUGHT: a predicate that always raises must time out"
+        )
+    except TimeoutError_ as timeout_error:
+        _assert(
+            "boom from the predicate" in str(timeout_error),
+            "the predicate's own exception must be reported on timeout: %s"
+            % timeout_error,
+        )
+
+        CHECKED.append(
+            "accepted: a timeout reports the predicate's own exception"
+        )
+
+
+def check_remaining_harness_parsers():
+    """foreign_task_url, _stream_events, assert_zero_result_panel_matches and
+    describe_widget_difference's remaining branches."""
+    expect_rejected(
+        "a download URL naming two backgroundTaskId parameters",
+        lambda: checks.foreign_task_url(
+            "/export?backgroundTaskId=1&backgroundTaskId=2", 99
+        ),
+    )
+
+    CHECKED.append(
+        "accepted: foreign_task_url is exercised against a URL with two "
+        "backgroundTaskId parameters"
+    )
+
+    non_int_from = [
+        event_line(0, requested_from="not-an-int", hits=[hit_object(0, 1)])
+    ]
+
+    expect_accepted(
+        "requested_from that is not an int is treated as 0",
+        stream(non_int_from),
+    )
+
+    description = checks.describe_widget_difference(
+        ["search_bar", "search_results"], None
+    )
+
+    _assert(
+        "could not be read" in description
+        and "search_bar" in description,
+        "a None 'after' must say the widgets could not be read, and still "
+        "name what 'before' held: %s" % description,
+    )
+
+    CHECKED.append(
+        "accepted: a None 'after' is described as widgets that could not be "
+        "read, not a crash"
+    )
+
+    guest_only_events = [
+        _zero_result_event("widget", audience_type="GUEST"),
+    ]
+
+    empty_audience_panel = {
+        "no_searches_logged": False,
+        "overall": {"zero_result": 1, "searches": 1, "rate": "100.0"},
+        "guests": {"zero_result": 1, "searches": 1, "rate": "100.0"},
+        "signed_in": {"zero_result": 0, "searches": 0, "rate": "0.0"},
+        "top_queries": [{"query": "widget", "searches": 1}],
+    }
+
+    expect_accepted(
+        "a panel with no authenticated events at all reports the "
+        "signed-in audience as zero rather than raising",
+        lambda: checks.assert_zero_result_panel_matches(
+            empty_audience_panel, guest_only_events
+        ),
+    )
+
+    wrong_empty_audience_panel = dict(
+        empty_audience_panel,
+        signed_in=dict(empty_audience_panel["signed_in"], searches=5),
+    )
+
+    expect_rejected(
+        "a panel misreporting the empty signed-in audience is caught",
+        lambda: checks.assert_zero_result_panel_matches(
+            wrong_empty_audience_panel, guest_only_events
+        ),
+    )
+
+
+def check_stack_and_generator_parsing():
+    """Stack.sql's NULL and blank line handling on mysql, Stack._port_owner's
+    `docker ps` parsing, and Generator._sql's MariaDB substitution, all
+    driven by monkeypatching harness.stack.run rather than a real daemon."""
+    from harness import generate, stack as stack_module
+
+    mysql_stack = stack_module.Stack(
+        TMP, "selftest-mysql", 1, 1, database="mysql"
+    )
+
+    original_run = stack_module.run
+
+    try:
+        stack_module.run = lambda *args, **kwargs: (
+            0, "1\tfirst\n\n2\tNULL\n", ""
+        )
+
+        rows = mysql_stack.sql("select a, b from t")
+
+        _assert(
+            rows == [["1", "first"], ["2", ""]],
+            "a blank line must be skipped and NULL must read as empty on "
+            "mysql: %r" % rows,
+        )
+
+        CHECKED.append(
+            "accepted: Stack.sql skips blank lines and reads NULL as empty "
+            "on mysql"
+        )
+
+        stack_module.run = lambda *args, **kwargs: (
+            0,
+            "my-liferay\tmy-project\t0.0.0.0:8080->8080/tcp, "
+            "0.0.0.0:9999->9999/tcp\nother\t\t0.0.0.0:7000->7000/tcp\n",
+            "",
+        )
+
+        _assert(
+            mysql_stack._port_owner(8080) == ("my-liferay", "my-project"),
+            "the container and project publishing the port must be parsed "
+            "off docker ps's own columns",
+        )
+        _assert(
+            mysql_stack._port_owner(7000) == ("other", None),
+            "an empty compose project label must read as None, not as an "
+            "empty string",
+        )
+        _assert(
+            mysql_stack._port_owner(1) == (None, None),
+            "a port nothing publishes must read as not found",
+        )
+
+        CHECKED.append(
+            "accepted: _port_owner parses docker ps's name, project and "
+            "ports columns"
+        )
+    finally:
+        stack_module.run = original_run
+
+    class _StackStub:
+        dialect = "mysql"
+        database = "mariadb"
+
+    mariadb_sql = generate.Generator(_StackStub(), 1, 1)._sql("EVENTS")
+
+    _assert(
+        "max_recursive_iterations" in mariadb_sql
+        and "cte_max_recursion_depth" not in mariadb_sql,
+        "MariaDB's session variable name must replace MySQL's",
+    )
+
+    class _MysqlStackStub:
+        dialect = "mysql"
+        database = "mysql"
+
+    mysql_sql = generate.Generator(_MysqlStackStub(), 1, 1)._sql("EVENTS")
+
+    _assert(
+        "cte_max_recursion_depth" in mysql_sql,
+        "plain mysql must keep its own session variable name",
+    )
+
+    CHECKED.append(
+        "accepted: Generator._sql substitutes MariaDB's session variable "
+        "name and leaves plain mysql alone"
+    )
+
+
 def _assert(condition, message="assertion failed"):
     if not condition:
         raise AssertionError(message)
@@ -2377,6 +2695,10 @@ def main():
         check_admission_counters_and_background_tasks_parsing()
         check_zeroresult_none_handling()
         check_pluginconfig_reading()
+        check_results_trim_and_junit_outcomes()
+        check_wait_for_stability_and_exceptions()
+        check_remaining_harness_parsers()
+        check_stack_and_generator_parsing()
 
     for line in CHECKED:
         sys.stdout.write("  ok    %s\n" % line)
