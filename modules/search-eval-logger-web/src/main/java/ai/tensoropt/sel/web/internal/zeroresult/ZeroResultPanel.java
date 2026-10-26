@@ -50,17 +50,6 @@ public class ZeroResultPanel {
 	 *        ({@link ZeroResultQueryNormalizer#normalize}) to how many
 	 *        zero-result first-page searches, across however many raw
 	 *        variants, normalized to it
-	 */
-	public static ZeroResultPanel build(
-		Map<String, long[]> firstPageSearchCountsByAudienceType,
-		Map<String, Long> normalizedZeroResultFirstPageQueryCounts) {
-
-		return build(
-			firstPageSearchCountsByAudienceType,
-			normalizedZeroResultFirstPageQueryCounts, false);
-	}
-
-	/**
 	 * @param topQueriesApproximate whether {@link ZeroResultQueryCounts}
 	 *        dropped at least one distinct normalized query because its
 	 *        10,000-entry cap was already reached (DESIGN.md 6.3); the top
