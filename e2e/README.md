@@ -125,8 +125,9 @@ and was silently ignored. The rationale lives in this README instead.
 
 The retention purge and the collection cycle check are both
 `SchedulerJobConfiguration` jobs on a daily cron trigger (03:00 and 03:30
-respectively). A CI run cannot wait a day, and neither job has, or should
-have, a trigger of its own for tests to call.
+portal time respectively; this stack runs at UTC, so that is also what the
+jobs and the table below mean by those times). A CI run cannot wait a day,
+and neither job has, or should have, a trigger of its own for tests to call.
 
 The harness uses Server Administration's Groovy script console, which is a
 stock DXP administration feature, to look each service up in the OSGi registry
