@@ -38,11 +38,11 @@ import ai.tensoropt.sel.web.internal.zeroresult.ZeroResultPanelLoader;
 import java.io.IOException;
 import java.io.InputStream;
 
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import javax.portlet.Portlet;
 import javax.portlet.PortletException;
@@ -152,10 +152,10 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 		renderRequest.setAttribute(
 			"collectionStartDate",
-			_toString(collectionCycle.getCollectionStartDate()));
+			Objects.toString(collectionCycle.getCollectionStartDate(), null));
 		renderRequest.setAttribute(
 			"readinessReachedDate",
-			_toString(collectionCycle.getReadinessNotifiedDate()));
+			Objects.toString(collectionCycle.getReadinessNotifiedDate(), null));
 		renderRequest.setAttribute(
 			"showEvaluationServiceLinks", showEvaluationServiceLinks);
 
@@ -431,14 +431,6 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 
 			return null;
 		}
-	}
-
-	private String _toString(LocalDate localDate) {
-		if (localDate == null) {
-			return null;
-		}
-
-		return localDate.toString();
 	}
 
 	private static final int _RECENT_EXPORTS_COUNT = 20;
