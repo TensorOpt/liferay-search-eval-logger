@@ -254,8 +254,10 @@ measured set deliberately: a spike found that forcing the same rebind
 across every component that references `Searcher` cascades into unrelated
 service-layer components and fails a large share of concurrent searches
 while it runs, which is exactly the kind of invasive, portal-wide action
-this review would flag. A handful of other, secondary consumers are not
-targeted and still need a restart to join; the plugin detects that
+this review would flag. Of the 32 Declarative Services components on
+DXP 2026.Q3.8 that declare a `Searcher` reference (`DESIGN.md` §3.1), all
+but the three entry points above are secondary consumers not targeted by
+the rebind, and still need a restart to join; the plugin detects that
 remaining gap too, through the OSGi service registry (`SearchInterceptionStatusImpl`),
 rather than leaving it to be discovered as an incomplete export. The two
 gaps never share one signal: the primary gap, an entry point still
