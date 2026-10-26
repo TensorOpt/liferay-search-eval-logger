@@ -3396,9 +3396,38 @@ _LOG_LINE_START = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
 # so the rule names the cascade rather than each victim. Search keeps
 # answering, and the reinstall and restart that follow pass. assert_log_clean
 # never lets a rule cover an error whose trace runs through this plugin.
+#
+# TO-144: a CI run (mysql-mariadb-driver, dxp-2025.q1) hit a second, distinct
+# victim of the same cascade that the rule above does not cover, because it is
+# not logged as a FrameworkEvent ERROR at all. Deleting the jars stops the api
+# bundle first, which cascades through every static reluctant Searcher
+# consumer (DESIGN.md 3.1); during that ~22s window Liferay's own vulcan NPE
+# (NestedFieldsWriterInterceptor's ServiceTracker seeing a null prototype
+# resource) makes Aries' CxfJaxrsServiceRegistrator.rewire fail, and Aries logs
+# that failure itself, through its own "Whiteboard" logger, as
+# "ServiceReference ... for endpoint produced error". That line carries no
+# FrameworkEvent marker, so the existing rule never saw it. This was not a case
+# of the AopServiceManager rule needing to be narrowed to name the vulcan NPE
+# explicitly: inspecting the fixture that failed shows 49 of its 50
+# FrameworkEvent ERROR blocks already have both AopServiceManager and
+# NestedFieldsWriterInterceptor in their trace, so that rule already tolerates
+# this same vulcan cascade for the FrameworkEvent flavour, deliberately, by
+# naming the cascade rather than the victim (see above) alongside the
+# ComponentException/ObjectDefinitionDeployerImpl victim that is not vulcan at
+# all. Narrowing it to the vulcan NPE specifically would stop covering that
+# other, equally benign victim and reintroduce the flakiness the broad rule
+# was written to avoid. What was actually missing is a rule for the Whiteboard
+# logger's own line shape, scoped as tightly as the evidence allows: both the
+# CxfJaxrsServiceRegistrator.rewire frame and the vulcan NestedFieldsWriterInterceptor
+# cause specifically, not "any Whiteboard error", so a future, unrelated
+# Whiteboard failure is not silently swallowed by this rule.
 UNINSTALL_TOLERATED = (
     (("[PortletTracker:", "is already in use"), ()),
     (("FrameworkEvent ERROR",), ("com.liferay.portal.aop.internal.AopServiceManager",)),
+    (
+        ("[Whiteboard:", "produced error"),
+        ("CxfJaxrsServiceRegistrator.rewire", "NestedFieldsWriterInterceptor"),
+    ),
 )
 
 
