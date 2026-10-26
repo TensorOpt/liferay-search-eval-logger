@@ -61,10 +61,9 @@
 		</order>
 
 		<!--
-		Indexes (companyId, createDate) per DESIGN.md 4.5, serving both export
-		range selection and the retention purge. The comparator makes the
-		generated finder the one the purge needs: events older than a cutoff,
-		fetched in bounded batches via the start and end arguments (3.4).
+		Exists for its index, (companyId, createDate), which the export range
+		selection and the purge's set-based DELETE both use (3.4, 4.5); the
+		generated finder methods themselves are not called.
 		-->
 
 		<finder name="C_LtCreateDate" return-type="Collection">
@@ -142,8 +141,7 @@
 		</order>
 
 		<!--
-		Indexes searchEventUuid per DESIGN.md 4.5, for the export join and for
-		the cascading delete the retention purge performs.
+		Indexes searchEventUuid per DESIGN.md 4.5, for the export join.
 		-->
 
 		<finder name="SearchEventUuid" return-type="Collection">
