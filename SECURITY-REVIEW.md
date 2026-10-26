@@ -77,7 +77,8 @@ How this is checked:
 whatever the clicked link carries. The collection-start link carries the date
 collection started, at day granularity, and two UTM tags
 (`utm_source=liferay-plugin`, `utm_medium=admin-screen`); the export-complete
-link carries the two UTM tags alone. Neither carries a hostname, instance ID,
+link carries the same `utm_source` with a different medium
+(`utm_medium=export-complete`) and nothing else. Neither carries a hostname, instance ID,
 company name, plugin version, row count, coverage figure, or date range
 (`DESIGN.md` §10.1, §10.3; `EvaluationServiceLinks` in
 `search-eval-logger-web`). Both anchors carry `rel="noopener noreferrer"`, so
@@ -166,11 +167,14 @@ screen, picks a date range, and runs the export as a background task; the
 resulting archive is offered as a download. Nothing is transmitted anywhere
 automatically (`DESIGN.md` §6.1).
 
-**Gated by a dedicated permission, granted to nobody by default.** The
-`EXPORT` action is a separate resource permission
+**Gated by a dedicated permission.** The `EXPORT` action is a separate
+resource permission
 (`modules/search-eval-logger-web/src/main/resources/resource-actions/default.xml`)
-with no site-member or guest defaults, so exporting has to be granted
-deliberately, independent of general portal administration. Both the trigger
+with no site-member or guest defaults. Liferay's own company-administrator
+check bypasses resource actions, so the Administrator role holds `EXPORT`
+implicitly, the same as every other resource action; anyone else needs it
+granted deliberately, to a role, independent of general portal
+administration. Both the trigger
 (`ExportMVCActionCommand`) and the download (`SearchEvalLoggerPortlet#_serveArchive`)
 check it, through the shared `SearchEvalLoggerPortletPermission`. Checked by
 e2e cases `export-permission-refused` (a user without the permission cannot
@@ -200,9 +204,10 @@ and by unit test `ZeroResultQueryNormalizerTest`/`ZeroResultPanelTest` for
 the normalisation and merge logic the escaped text passes through first.
 
 **Archive contents** (`DESIGN.md` §6.2): `events.jsonl` (one JSON object per
-line, a search event with its hits nested), `manifest.json` (export range,
-counts, plugin configuration, admission counters, per-field coverage rates),
-and `README.md` (the structural caveats in plain language).
+line, a search event with its hits nested), `manifest.json` (company ID,
+export timestamp, export range, counts, plugin configuration, admission
+counters, per-field coverage rates), and `README.md` (the structural caveats
+in plain language).
 
 **Vendor-neutral regardless of who evaluates it.** Neither link, nor the
 word "tensoropt", nor a UTM tag appears anywhere inside the archive
@@ -293,14 +298,16 @@ speculatively ahead of a concrete objection (`DESIGN.md` §8).
 This build has been exercised end to end against DXP 2026.Q1.13 LTS on
 PostgreSQL. The empirical checks in `DESIGN.md` §7, and the MySQL and MariaDB
 runs, were made on the DXP 2025.Q1.27 LTS build, which differs from this one
-only by Liferay's own `javax` to `jakarta` rewrite (TO-85), except EC-5, EC-6
-and EC-13, which were measured on this build: the headless Search API and
-Blueprint-driven searches are captured, and the Blueprint is recorded wherever
-a saved one is named (`DESIGN.md` §7). The following are explicitly **not**
-verified, and this section does not soften any of them:
+only by Liferay's own `javax` to `jakarta` rewrite (TO-85), except EC-3, EC-5,
+EC-6 and EC-13, which were measured on this build: the automatic rebind
+(TO-140) clears the bypass without a restart for the entry points it
+targets, the headless Search API and Blueprint-driven searches are captured,
+and the Blueprint is recorded wherever a saved one is named (`DESIGN.md` §7).
+The following are explicitly **not** verified, and this section does not
+soften any of them:
 
-- **EC-9 — DXP Cloud.** Never deployed there; verified only against a
-  self-managed DXP 2025.Q1.27 LTS instance (`DESIGN.md` §7, EC-9).
+- **EC-9 (DXP Cloud).** Never deployed there; verified only against
+  self-managed instances (DXP 2025.Q1.27 and 2026.Q1.13) (`DESIGN.md` §7, EC-9).
 - **The runtime half of EC-14 — whose identity a notification resolves to.**
   Delivery itself is confirmed; whether `PrincipalThreadLocal` reliably
   carries the enabling administrator inside the configuration listener that
@@ -316,15 +323,13 @@ verified, and this section does not soften any of them:
   `DESIGN.md` §3.6); a cluster-wide "exactly once" for the collection-started
   notification is explicitly not claimed, only a within-node one, and that
   has never been tested against a second node.
-- **Databases other than PostgreSQL.** The export's streaming behavior was
-  measured at the JDBC level against MySQL and MariaDB drivers as well, but
-  the plugin as a whole — capture, persistence, purge, export together — has
-  only run against PostgreSQL (`DESIGN.md` §6.1, README "Database").
+- **Databases other than PostgreSQL 15, MySQL 8.4 and MariaDB 11.4 (for
+  example Oracle, SQL Server, DB2): not run.**
 - **EC-7 — the scheduler actually firing a job.** Both the purge and the
   daily collection-cycle check are confirmed scheduled at the right time of
   day, and both jobs' logic is exercised directly, but no test has waited
   until the scheduled time to observe Liferay's own scheduler fire either one
-  (`DESIGN.md` §7, EC-7; README "Status", "Not verified").
+  (`DESIGN.md` §7, EC-7; README "Requirements", "Not yet verified").
 - **EC-10 — how much of a production instance's traffic is internal.** The
   admission filter's keyword condition was measured only on an otherwise idle
   instance (18 searches observed, 8 removed by the keyword condition), where
@@ -339,5 +344,5 @@ This plugin does not claim reproducible builds.
 Apache License 2.0 (`DESIGN.md` §9, `LICENSE`). The plugin is source-available
 in this repository specifically so a security reviewer can read it rather than
 rely on a marketplace listing's review (`DESIGN.md` §9). See `README.md`
-"Building" for the exact prerequisites and commands to rebuild every module
-from source.
+"Build, run and test from source" for the exact prerequisites and commands to
+rebuild every module from source.
