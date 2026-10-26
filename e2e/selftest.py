@@ -2333,41 +2333,48 @@ def check_results_trim_and_junit_outcomes():
     """results._trim's line budget, and that write_junit reports an
     EXPECTED_FAILURE as a skip carrying the whole traceback and an
     UNEXPECTED_PASS as a failure, the two outcomes write_text and write_junit
-    agree about nowhere else in this file."""
+    agree about nowhere else in this file.
+
+    Each scenario below is handed to expect_accepted rather than asserted
+    bare: a bare _assert's failure would raise past this function and abort
+    the whole run instead of being recorded as one FAIL among the tally."""
     from harness.results import _REPORT_FAILURE_LINES, _trim
 
     short = ["line %d" % index for index in range(5)]
 
-    _assert(
-        _trim("\n".join(short)) == short,
-        "a failure within the line budget must be returned unchanged",
-    )
+    def short_failure_untouched():
+        _assert(
+            _trim("\n".join(short)) == short,
+            "a failure within the line budget must be returned unchanged",
+        )
 
-    CHECKED.append("accepted: a short failure is not trimmed at all")
+    expect_accepted("a short failure is not trimmed at all", short_failure_untouched)
 
     long_failure = ["line %d" % index for index in range(_REPORT_FAILURE_LINES + 10)]
 
-    trimmed = _trim("\n".join(long_failure))
+    def long_failure_trimmed():
+        trimmed = _trim("\n".join(long_failure))
 
-    _assert(trimmed[:6] == long_failure[:6], "the first six lines must survive")
-    _assert(
-        trimmed[-(_REPORT_FAILURE_LINES - 6):]
-        == long_failure[-(_REPORT_FAILURE_LINES - 6):],
-        "the last lines must survive",
-    )
-    _assert(
-        "lines omitted" in trimmed[6],
-        "an omission marker must separate the head and the tail",
-    )
+        _assert(
+            trimmed[:6] == long_failure[:6], "the first six lines must survive"
+        )
+        _assert(
+            trimmed[-(_REPORT_FAILURE_LINES - 6):]
+            == long_failure[-(_REPORT_FAILURE_LINES - 6):],
+            "the last lines must survive",
+        )
+        _assert(
+            "lines omitted" in trimmed[6],
+            "an omission marker must separate the head and the tail",
+        )
 
-    CHECKED.append(
-        "accepted: a long failure keeps its first six and last lines, with "
-        "an omission marker between them"
+    expect_accepted(
+        "a long failure keeps its first six and last lines, with an "
+        "omission marker between them",
+        long_failure_trimmed,
     )
 
     import xml.etree.ElementTree as ElementTree
-
-    results = Results(expected_failures={"known": "D-1, a known defect"})
 
     def fails(case):
         raise AssertionError("boom")
@@ -2375,66 +2382,77 @@ def check_results_trim_and_junit_outcomes():
     def passes(case):
         return True
 
-    results.run("known", fails)
-    results.run("healthy", fails)
+    def expected_and_genuine_failures_reported_correctly():
+        results = Results(expected_failures={"known": "D-1, a known defect"})
 
-    path = os.path.join(TMP, "junit-outcomes.xml")
+        results.run("known", fails)
+        results.run("healthy", fails)
 
-    results.write_junit(path)
+        path = os.path.join(TMP, "junit-outcomes.xml")
 
-    tree = ElementTree.parse(path)
-    root = tree.getroot()
+        results.write_junit(path)
 
-    by_name = {element.get("name"): element for element in root.findall("testcase")}
+        tree = ElementTree.parse(path)
+        root = tree.getroot()
 
-    known_element = by_name["known"]
-    healthy_element = by_name["healthy"]
+        by_name = {
+            element.get("name"): element for element in root.findall("testcase")
+        }
 
-    _assert(
-        known_element.find("skipped") is not None
-        and known_element.find("failure") is None,
-        "an EXPECTED_FAILURE must be reported as skipped, not as a failure",
-    )
-    _assert(
-        "boom" in (known_element.find("system-out").text or ""),
-        "an EXPECTED_FAILURE's traceback must survive in system-out",
-    )
-    _assert(
-        healthy_element.find("failure") is not None,
-        "a genuine failure must still be reported as a failure",
-    )
+        known_element = by_name["known"]
+        healthy_element = by_name["healthy"]
 
-    CHECKED.append(
-        "accepted: write_junit reports an expected failure as skipped with "
-        "its traceback kept, and a genuine failure as a failure"
-    )
+        _assert(
+            known_element.find("skipped") is not None
+            and known_element.find("failure") is None,
+            "an EXPECTED_FAILURE must be reported as skipped, not as a "
+            "failure",
+        )
+        _assert(
+            "boom" in (known_element.find("system-out").text or ""),
+            "an EXPECTED_FAILURE's traceback must survive in system-out",
+        )
+        _assert(
+            healthy_element.find("failure") is not None,
+            "a genuine failure must still be reported as a failure",
+        )
 
-    results = Results(expected_failures={"known": "D-1, a known defect"})
-
-    results.run("known", passes)
-
-    path = os.path.join(TMP, "junit-unexpected-pass.xml")
-
-    results.write_junit(path)
-
-    tree = ElementTree.parse(path)
-
-    known_element = tree.getroot().find("testcase")
-
-    _assert(
-        known_element.find("failure") is not None,
-        "an UNEXPECTED_PASS must be reported as a failure, not silently",
+    expect_accepted(
+        "write_junit reports an expected failure as skipped with its "
+        "traceback kept, and a genuine failure as a failure",
+        expected_and_genuine_failures_reported_correctly,
     )
 
-    CHECKED.append(
-        "accepted: write_junit reports an unexpected pass as a failure"
+    def unexpected_pass_reported_as_failure():
+        results = Results(expected_failures={"known": "D-1, a known defect"})
+
+        results.run("known", passes)
+
+        path = os.path.join(TMP, "junit-unexpected-pass.xml")
+
+        results.write_junit(path)
+
+        tree = ElementTree.parse(path)
+
+        known_element = tree.getroot().find("testcase")
+
+        _assert(
+            known_element.find("failure") is not None,
+            "an UNEXPECTED_PASS must be reported as a failure, not silently",
+        )
+
+    expect_accepted(
+        "write_junit reports an unexpected pass as a failure",
+        unexpected_pass_reported_as_failure,
     )
 
 
 def check_wait_for_stability_and_exceptions():
     """util.wait_for: stable requires consecutive successes, a flap resets
     the count, and an exception from the predicate is reported on timeout
-    rather than swallowed."""
+    rather than swallowed. Each scenario goes through expect_accepted, the
+    same as every other check in this file, so a failure here is recorded
+    as one FAIL rather than aborting the whole run."""
     from harness.util import TimeoutError_, wait_for
 
     calls = []
@@ -2447,43 +2465,49 @@ def check_wait_for_stability_and_exceptions():
 
         return [True, False, True, True][len(calls) - 1]
 
-    value = wait_for(
-        "a flapping condition", flapping, timeout=5, interval=0.01, stable=2
-    )
+    def stable_requires_every_consecutive_check():
+        value = wait_for(
+            "a flapping condition", flapping, timeout=5, interval=0.01, stable=2
+        )
 
-    _assert(value is True)
-    _assert(
-        len(calls) == 4,
-        "stable=2 must not accept the first success before the flap",
-    )
+        _assert(value is True)
+        _assert(
+            len(calls) == 4,
+            "stable=2 must not accept the first success before the flap",
+        )
 
-    CHECKED.append(
-        "accepted: a condition is not accepted until it holds for every "
-        "required consecutive check"
+    expect_accepted(
+        "a condition is not accepted until it holds for every required "
+        "consecutive check",
+        stable_requires_every_consecutive_check,
     )
 
     def always_raises():
         raise RuntimeError("boom from the predicate")
 
-    try:
-        wait_for(
-            "a predicate that always raises", always_raises, timeout=0.05,
-            interval=0.01,
+    def timeout_reports_the_predicates_own_exception():
+        try:
+            wait_for(
+                "a predicate that always raises", always_raises, timeout=0.05,
+                interval=0.01,
+            )
+        except TimeoutError_ as timeout_error:
+            _assert(
+                "boom from the predicate" in str(timeout_error),
+                "the predicate's own exception must be reported on "
+                "timeout: %s" % timeout_error,
+            )
+
+            return
+
+        raise AssertionError(
+            "a predicate that always raises must time out"
         )
 
-        FAILURES.append(
-            "NOT CAUGHT: a predicate that always raises must time out"
-        )
-    except TimeoutError_ as timeout_error:
-        _assert(
-            "boom from the predicate" in str(timeout_error),
-            "the predicate's own exception must be reported on timeout: %s"
-            % timeout_error,
-        )
-
-        CHECKED.append(
-            "accepted: a timeout reports the predicate's own exception"
-        )
+    expect_accepted(
+        "a timeout reports the predicate's own exception",
+        timeout_reports_the_predicates_own_exception,
+    )
 
 
 def check_remaining_harness_parsers():
@@ -2496,11 +2520,6 @@ def check_remaining_harness_parsers():
         ),
     )
 
-    CHECKED.append(
-        "accepted: foreign_task_url is exercised against a URL with two "
-        "backgroundTaskId parameters"
-    )
-
     non_int_from = [
         event_line(0, requested_from="not-an-int", hits=[hit_object(0, 1)])
     ]
@@ -2510,20 +2529,22 @@ def check_remaining_harness_parsers():
         stream(non_int_from),
     )
 
-    description = checks.describe_widget_difference(
-        ["search_bar", "search_results"], None
-    )
+    def none_after_describes_unreadable_widgets():
+        description = checks.describe_widget_difference(
+            ["search_bar", "search_results"], None
+        )
 
-    _assert(
-        "could not be read" in description
-        and "search_bar" in description,
-        "a None 'after' must say the widgets could not be read, and still "
-        "name what 'before' held: %s" % description,
-    )
+        _assert(
+            "could not be read" in description
+            and "search_bar" in description,
+            "a None 'after' must say the widgets could not be read, and "
+            "still name what 'before' held: %s" % description,
+        )
 
-    CHECKED.append(
-        "accepted: a None 'after' is described as widgets that could not be "
-        "read, not a crash"
+    expect_accepted(
+        "a None 'after' is described as widgets that could not be read, "
+        "not a crash",
+        none_after_describes_unreadable_widgets,
     )
 
     guest_only_events = [
@@ -2562,7 +2583,10 @@ def check_remaining_harness_parsers():
 def check_stack_and_generator_parsing():
     """Stack.sql's NULL and blank line handling on mysql, Stack._port_owner's
     `docker ps` parsing, and Generator._sql's MariaDB substitution, all
-    driven by monkeypatching harness.stack.run rather than a real daemon."""
+    driven by monkeypatching harness.stack.run rather than a real daemon.
+    Each scenario goes through expect_accepted rather than a bare _assert,
+    so a failure is recorded as one FAIL rather than aborting the run; the
+    monkeypatch is still restored in a finally either way."""
     from harness import generate, stack as stack_module
 
     mysql_stack = stack_module.Stack(
@@ -2571,7 +2595,7 @@ def check_stack_and_generator_parsing():
 
     original_run = stack_module.run
 
-    try:
+    def sql_skips_blanks_and_reads_null_as_empty():
         stack_module.run = lambda *args, **kwargs: (
             0, "1\tfirst\n\n2\tNULL\n", ""
         )
@@ -2584,11 +2608,7 @@ def check_stack_and_generator_parsing():
             "mysql: %r" % rows,
         )
 
-        CHECKED.append(
-            "accepted: Stack.sql skips blank lines and reads NULL as empty "
-            "on mysql"
-        )
-
+    def port_owner_parses_docker_ps_columns():
         stack_module.run = lambda *args, **kwargs: (
             0,
             "my-liferay\tmy-project\t0.0.0.0:8080->8080/tcp, "
@@ -2611,9 +2631,14 @@ def check_stack_and_generator_parsing():
             "a port nothing publishes must read as not found",
         )
 
-        CHECKED.append(
-            "accepted: _port_owner parses docker ps's name, project and "
-            "ports columns"
+    try:
+        expect_accepted(
+            "Stack.sql skips blank lines and reads NULL as empty on mysql",
+            sql_skips_blanks_and_reads_null_as_empty,
+        )
+        expect_accepted(
+            "_port_owner parses docker ps's name, project and ports columns",
+            port_owner_parses_docker_ps_columns,
         )
     finally:
         stack_module.run = original_run
@@ -2622,28 +2647,30 @@ def check_stack_and_generator_parsing():
         dialect = "mysql"
         database = "mariadb"
 
-    mariadb_sql = generate.Generator(_StackStub(), 1, 1)._sql("EVENTS")
-
-    _assert(
-        "max_recursive_iterations" in mariadb_sql
-        and "cte_max_recursion_depth" not in mariadb_sql,
-        "MariaDB's session variable name must replace MySQL's",
-    )
-
     class _MysqlStackStub:
         dialect = "mysql"
         database = "mysql"
 
-    mysql_sql = generate.Generator(_MysqlStackStub(), 1, 1)._sql("EVENTS")
+    def generator_sql_substitutes_mariadb_session_variable():
+        mariadb_sql = generate.Generator(_StackStub(), 1, 1)._sql("EVENTS")
 
-    _assert(
-        "cte_max_recursion_depth" in mysql_sql,
-        "plain mysql must keep its own session variable name",
-    )
+        _assert(
+            "max_recursive_iterations" in mariadb_sql
+            and "cte_max_recursion_depth" not in mariadb_sql,
+            "MariaDB's session variable name must replace MySQL's",
+        )
 
-    CHECKED.append(
-        "accepted: Generator._sql substitutes MariaDB's session variable "
-        "name and leaves plain mysql alone"
+        mysql_sql = generate.Generator(_MysqlStackStub(), 1, 1)._sql("EVENTS")
+
+        _assert(
+            "cte_max_recursion_depth" in mysql_sql,
+            "plain mysql must keep its own session variable name",
+        )
+
+    expect_accepted(
+        "Generator._sql substitutes MariaDB's session variable name and "
+        "leaves plain mysql alone",
+        generator_sql_substitutes_mariadb_session_variable,
     )
 
 
