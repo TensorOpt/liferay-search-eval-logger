@@ -15,7 +15,6 @@ import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegi
 import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
