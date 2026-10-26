@@ -30,6 +30,7 @@ import ai.tensoropt.sel.service.SearchEventLocalService;
 
 import java.io.File;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import java.sql.ResultSet;
@@ -160,21 +161,32 @@ public class SearchEvalExportWriterTest {
 	}
 
 	/**
-	 * Two events, each with one hit: the uuid change between them must
-	 * flush the first exactly once, and the last row read must still be
-	 * flushed even though no further row changes the uuid again.
+	 * Two hits for event-1, then one for event-2: a writer that flushed on
+	 * every row rather than on a uuid change would split event-1's two hits
+	 * into two events, so eventCount and the line count would read 3
+	 * instead of 2 even though hitCount, which is incremented per hit
+	 * regardless of where a flush lands, would still read 3 either way. The
+	 * uuid change into event-2 must flush event-1 exactly once, and the
+	 * last row read must still be flushed even though no further row
+	 * changes the uuid again.
 	 */
 	@Test
 	public void aUuidChangeFlushesThePreviousEventExactlyOnceAndTheLastRowIsFlushed()
 		throws Exception {
 
 		_rows(
-			_row("event-1").hit(1), _row("event-2").hit(1));
+			_row("event-1").hit(1), _row("event-1").hit(2),
+			_row("event-2").hit(1));
 
 		SearchEvalExportResult searchEvalExportResult = _write();
 
 		assertEquals(2, searchEvalExportResult.getEventCount());
-		assertEquals(2, searchEvalExportResult.getHitCount());
+		assertEquals(3, searchEvalExportResult.getHitCount());
+
+		String eventsContent = new String(
+			_entryBytes(_EVENTS_FILE_NAME), StandardCharsets.UTF_8);
+
+		assertEquals(2, eventsContent.lines().count());
 	}
 
 	/**
