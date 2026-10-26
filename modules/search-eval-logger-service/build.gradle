@@ -2,6 +2,12 @@ dependencies {
 	api project(":modules:search-eval-logger-api")
 
 	compileOnly group: "com.liferay.portal", name: "release.dxp.api"
+
+	// compileOnly keeps this out of the bundle, but unit tests still need
+	// it on the classpath to run against (SearchEventPersistence extends
+	// BasePersistence, and CurrentConnectionUtil/SystemException come from
+	// here too).
+	testImplementation group: "com.liferay.portal", name: "release.dxp.api"
 }
 
 buildService {
