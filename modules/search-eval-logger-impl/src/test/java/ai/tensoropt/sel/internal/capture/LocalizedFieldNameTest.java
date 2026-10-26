@@ -72,6 +72,22 @@ public class LocalizedFieldNameTest {
 			localizedFieldName.getLocale());
 	}
 
+	/**
+	 * F2-46: the boundary the length check guards. "_en_US" is nothing but an
+	 * underline and a locale id, so stripping the suffix would leave an empty
+	 * field name, and {@link LocalizedFieldName#parse} must leave it alone
+	 * rather than split it into an empty name under "en_US".
+	 */
+	@Test
+	public void aFieldThatIsOnlyAnUnderlineAndALocaleStaysUnderDefault() {
+		LocalizedFieldName localizedFieldName = LocalizedFieldName.parse(
+			"_en_US", _LANGUAGE_IDS);
+
+		assertEquals("_en_US", localizedFieldName.getFieldName());
+		assertEquals(LocalizedFieldName.DEFAULT_LOCALE,
+			localizedFieldName.getLocale());
+	}
+
 	private static final Set<String> _LANGUAGE_IDS = Set.of(
 		"en_US", "sv_SE", "fi_FI", "ca_ES", "ca_ES_VALENCIA");
 
