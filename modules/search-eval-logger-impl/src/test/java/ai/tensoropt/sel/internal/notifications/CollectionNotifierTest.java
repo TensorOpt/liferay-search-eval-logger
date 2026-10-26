@@ -113,7 +113,7 @@ public class CollectionNotifierTest {
 	 */
 	@Test
 	public void noEmailIsSentWhenTheUserDoesNotWantIt() throws Exception {
-		when(_emailDelivery.isWanted(_USER_ID, 1L)).thenReturn(false);
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(false);
 
 		_collectionNotifier.notifyReadiness(1L, _USER_ID);
 
@@ -126,7 +126,7 @@ public class CollectionNotifierTest {
 
 	@Test
 	public void emailIsSentWhenTheUserWantsIt() throws Exception {
-		when(_emailDelivery.isWanted(_USER_ID, 1L)).thenReturn(true);
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(true);
 
 		Group group = mock(Group.class);
 
@@ -159,7 +159,7 @@ public class CollectionNotifierTest {
 	 */
 	@Test
 	public void theStallEmailCarriesNoLink() throws Exception {
-		when(_emailDelivery.isWanted(_USER_ID, 1L)).thenReturn(true);
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(true);
 
 		_collectionNotifier.notifyStall(1L, _USER_ID);
 
@@ -180,7 +180,7 @@ public class CollectionNotifierTest {
 	public void aFailureResolvingTheControlPanelLinkStillSendsTheEmail()
 		throws Exception {
 
-		when(_emailDelivery.isWanted(_USER_ID, 1L)).thenReturn(true);
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(true);
 		when(
 			_groupLocalService.getCompanyGroup(1L)
 		).thenThrow(
@@ -207,7 +207,7 @@ public class CollectionNotifierTest {
 		throws Exception {
 
 		when(
-			_emailDelivery.isWanted(_USER_ID, 1L)
+			_emailDelivery.isWanted(_USER_ID)
 		).thenThrow(
 			new RuntimeException("boom")
 		);
