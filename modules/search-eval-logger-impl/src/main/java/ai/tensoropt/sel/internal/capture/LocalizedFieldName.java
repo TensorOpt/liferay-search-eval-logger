@@ -64,7 +64,8 @@ final class LocalizedFieldName {
 		int suffixLength = languageId.length() + 1;
 
 		return (fieldName.length() > suffixLength) &&
-			fieldName.endsWith(_UNDERLINE + languageId);
+			(fieldName.charAt(fieldName.length() - suffixLength) == '_') &&
+			fieldName.endsWith(languageId);
 	}
 
 	private LocalizedFieldName(String fieldName, String locale) {
@@ -79,8 +80,6 @@ final class LocalizedFieldName {
 	String getLocale() {
 		return _locale;
 	}
-
-	private static final String _UNDERLINE = "_";
 
 	private final String _fieldName;
 	private final String _locale;
