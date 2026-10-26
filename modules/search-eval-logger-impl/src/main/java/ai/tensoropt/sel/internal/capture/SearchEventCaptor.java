@@ -593,8 +593,10 @@ public class SearchEventCaptor {
 		return truncated;
 	}
 
-	// The constants below are alphabetical, so the two kinds cannot sit next
-	// to their own kind: the *_ATTRIBUTE_NAME constants are the SearchContext
+	// This block holds two kinds of named constant, plus the separator and
+	// field-name literals _SEPARATOR, _SNIPPET_FIELD_PREFIX and _UNDERLINE
+	// used to assemble and parse multi-valued columns and locale-suffixed
+	// field names. The *_ATTRIBUTE_NAME constants are the SearchContext
 	// attribute names TO-139 reads a Blueprint from (the external reference
 	// code is Liferay's preferred, instance-stable name; the ID attribute is
 	// the older one, and both are recorded). The *_MAX_LENGTH constants are
