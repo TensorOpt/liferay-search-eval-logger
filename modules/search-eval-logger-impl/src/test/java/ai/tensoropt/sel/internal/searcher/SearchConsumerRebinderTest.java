@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.liferay.portal.search.searcher.Searcher;
 
-import java.lang.reflect.Field;
+import ai.tensoropt.sel.internal.TestInjection;
 
 import java.util.HashMap;
 import java.util.List;
@@ -59,10 +59,14 @@ public class SearchConsumerRebinderTest {
 			SearchInterceptionStatusImpl.class);
 		_bundleContext = _bundleContext("com.liferay.portal.search.web");
 
-		_inject("_serviceComponentRuntime", _serviceComponentRuntime);
-		_inject(
-			"_searchInterceptionStatusImpl", _searchInterceptionStatusImpl);
-		_inject("_bundleContext", _bundleContext);
+		TestInjection.set(
+			_searchConsumerRebinder, "_serviceComponentRuntime",
+			_serviceComponentRuntime);
+		TestInjection.set(
+			_searchConsumerRebinder, "_searchInterceptionStatusImpl",
+			_searchInterceptionStatusImpl);
+		TestInjection.set(
+			_searchConsumerRebinder, "_bundleContext", _bundleContext);
 	}
 
 	@Test
@@ -412,14 +416,6 @@ public class SearchConsumerRebinderTest {
 		);
 
 		return description;
-	}
-
-	private void _inject(String name, Object value) throws Exception {
-		Field field = SearchConsumerRebinder.class.getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(_searchConsumerRebinder, value);
 	}
 
 	private BundleContext _bundleContext;

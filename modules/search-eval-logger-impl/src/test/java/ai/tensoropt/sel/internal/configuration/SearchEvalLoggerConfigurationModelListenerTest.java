@@ -15,6 +15,7 @@ import com.liferay.petra.function.UnsafeConsumer;
 import com.liferay.portal.kernel.service.CompanyLocalService;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.cycle.CollectionCycleStatusImpl;
 
 import java.util.Dictionary;
@@ -42,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class SearchEvalLoggerConfigurationModelListenerTest {
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		_collectionCycleStatusImpl = mock(CollectionCycleStatusImpl.class);
 
 		CompanyLocalService companyLocalService = mock(
@@ -71,8 +72,15 @@ public class SearchEvalLoggerConfigurationModelListenerTest {
 		_searchEvalLoggerConfigurationModelListener =
 			new SearchEvalLoggerConfigurationModelListener();
 
-		_searchEvalLoggerConfigurationModelListener.setCollaborators(
-			_collectionCycleStatusImpl, companyLocalService,
+		TestInjection.set(
+			_searchEvalLoggerConfigurationModelListener,
+			"_collectionCycleStatusImpl", _collectionCycleStatusImpl);
+		TestInjection.set(
+			_searchEvalLoggerConfigurationModelListener,
+			"_companyLocalService", companyLocalService);
+		TestInjection.set(
+			_searchEvalLoggerConfigurationModelListener,
+			"_searchEvalLoggerConfigurationRegistry",
 			_searchEvalLoggerConfigurationRegistry);
 	}
 

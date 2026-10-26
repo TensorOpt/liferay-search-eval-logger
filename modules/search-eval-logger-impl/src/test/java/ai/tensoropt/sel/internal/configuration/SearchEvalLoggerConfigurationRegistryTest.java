@@ -19,8 +19,7 @@ import com.liferay.portal.kernel.util.Props;
 import com.liferay.portal.kernel.util.PropsUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
-
-import java.lang.reflect.Field;
+import ai.tensoropt.sel.internal.TestInjection;
 
 import java.util.Properties;
 
@@ -68,12 +67,8 @@ public class SearchEvalLoggerConfigurationRegistryTest {
 			new ConfigurationException("unreadable")
 		);
 
-		Field field = SearchEvalLoggerConfigurationRegistry.class.
-			getDeclaredField("_configurationProvider");
-
-		field.setAccessible(true);
-
-		field.set(_registry, configurationProvider);
+		TestInjection.set(
+			_registry, "_configurationProvider", configurationProvider);
 	}
 
 	/**

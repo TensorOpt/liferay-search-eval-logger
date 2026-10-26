@@ -32,6 +32,7 @@ import com.liferay.portal.search.searcher.SearchResponse;
 
 import ai.tensoropt.sel.api.SourceType;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 
 import java.util.ArrayList;
@@ -62,7 +63,7 @@ public class SearchEventCaptorTest {
 			FacetCapture.NONE_APPLIED
 		);
 
-		_setField("_facetExtractor", facetExtractor);
+		TestInjection.set(_searchEventCaptor, "_facetExtractor", facetExtractor);
 
 		// Backed by real maps and lists rather than Liferay's own
 		// JSONFactoryImpl, which needs the portal's property bootstrap
@@ -92,7 +93,7 @@ public class SearchEventCaptorTest {
 			invocation -> _newJSONArray()
 		);
 
-		_setField("_jsonFactory", _jsonFactory);
+		TestInjection.set(_searchEventCaptor, "_jsonFactory", _jsonFactory);
 
 		_language = mock(Language.class);
 
@@ -109,7 +110,7 @@ public class SearchEventCaptorTest {
 			invocation -> invocation.<Locale>getArgument(0).toString()
 		);
 
-		_setField("_language", _language);
+		TestInjection.set(_searchEventCaptor, "_language", _language);
 
 		_configuration = mock(SearchEvalLoggerConfiguration.class);
 
@@ -762,15 +763,6 @@ public class SearchEventCaptorTest {
 			capturedSearchEvent.getHits();
 
 		return capturedSearchHits.get(0);
-	}
-
-	private void _setField(String name, Object value) throws Exception {
-		java.lang.reflect.Field field =
-			SearchEventCaptor.class.getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(_searchEventCaptor, value);
 	}
 
 	private List<JSONObject> _createdJSONObjects;

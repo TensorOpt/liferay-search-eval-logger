@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 
 import ai.tensoropt.sel.api.CollectionCycle;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
+import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegistry;
 import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.Test;
 public class CollectionCycleStatusImplTest {
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		_now = Instant.parse("2026-03-01T09:30:00Z");
 
 		_collectionCycleStore = new RecordingCollectionCycleStore();
@@ -75,10 +76,15 @@ public class CollectionCycleStatusImplTest {
 		_collectionCycleStatusImpl = new CollectionCycleStatusImpl();
 
 		_collectionCycleStatusImpl.setClock(_tickingClock());
-		_collectionCycleStatusImpl.setCollectionCycleStore(
+		TestInjection.set(
+			_collectionCycleStatusImpl, "_collectionCycleStore",
 			_collectionCycleStore);
-		_collectionCycleStatusImpl.setCollectionNotifier(_collectionNotifier);
-		_collectionCycleStatusImpl.setSearchEvalLoggerConfigurationRegistry(
+		TestInjection.set(
+			_collectionCycleStatusImpl, "_collectionNotifier",
+			_collectionNotifier);
+		TestInjection.set(
+			_collectionCycleStatusImpl,
+			"_searchEvalLoggerConfigurationRegistry",
 			searchEvalLoggerConfigurationRegistry);
 	}
 

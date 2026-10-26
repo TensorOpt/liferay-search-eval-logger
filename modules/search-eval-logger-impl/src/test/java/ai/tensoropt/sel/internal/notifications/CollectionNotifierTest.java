@@ -27,8 +27,7 @@ import com.liferay.portal.kernel.service.UserNotificationEventLocalService;
 import com.liferay.portal.kernel.util.Portal;
 
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
-
-import java.lang.reflect.Field;
+import ai.tensoropt.sel.internal.TestInjection;
 
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -93,21 +92,23 @@ public class CollectionNotifierTest {
 			invocation -> invocation.getArgument(1)
 		);
 
-		_inject("_emailDelivery", _emailDelivery);
-		_inject("_groupLocalService", _groupLocalService);
-		_inject("_jsonFactory", jsonFactory);
-		_inject("_language", language);
-		_inject("_portal", _portal);
-		_inject("_userLocalService", userLocalService);
-		_inject(
-			"_userNotificationEventLocalService",
+		TestInjection.set(_collectionNotifier, "_emailDelivery", _emailDelivery);
+		TestInjection.set(
+			_collectionNotifier, "_groupLocalService", _groupLocalService);
+		TestInjection.set(_collectionNotifier, "_jsonFactory", jsonFactory);
+		TestInjection.set(_collectionNotifier, "_language", language);
+		TestInjection.set(_collectionNotifier, "_portal", _portal);
+		TestInjection.set(
+			_collectionNotifier, "_userLocalService", userLocalService);
+		TestInjection.set(
+			_collectionNotifier, "_userNotificationEventLocalService",
 			_userNotificationEventLocalService);
 	}
 
 	/**
 	 * TO-112 / EC-15: the gate. Nothing here mocks
 	 * <code>UserNotificationManagerUtil</code> itself - that static call lives
-	 * in <code>EmailDeliveryImpl</code>, which has no portal to run against in
+	 * in <code>EmailDelivery</code>, which has no portal to run against in
 	 * a unit test - but the decision this class makes with its answer is
 	 * exactly what these pin.
 	 */
@@ -240,14 +241,6 @@ public class CollectionNotifierTest {
 		_collectionNotifier.notifyStall(1L, _USER_ID);
 
 		_verifyDelivered();
-	}
-
-	private void _inject(String name, Object value) throws Exception {
-		Field field = CollectionNotifier.class.getDeclaredField(name);
-
-		field.setAccessible(true);
-
-		field.set(_collectionNotifier, value);
 	}
 
 	private void _verifyDelivered() throws Exception {

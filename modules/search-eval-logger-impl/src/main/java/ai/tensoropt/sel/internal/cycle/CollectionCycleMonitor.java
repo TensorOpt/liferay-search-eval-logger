@@ -73,26 +73,6 @@ public class CollectionCycleMonitor {
 		_clock = clock;
 	}
 
-	/**
-	 * Visible for testing. The runtime binds the fields directly; there are no
-	 * production callers.
-	 */
-	void setCollaborators(
-		CollectionCycleStatusImpl collectionCycleStatusImpl,
-		CollectionNotifier collectionNotifier,
-		SearchEvalLoggerConfigurationRegistry
-			searchEvalLoggerConfigurationRegistry,
-		SearchEventLocalService searchEventLocalService,
-		SearchInterceptionStatus searchInterceptionStatus) {
-
-		_collectionCycleStatusImpl = collectionCycleStatusImpl;
-		_collectionNotifier = collectionNotifier;
-		_searchEvalLoggerConfigurationRegistry =
-			searchEvalLoggerConfigurationRegistry;
-		_searchEventLocalService = searchEventLocalService;
-		_searchInterceptionStatus = searchInterceptionStatus;
-	}
-
 	private void _check(long companyId) {
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration =
 			_searchEvalLoggerConfigurationRegistry.getConfiguration(companyId);

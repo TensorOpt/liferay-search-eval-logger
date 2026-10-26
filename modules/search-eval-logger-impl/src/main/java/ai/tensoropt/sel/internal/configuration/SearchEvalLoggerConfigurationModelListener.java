@@ -111,22 +111,6 @@ public class SearchEvalLoggerConfigurationModelListener
 		}
 	}
 
-	/**
-	 * Visible for testing. The runtime binds the fields directly; there are no
-	 * production callers.
-	 */
-	void setCollaborators(
-		CollectionCycleStatusImpl collectionCycleStatusImpl,
-		CompanyLocalService companyLocalService,
-		SearchEvalLoggerConfigurationRegistry
-			searchEvalLoggerConfigurationRegistry) {
-
-		_collectionCycleStatusImpl = collectionCycleStatusImpl;
-		_companyLocalService = companyLocalService;
-		_searchEvalLoggerConfigurationRegistry =
-			searchEvalLoggerConfigurationRegistry;
-	}
-
 	private void _apply(long companyId, boolean enabled) {
 		if (!enabled) {
 			_collectionCycleStatusImpl.closeCycle(companyId);
