@@ -507,12 +507,13 @@ alongside the unit tests rather than only before a release.
   preload references either. It cannot prove the absence of an outbound request
   made from somewhere the page does not mention. That remains a reading
   exercise, and the one place to read is `EvaluationServiceLinks`.
-- **EC-5 on DXP 2025.Q1, and the widget-applied Blueprint case for EC-6 and
-  EC-13.** Measured by hand (DESIGN.md section 7), not asserted here: on
-  2025.Q1 the headless Search API is still behind feature flag
-  `LPS-179669`, and no case here applies a Blueprint through the Blueprint
-  Options widget. The suite does cover one headless Blueprint-driven search
-  and the TO-141 Blueprint editor Preview exclusion
+- **EC-5 on DXP 2025.Q1.** Still unmeasured anywhere (DESIGN.md section 7),
+  not just unasserted here: the headless Search API is still behind feature
+  flag `LPS-179669` on that line, and the endpoint has not been reached.
+- **The widget-applied Blueprint case for EC-6 and EC-13.** Measured by hand
+  (DESIGN.md section 7), not asserted here: no case here applies a Blueprint
+  through the Blueprint Options widget. The suite does cover one headless
+  Blueprint-driven search and the TO-141 Blueprint editor Preview exclusion
   (`blueprint-preview-excluded`).
 - **Email delivery (TO-112, EC-15).** The notification cases read the
   administrator's notifications list and the stored `UserNotificationEvent`
