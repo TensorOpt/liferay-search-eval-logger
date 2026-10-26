@@ -9,10 +9,10 @@ package ai.tensoropt.sel.api;
  *
  * <p>
  * Published because the admin screen has to render the same state the
- * collector maintains, and because that screen is the fallback delivery channel
- * if Liferay's user notification framework turns out to be unusable (EC-14).
- * Only the read side is published: the cycle is opened, closed and marked by
- * the collector, and nothing outside its bundle may move it.
+ * collector maintains. EC-14: delivery is confirmed; the admin screen remains
+ * the channel that does not depend on it. Only the read side is published:
+ * the cycle is opened, closed and marked by the collector, and nothing
+ * outside its bundle may move it.
  * </p>
  */
 public interface CollectionCycleStatus {

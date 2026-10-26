@@ -29,12 +29,12 @@ import org.osgi.service.component.annotations.Reference;
  *
  * <p>
  * It also reconciles the cycle with the configuration. The configuration
- * listener moves the cycle the moment logging is switched on or off, but it is
- * the only thing that does, and EC-14 leaves open whether it is invoked at all
- * on this platform. Doing the same reconciliation here bounds the damage if it
- * is not: a cycle then opens or closes within a day instead of never, and the
- * only thing lost is the identity of the enabling administrator, which 3.6
- * already has a fallback for.
+ * listener moves the cycle the moment logging is switched on or off, but it
+ * is the only thing that does. EC-14 leaves open whether the listener sees
+ * the enabling administrator's identity; the daily reconciliation bounds the
+ * damage if the listener is not invoked at all: a cycle then opens or closes
+ * within a day instead of never, and the only thing lost is the identity of
+ * the enabling administrator, which 3.6 already has a fallback for.
  * </p>
  *
  * <p>
