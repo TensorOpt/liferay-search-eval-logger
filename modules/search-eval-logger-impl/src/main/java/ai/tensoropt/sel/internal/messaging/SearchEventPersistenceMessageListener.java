@@ -148,8 +148,11 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		// user. The salt hash exists to partition authenticated users by a
 		// permission-comparable, non-identifying value (4.3); guests share
 		// one permission set already, so there is nothing for it to
-		// partition, and hashing userId=0 would produce a stable value every
-		// guest row shares forever, a cohort rotation never actually caps.
+		// partition, and hashing userId=0 would produce one value every
+		// guest row shares within the current rotation window (still
+		// rotating out between windows, the same as any other cohort hash,
+		// not a value fixed forever) - a single shared pseudonymous
+		// identifier for every guest, for no partitioning benefit at all.
 		searchEvent.setCohortHash(
 			(audienceType == AudienceType.GUEST) ? null :
 				_getCohortHash(companyId, userId));

@@ -66,7 +66,7 @@ For each recorded search:
 - applied facet selections, where the search path exposes them;
 - each result shown: rank, score, document ID, asset type, and the title and snippet when the response already contains them. The snippet is recorded as an object keyed by locale then field, each field's highlighted fragments an array, so which field and language a fragment came from is never lost to a join;
 - page size, offset and total hit count, so a capped result list is never mistaken for a short one;
-- whether the user was a guest or signed in, plus, for a signed-in user only, a salted hash of the user ID. A guest row carries no hash at all, since guests already share one permission set and hashing a non-existent user ID would produce one value every guest row shares forever. The salt rotates weekly by default and is never exported.
+- whether the user was a guest or signed in, plus, for a signed-in user only, a salted hash of the user ID. A guest row carries no hash at all, since guests already share one permission set and hashing a non-existent user ID would produce one value every guest row shares within the current rotation window (still rotating out between windows, not a value fixed forever), which is a single shared pseudonymous identifier for no partitioning benefit at all. The salt rotates weekly by default and is never exported.
 
 Not collected: user IDs, names, email addresses, IP addresses or document bodies. The plugin never widens a query to capture more.
 
