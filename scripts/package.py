@@ -249,11 +249,16 @@ README's Requirements section lists the other DXP releases these jars run on.
    `%(zip)s`
 2. In that folder, verify them: `shasum -a 256 -c SHA256SUMS`
 3. Copy the four jars to `[Liferay Home]/deploy`.
-4. **Restart the portal.** The plugin only receives searches made after a
-   restart.
 
-Installed from Liferay Marketplace instead, the same jars arrive as an .lpkg;
-the restart is needed either way.
+That is it. The plugin rebinds the Search Results widget, shared search
+requests and search bar suggestions onto itself automatically, with no
+restart, and the headless Search API needs no rebind at all. A handful of
+other, secondary consumers of the search service join only at the portal's
+next restart, whenever convenient.
+
+Installed from Liferay Marketplace instead, the same jars arrive as an
+.lpkg, which Liferay itself requires a restart to finish installing; that
+one restart is Liferay's own, not this plugin's.
 
 The README covers enabling collection, exporting, and what is and is not
 verified; SECURITY-REVIEW.md is written to be forwarded to a reviewer.
