@@ -317,6 +317,29 @@ interval for that ratio from a bootstrap over the per-request samples
 machine; a shared or busy one widens the interval without telling you
 anything about the plugin.
 
+**It measures against a term that returns hits, not one that matches
+nothing.** `SearchEventCaptor` runs synchronously on the search thread,
+capturing up to `captureDepth` hits per event, so a search guaranteed to
+miss only ever measured the admission filter's own cost, never the part
+that scales with what a search actually returns. With no `--term`, the
+script seeds 20 blog postings carrying a marker term through the headless
+API (the same mechanism `content_and_searches` uses), idempotently: a run
+against a portal an earlier run already seeded finds the existing content
+through a search first and skips seeding again, so repeated runs do not
+keep adding postings. `--term` measures against a term of your own
+instead, assumed to already return hits on that portal; the script does
+not seed anything in that case.
+
+**Side effects, for a throwaway portal only.** This is meant for a
+`make run` portal `make stop VOLUMES=1` throws away afterward, not a
+shared or production one: besides the seeded content, every search run
+with collection enabled writes an event and its hits, every
+disabled/enabled toggle pair closes and reopens the collection cycle
+(DESIGN.md 3.6) and can send a "collection started" notification, and a
+company-scoped `SearchEvalLoggerConfiguration` row is left behind by the
+same read-modify-write `SET_CONFIGURATION_ENABLED` the e2e suite's own
+`search-overhead` case uses.
+
 ### The export is driven through its own screen
 
 The harness reads the export form's action URL off the rendered admin screen
