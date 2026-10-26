@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 """End to end functional test for the Liferay Search Eval Logger (TO-84).
 
-Brings up PostgreSQL and Liferay DXP in Docker, installs the plugin onto the
-running portal, restarts as DESIGN.md 3.1 requires, creates content, runs real
-searches, generates a scale corpus, then exercises the retention purge, the
-export and the funnel integration.
+Brings up a selectable database and Liferay DXP in Docker, installs the
+plugin onto the running portal, confirms the automatic rebind (TO-140) picks
+up the entry points without a restart, forces a bypass and confirms a
+restart clears it, creates content, runs real searches, generates a scale
+corpus, then exercises the retention purge, the export and the funnel
+integration.
 
-Exit codes: 0 every case passed, 1 at least one case failed, 2 the harness
-could not run at all.
+Exit codes: 0 every case passed (cases registered as known defects are
+excluded), 1 at least one case failed, 2 the harness could not run at all.
 """
 
 import argparse

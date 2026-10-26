@@ -16,12 +16,15 @@ postgres): `make stop` with no DB given uses it, so stopping does not
 silently do nothing just because the stack it is meant to stop happens to be
 on a different database than the default.
 
-up deploys the bundles from modules/*/build/libs and restarts the portal once:
-Liferay's search consumers bind the search service at startup, so a plugin
-installed onto a running portal records nothing until a restart (DESIGN.md
-3.1). It deploys the jars rather than the .lpkg because Liferay refuses an
-.lpkg whose version is already installed, and a change under development
-rarely bumps the version; make test covers the .lpkg.
+up deploys the bundles from modules/*/build/libs and restarts the portal
+once. Since TO-140 the search entry points (the Search Results widget,
+shared search requests, search bar suggestions) rebind onto the wrapper
+automatically on install, with no restart needed for them; the restart here
+is kept for the secondary consumers that still need one to join (DESIGN.md
+3.1), and is harmless for the rest. It deploys the jars rather than the
+.lpkg because Liferay refuses an .lpkg whose version is already installed,
+and a change under development rarely bumps the version; make test covers
+the .lpkg.
 
 Without --fresh the database and the portal's data are kept from the last run.
 """
