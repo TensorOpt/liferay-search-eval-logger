@@ -147,12 +147,12 @@ public class SearchConsumerRebinder {
 				// entry point component whose disable/enable did not move it
 				// onto the wrapper, such as a reference whose target filter
 				// was itself the problem, and one this loop disabled but
-				// failed to bring back. This is exactly the warning
-				// DESIGN.md 3.1 always logged on activation, moved here from
-				// SearchInterceptionStatusImpl so it fires only once a
-				// rebind has actually been attempted and failed, rather than
-				// on every install, before this asynchronous attempt has had
-				// a chance to run at all.
+				// failed to bring back. Logged here, after the attempt, and
+				// not unconditionally on activation: every fresh install and
+				// every redeploy already runs this automatic rebind first,
+				// so warning before it has even had a chance to run would
+				// report a restart as needed when the rebind was about to
+				// make it unnecessary.
 
 				_log.warn(_RESTART_REQUIRED_WARNING);
 			}

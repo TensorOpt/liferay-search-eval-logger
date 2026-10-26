@@ -11,7 +11,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.transaction.TransactionInvoker;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
@@ -26,7 +25,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import java.util.Date;
-import java.util.concurrent.Callable;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,8 +57,10 @@ public class RetentionPurgerTest {
 			_searchHitLocalService);
 
 		_retentionPurger.setClock(Clock.fixed(_NOW, ZoneOffset.UTC));
-		_retentionPurger.setTransactionInvoker(
-			_PASSTHROUGH_TRANSACTION_INVOKER);
+
+		TestInjection.set(
+			_retentionPurger, "_transactionInvoker",
+			TestInjection.PASSTHROUGH_TRANSACTION_INVOKER);
 	}
 
 	@Test
@@ -171,6 +171,40 @@ public class RetentionPurgerTest {
 		);
 	}
 
+	/**
+	 * The other half of the condition purgeSucceedsWhenOnlyOrphanHitsAreDeleted
+	 * covers: both counts zero, so the log line's own guard,
+	 * {@code (deleted[0] + deleted[1]) > 0}, is false rather than true.
+	 * Mockito's default return for an unstubbed int-returning method is
+	 * already zero, which is what every other test in this class that does
+	 * not stub a delete count exercises incidentally; this one names the
+	 * case and pins that it still completes and still reaches both deletes
+	 * with the same cutoff, rather than only being covered by accident.
+	 * Whether the line is logged is, as above, not observable from a plain
+	 * unit test.
+	 */
+	@Test
+	public void bothDeleteCountsZeroStillReachesBothDeletesWithoutThrowing()
+		throws Exception {
+
+		_stubRetentionDays(90);
+
+		_retentionPurger.purge(_COMPANY_ID);
+
+		Date expectedCutoff = Date.from(_NOW.minus(Duration.ofDays(90)));
+
+		verify(
+			_searchEventLocalService
+		).deleteByCompanyIdAndCreateDateBefore(
+			_COMPANY_ID, expectedCutoff
+		);
+		verify(
+			_searchHitLocalService
+		).deleteByCompanyIdAndCreateDateBefore(
+			_COMPANY_ID, expectedCutoff
+		);
+	}
+
 	private void _stubRetentionDays(int retentionDays) {
 		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
 			SearchEvalLoggerConfiguration.class);
@@ -192,25 +226,6 @@ public class RetentionPurgerTest {
 
 	private static final Instant _NOW = Instant.parse(
 		"2026-06-01T03:30:00Z");
-
-	/**
-	 * Stands in for the real TransactionInvokerUtil, whose own static
-	 * invoker is unset outside a running portal: it simply runs the
-	 * callable, simulating a transaction that commits.
-	 */
-	private static final TransactionInvoker _PASSTHROUGH_TRANSACTION_INVOKER =
-		new TransactionInvoker() {
-
-			@Override
-			public <T> T invoke(
-					TransactionConfig transactionConfig,
-					Callable<T> callable)
-				throws Throwable {
-
-				return callable.call();
-			}
-
-		};
 
 	private RetentionPurger _retentionPurger;
 	private SearchEvalLoggerConfigurationRegistry

@@ -59,7 +59,9 @@ public class SearchEventPersistenceMessageListenerTest {
 		// running portal, so every test needs a stub; only the failure case
 		// below replaces this one with a throwing stub.
 
-		_listener.setTransactionInvoker(_PASSTHROUGH_TRANSACTION_INVOKER);
+		TestInjection.set(
+			_listener, "_transactionInvoker",
+			TestInjection.PASSTHROUGH_TRANSACTION_INVOKER);
 
 		_cohortSaltRegistry = mock(CohortSaltRegistry.class);
 		_collectionCycleStatusImpl = mock(CollectionCycleStatusImpl.class);
@@ -147,8 +149,11 @@ public class SearchEventPersistenceMessageListenerTest {
 	}
 
 	@Test
-	public void aTransactionFailureIsDroppedAndNeverRecordsPersistence() {
-		_listener.setTransactionInvoker(_THROWING_TRANSACTION_INVOKER);
+	public void aTransactionFailureIsDroppedAndNeverRecordsPersistence()
+		throws Exception {
+
+		TestInjection.set(
+			_listener, "_transactionInvoker", _THROWING_TRANSACTION_INVOKER);
 
 		_listener.receive(_message(_capturedSearchEvent(1L)));
 
@@ -294,25 +299,6 @@ public class SearchEventPersistenceMessageListenerTest {
 	private static final Date _CREATE_DATE = new Date(1780000000000L);
 
 	private static final long _CREATE_TIME = _CREATE_DATE.getTime();
-
-	/**
-	 * Stands in for the real TransactionInvokerUtil, whose own static
-	 * invoker is unset outside a running portal: it simply runs the
-	 * callable, simulating a transaction that commits.
-	 */
-	private static final TransactionInvoker _PASSTHROUGH_TRANSACTION_INVOKER =
-		new TransactionInvoker() {
-
-			@Override
-			public <T> T invoke(
-					TransactionConfig transactionConfig,
-					Callable<T> callable)
-				throws Throwable {
-
-				return callable.call();
-			}
-
-		};
 
 	/**
 	 * Simulates the transaction failing before anything inside it runs, the
