@@ -8,6 +8,7 @@ import com.liferay.portal.kernel.json.JSONArray;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
 import com.liferay.portal.kernel.util.ReleaseInfo;
+import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
@@ -251,8 +252,10 @@ public class SearchEvalExportManifestBuilder {
 		}
 
 		for (String value : values) {
-			if (Validator.isNotNull(value)) {
-				jsonArray.put(value);
+			String trimmedValue = StringUtil.trim(value);
+
+			if (Validator.isNotNull(trimmedValue)) {
+				jsonArray.put(trimmedValue);
 			}
 		}
 
