@@ -107,11 +107,11 @@ public class SearchEvalLoggerPortlet extends MVCPortlet {
 	 *
 	 * <p>
 	 * The collection cycle of DESIGN.md 3.6 is put here for the same reason,
-	 * and for one more: this screen is the fallback delivery channel named in
-	 * EC-14. If Liferay's notification framework turns out not to work for a
-	 * plugin-originated notification, the two states it would have announced
-	 * are still visible, because they are read from the same record the daily
-	 * job writes rather than from whether a notification was delivered.
+	 * and for one more: EC-14 delivery is confirmed, but this screen remains
+	 * the channel that does not depend on it. The states a notification would
+	 * have announced are still visible here, because they are read from the
+	 * same record the daily job writes rather than from whether a
+	 * notification was delivered.
 	 * </p>
 	 */
 	@Override

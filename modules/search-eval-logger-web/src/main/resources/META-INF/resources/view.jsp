@@ -30,9 +30,9 @@ SPDX-License-Identifier: Apache-2.0
 
 	<%--
 	The readiness state of DESIGN.md 3.6, rendered here whether or not the
-	notification that announces it was delivered. EC-14 leaves that open, and this
-	screen is the fallback it names: the banner reads the cycle record the daily
-	job writes, not the notification.
+	notification that announces it was delivered. EC-14: delivery is confirmed;
+	the admin screen remains the channel that does not depend on it, since the
+	banner reads the cycle record the daily job writes, not the notification.
 	--%>
 
 	<c:if test="${not empty readinessReachedDate}">
