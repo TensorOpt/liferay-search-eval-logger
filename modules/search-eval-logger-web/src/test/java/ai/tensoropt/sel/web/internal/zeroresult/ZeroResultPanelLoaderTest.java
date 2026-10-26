@@ -194,7 +194,7 @@ public class ZeroResultPanelLoaderTest {
 			SearchEventLocalService.class);
 		PortalCache<Long, ZeroResultPanel> portalCache = _emptyPortalCache();
 		ZeroResultPanel cachedZeroResultPanel = ZeroResultPanel.build(
-			Map.of(), Map.of());
+			Map.of(), Map.of(), false);
 
 		when(
 			portalCache.get(123L)

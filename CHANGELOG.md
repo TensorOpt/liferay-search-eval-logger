@@ -27,6 +27,12 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-112** Notification flow fixes.
 - **TO-113** Signup banner and funnel link fixes, the released link addresses, and margins and sections on the export screen.
 - **TO-141** Searches from the Blueprint editor's Preview were logged as user searches, with no Blueprint recorded.
+- **TO-144** A guest row's `cohortHash` is stored as `null`, never a hash of a non-existent user.
+- **TO-144** The zero-result panel's distinct-query map is capped at 10,000 entries; the top-20 table is marked approximate once the cap is reached instead of letting the map grow without bound.
+- **TO-144** The collection-started and stall notification texts no longer tie collection starting to a restart, which TO-140 made only one of several ways a cycle can open.
+- **TO-144** An export range whose end date landed on the start day was rejected instead of exporting that one day.
+- **TO-144** Downloading a stale or already-removed export answered HTTP 500 instead of a clear error.
+- **TO-144** `samplingRate`'s configuration field is now bounded to the range its own help text already stated.
 
 ### Platform
 
@@ -64,3 +70,4 @@ The first release, on three release lines: `main` for DXP 2026.Q3, `dxp-2026.q1`
 - **TO-111** End-to-end case for uninstalling and reinstalling the plugin.
 - **TO-116** `make` targets, the GitLab pipeline and release tooling, an end-to-end stack without bind mounts, and an `.lpkg` install case.
 - **TO-144** A narrowly named tolerance for the uninstall cascade's Aries Whiteboard/vulcan error (distinct from the existing AopServiceManager rule it does not cover), and a positive recovery check that the OSGi JAX-RS whiteboard settles back to its pre-uninstall baseline after uninstalling and after reinstalling.
+- **TO-144** An end-to-end case for DESIGN.md 3's latency claim (`search-overhead`), and `scripts/loadtest.py`/`make loadtest`, which measures collection's actual search overhead against a running portal with a bootstrap confidence interval.

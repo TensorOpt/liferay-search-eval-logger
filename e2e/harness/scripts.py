@@ -396,11 +396,6 @@ result = String.valueOf(role.getRoleId())
 """
 
 
-# Clears the gates a freshly created user meets on first sign in. A user made
-# through the headless API has an unverified email address, and Liferay sends
-# them to a verification screen instead of to the page they asked for, so
-# without this the permission test would read "no export form" as "refused"
-# when the real answer is "never got there".
 # D8: flips the company-scoped @Meta.OCD configuration's "enabled" flag
 # (DESIGN.md 5) for the search-overhead case, through the same
 # ConfigurationProvider.getCompanyConfiguration/saveCompanyConfiguration pair
@@ -480,6 +475,11 @@ def enabledMethod = configurationClass.getMethod("enabled")
 result = String.valueOf(enabledMethod.invoke(current))
 """
 
+# Clears the gates a freshly created user meets on first sign in. A user made
+# through the headless API has an unverified email address, and Liferay sends
+# them to a verification screen instead of to the page they asked for, so
+# without this the permission test would read "no export form" as "refused"
+# when the real answer is "never got there".
 ACTIVATE_USER = """
 long companyId = %(company_id)dL
 
