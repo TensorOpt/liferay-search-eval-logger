@@ -325,6 +325,12 @@ public class AdmissionFilterTest {
 		assertNotNull(_admit(searchRequest));
 	}
 
+	/**
+	 * The admitted counter is the last thing incremented, and only when
+	 * every condition passed; a search that fails the sampling draw after
+	 * every earlier condition already passed must not be counted as
+	 * admitted.
+	 */
 	@Test
 	public void aSamplingRateOfZeroDropsWithNoAdmittedCount() {
 		when(_configuration.samplingRate()).thenReturn(0.0);
@@ -356,21 +362,6 @@ public class AdmissionFilterTest {
 		when(_configuration.samplingRate()).thenReturn(-0.5);
 
 		assertNull(_admit());
-	}
-
-	/**
-	 * The admitted counter is the last thing incremented, and only when
-	 * every condition passed; a search that fails the sampling draw after
-	 * every earlier condition already passed must not be counted as
-	 * admitted.
-	 */
-	@Test
-	public void theAdmittedCounterIsNotIncrementedOnASamplingDrop() {
-		when(_configuration.samplingRate()).thenReturn(0.0);
-
-		_admit();
-
-		verify(_statistics, never()).incrementAdmittedSearchCount();
 	}
 
 	private SearchRequestOrigin _admit() {

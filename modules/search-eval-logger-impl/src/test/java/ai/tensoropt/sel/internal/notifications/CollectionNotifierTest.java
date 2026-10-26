@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -91,10 +92,10 @@ public class CollectionNotifierTest {
 		// portal here to resolve ai.tensoropt.sel.api's real bundle through.
 		// What these tests pin is which key is chosen, same as that test.
 
-		Language language = mock(Language.class);
+		_language = mock(Language.class);
 
 		when(
-			language.get(any(ResourceBundle.class), anyString())
+			_language.get(any(ResourceBundle.class), anyString())
 		).thenAnswer(
 			invocation -> invocation.getArgument(1)
 		);
@@ -103,7 +104,7 @@ public class CollectionNotifierTest {
 		TestInjection.set(
 			_collectionNotifier, "_groupLocalService", _groupLocalService);
 		TestInjection.set(_collectionNotifier, "_jsonFactory", jsonFactory);
-		TestInjection.set(_collectionNotifier, "_language", language);
+		TestInjection.set(_collectionNotifier, "_language", _language);
 		TestInjection.set(_collectionNotifier, "_portal", _portal);
 		TestInjection.set(
 			_collectionNotifier, "_roleLocalService", _roleLocalService);
@@ -357,6 +358,18 @@ public class CollectionNotifierTest {
 	 * falls back to the platform default rather than propagating a failure
 	 * that would also undo the website delivery already completed for the
 	 * same recipient.
+	 *
+	 * <p>
+	 * Asserting only that send() was called cannot fail here:
+	 * {@code _language.get} is mocked to return whatever key it was asked
+	 * for regardless of the resource bundle passed in, so a subject or body
+	 * built by actually resolving a null-safe locale and one built by
+	 * {@code _message}'s own exception fallback (triggered by passing a
+	 * null {@code Locale} straight to {@code ResourceBundleUtil.getBundle},
+	 * which throws) come out as the exact same key text either way.
+	 * Verifying {@code _language.get} itself was reached tells them apart:
+	 * it is skipped entirely on the exception path.
+	 * </p>
 	 */
 	@Test
 	public void aRecipientWithNoLocaleStillGetsTheEmail() throws Exception {
@@ -374,14 +387,23 @@ public class CollectionNotifierTest {
 		).send(
 			eq(1L), any(InternetAddress.class), anyString(), anyString()
 		);
+		verify(_language, atLeastOnce()).get(any(ResourceBundle.class), anyString());
 	}
 
 	/**
 	 * A failure recording the website notification must not propagate: the
-	 * next recipient, and the caller, are unaffected.
+	 * caller is unaffected (implicitly pinned by this test not itself
+	 * throwing). {@code isWanted} is stubbed <code>true</code>, rather
+	 * than left at Mockito's own default <code>false</code>: the website
+	 * notification throws before {@code _sendEmailIfWanted} is ever
+	 * reached for this recipient, so {@code never().send} would otherwise
+	 * hold regardless of whether the exception were actually swallowed
+	 * here or allowed to propagate past the per-recipient email step too.
 	 */
 	@Test
 	public void addUserNotificationEventThrowingIsSwallowed() throws Exception {
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(true);
+
 		doThrow(
 			new RuntimeException("boom")
 		).when(
@@ -444,6 +466,7 @@ public class CollectionNotifierTest {
 		new CollectionNotifier();
 	private EmailDelivery _emailDelivery;
 	private GroupLocalService _groupLocalService;
+	private Language _language;
 	private Portal _portal;
 	private RoleLocalService _roleLocalService;
 	private UserLocalService _userLocalService;
