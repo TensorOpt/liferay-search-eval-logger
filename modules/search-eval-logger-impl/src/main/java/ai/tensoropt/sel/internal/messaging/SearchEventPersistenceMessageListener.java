@@ -14,6 +14,7 @@ import com.liferay.portal.kernel.model.User;
 import com.liferay.portal.kernel.service.UserLocalService;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.TransactionConfig;
+import com.liferay.portal.kernel.transaction.TransactionInvoker;
 import com.liferay.portal.kernel.transaction.TransactionInvokerUtil;
 import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.uuid.PortalUUIDUtil;
@@ -79,7 +80,7 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		CapturedSearchEvent capturedSearchEvent = (CapturedSearchEvent)payload;
 
 		try {
-			TransactionInvokerUtil.invoke(
+			_transactionInvoker.invoke(
 				_transactionConfig,
 				() -> {
 					_addSearchEvent(capturedSearchEvent);
@@ -112,6 +113,14 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 		_collectionCycleStatusImpl.recordPersistedEvent(
 			capturedSearchEvent.getCompanyId(),
 			new Date(capturedSearchEvent.getCreateTime()));
+	}
+
+	/**
+	 * Visible for testing, so a transaction failure can be simulated without
+	 * a running portal.
+	 */
+	void setTransactionInvoker(TransactionInvoker transactionInvoker) {
+		_transactionInvoker = transactionInvoker;
 	}
 
 	private void _addSearchEvent(CapturedSearchEvent capturedSearchEvent) {
@@ -277,6 +286,8 @@ public class SearchEventPersistenceMessageListener implements MessageListener {
 	private final TransactionConfig _transactionConfig =
 		TransactionConfig.Factory.create(
 			Propagation.REQUIRED, new Class<?>[] {Exception.class});
+
+	private TransactionInvoker _transactionInvoker = TransactionInvokerUtil::invoke;
 
 	@Reference
 	private UserLocalService _userLocalService;

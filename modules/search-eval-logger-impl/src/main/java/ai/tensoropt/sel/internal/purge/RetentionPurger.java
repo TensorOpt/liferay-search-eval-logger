@@ -8,6 +8,7 @@ import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.TransactionConfig;
+import com.liferay.portal.kernel.transaction.TransactionInvoker;
 import com.liferay.portal.kernel.transaction.TransactionInvokerUtil;
 
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
@@ -91,9 +92,17 @@ public class RetentionPurger {
 		_clock = clock;
 	}
 
+	/**
+	 * Visible for testing, so a transaction failure can be simulated without
+	 * a running portal.
+	 */
+	void setTransactionInvoker(TransactionInvoker transactionInvoker) {
+		_transactionInvoker = transactionInvoker;
+	}
+
 	private int[] _delete(long companyId, Date cutoffDate) throws Exception {
 		try {
-			return TransactionInvokerUtil.invoke(
+			return _transactionInvoker.invoke(
 				_transactionConfig,
 				() -> new int[] {
 					_searchEventLocalService.
@@ -131,5 +140,7 @@ public class RetentionPurger {
 	private final TransactionConfig _transactionConfig =
 		TransactionConfig.Factory.create(
 			Propagation.REQUIRED, new Class<?>[] {Exception.class});
+
+	private TransactionInvoker _transactionInvoker = TransactionInvokerUtil::invoke;
 
 }
