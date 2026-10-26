@@ -329,7 +329,7 @@ MySQL on Linux does not.
 | `content-and-searches` | Content created through the headless API becomes searchable, and searches run through the Search Results widget path EC-1 confirmed |
 | `capture` | Admitted searches are persisted with their hits, the admission funnel is monotonic and adds up (admitted = persisted + dropped once settled), nothing is dropped at rest, `sourceType` is `WIDGET`, and no hit is orphaned |
 | `blueprint-preview-excluded` | TO-141: a search from the Blueprint editor's Preview reaches the wrapper but is not logged; where the headless Search API is open, a Blueprint-driven search through it is logged with its Blueprint |
-| `zero-result-panel-seed` | TO-135: deliberate zero-result searches, as a guest and as a signed-in user, exercising the panel's case-fold and accent-fold grouping rule so the rows merge correctly once the archive `zero-result-panel` checks is downloaded |
+| `zero-result-panel-seed` | TO-135: deliberate zero-result searches, as a guest and as a signed-in user, exercising the panel's grouping rule: the ASCII case fold (merged) and the accented trio (kept apart); verified once the `zero-result-panel` case downloads the archive these searches landed in |
 | `collection-start-recorded` | DESIGN.md 3.6: the cycle records the UTC day of the first persisted event |
 | `collection-started-notification` | TO-112: exactly one "collection started" notification per cycle, fired from the persistence path rather than the daily job, none for a later event in the same cycle, and a new cycle re-arms it |
 | `email-delivery-preference` | EC-15 (TO-112): `UserNotificationManagerUtil.fetchUserNotificationDefinition` finds the registered definition and `isDeliver` answers true for email for an administrator who never set a preference. Not evidence of delivery - the stack has no SMTP sink - only of the gate `CollectionNotifier` checks |
@@ -504,10 +504,13 @@ alongside the unit tests rather than only before a release.
   preload references either. It cannot prove the absence of an outbound request
   made from somewhere the page does not mention. That remains a reading
   exercise, and the one place to read is `EvaluationServiceLinks`.
-- **EC-5, EC-6, EC-13.** Measured by hand (DESIGN.md section 7), not asserted
-  here; on 2025.Q1 the headless Search API is still behind feature flag
-  `LPS-179669`. Every search the suite runs goes through the Search Results
-  widget, with no Blueprint.
+- **EC-5 on DXP 2025.Q1, and the widget-applied Blueprint case for EC-6 and
+  EC-13.** Measured by hand (DESIGN.md section 7), not asserted here: on
+  2025.Q1 the headless Search API is still behind feature flag
+  `LPS-179669`, and no case here applies a Blueprint through the Blueprint
+  Options widget. The suite does cover one headless Blueprint-driven search
+  and the TO-141 Blueprint editor Preview exclusion
+  (`blueprint-preview-excluded`).
 - **Email delivery (TO-112, EC-15).** The notification cases read the
   administrator's notifications list and the stored `UserNotificationEvent`
   row, which cover the website path. The stack has no SMTP sink (no
