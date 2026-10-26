@@ -17,8 +17,9 @@ in seconds rather than after the e2e suite. It checks everything that could
 stop a release halfway: the tokens, the tag not already fully released on
 both GitLab and GitHub, that tag not already pointing somewhere other than
 HEAD on either side, the commit being on GitHub already (GitLab's push
-mirror puts it there), and both evaluation service pages answering, since
-every installed copy links to them.
+mirror puts it there), and the two evaluation service pages plus the
+README's search log guide page answering, since every installed copy
+links to them.
 
 publish is retry-safe: each side skips itself once its own release already
 exists and is complete (see publish_gitlab/publish_github), so a run that
@@ -68,6 +69,12 @@ LINKS_SOURCE = os.path.join(
     "modules/search-eval-logger-web/src/main/java/ai/tensoropt/sel/web/internal/"
     "funnel/EvaluationServiceLinks.java",
 )
+
+# README.md's "What to do with the export" step links to this guide. It is
+# not one of EvaluationServiceLinks's two URLs (nothing in the plugin itself
+# renders it), so evaluation_service_urls() does not pick it up; it is
+# checked here as its own constant, next to the two it does find.
+SEARCH_LOG_GUIDE_URL = "https://tensoropt.ai/search-log-guide"
 
 # "run make package" only helps on a workstation; in CI, build/dist comes
 # from the build job's artifacts, which only a new pipeline can regenerate.
@@ -395,6 +402,14 @@ class Release:
 
             if status != 200:
                 problems.append("%s answers %s; every installed copy links there" % (url, status))
+
+        status = _status(SEARCH_LOG_GUIDE_URL)
+
+        if status != 200:
+            problems.append(
+                "%s answers %s; README.md's export guide step links there"
+                % (SEARCH_LOG_GUIDE_URL, status)
+            )
 
         return problems
 

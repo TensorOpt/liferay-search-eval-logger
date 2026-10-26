@@ -371,7 +371,7 @@ Access is gated by a dedicated resource permission, with no site-member or guest
 search-eval-export-<instance>-<from>-<to>.zip
   events.jsonl      One JSON object per line: a search event with its hits nested
   manifest.json     Export metadata, coverage statistics, plugin configuration
-  README.md         Schema description and known caveats
+  README.md         What the rows are and the caveats needed to read the data correctly
 ```
 
 **Format: JSONL, not CSV.** Snippets and titles routinely contain quotes, commas, newlines and highlight markup (`<liferay-hl>` tags by default). Embedding those, plus a JSON extra-fields column, inside CSV reliably breaks downstream parsers. JSONL handles nesting and escaping natively and is the standard interchange format for evaluation datasets.
