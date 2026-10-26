@@ -35,27 +35,13 @@ public class ZeroResultPanelTest {
 	@Test
 	public void anEmptyLogShowsNoSearchesLoggedAndNoTable() {
 		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
-			Map.of(), Map.of());
+			Map.of(), Map.of(), false);
 
 		assertTrue(zeroResultPanel.isNoSearchesLogged());
 		assertTrue(zeroResultPanel.getTopQueries().isEmpty());
 		assertArrayEquals(
 			new String[] {"0", "0", "0.0"},
 			zeroResultPanel.getOverallMessageArguments());
-	}
-
-	/**
-	 * D11: the two-argument {@code build} overload every other test here
-	 * uses, same as {@link ZeroResultPanelLoader} did before the cap, must
-	 * still report "not approximate" rather than leaving the flag unset in
-	 * some other, surprising way.
-	 */
-	@Test
-	public void theTwoArgumentOverloadIsNeverApproximate() {
-		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
-			Map.of(), Map.of());
-
-		assertFalse(zeroResultPanel.isTopQueriesApproximate());
 	}
 
 	/**
@@ -77,7 +63,7 @@ public class ZeroResultPanelTest {
 			Map.of(
 				AudienceType.GUEST.name(), new long[] {10, 0},
 				AudienceType.AUTHENTICATED.name(), new long[] {20, 0}),
-			Map.of());
+			Map.of(), false);
 
 		assertFalse(zeroResultPanel.isNoSearchesLogged());
 		assertTrue(zeroResultPanel.getTopQueries().isEmpty());
@@ -92,7 +78,7 @@ public class ZeroResultPanelTest {
 			Map.of(
 				AudienceType.GUEST.name(), new long[] {40, 10},
 				AudienceType.AUTHENTICATED.name(), new long[] {60, 5}),
-			Map.of("no results here", 15L));
+			Map.of("no results here", 15L), false);
 
 		assertArrayEquals(
 			new String[] {"15", "100", "15.0"},
@@ -109,7 +95,7 @@ public class ZeroResultPanelTest {
 			Map.of(
 				AudienceType.GUEST.name(), new long[] {40, 10},
 				AudienceType.AUTHENTICATED.name(), new long[] {60, 5}),
-			Map.of());
+			Map.of(), false);
 
 		assertArrayEquals(
 			new String[] {"10", "40", "25.0"},
@@ -132,7 +118,7 @@ public class ZeroResultPanelTest {
 			Map.of(
 				AudienceType.GUEST.name(), new long[] {10, 1},
 				"SOMETHING_ELSE", new long[] {5, 2}),
-			Map.of());
+			Map.of(), false);
 
 		assertArrayEquals(
 			new String[] {"3", "15", "20.0"},
@@ -149,7 +135,7 @@ public class ZeroResultPanelTest {
 	public void topQueriesAreOnlyBuiltWhenThereIsAtLeastOneZeroResultSearch() {
 		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
 			Map.of(AudienceType.GUEST.name(), new long[] {10, 1}),
-			Map.of("widget", 1L));
+			Map.of("widget", 1L), false);
 
 		assertFalse(zeroResultPanel.getTopQueries().isEmpty());
 		assertEquals(1, zeroResultPanel.getTopQueries().size());
@@ -160,7 +146,7 @@ public class ZeroResultPanelTest {
 	@Test
 	public void messageArgumentsAreARealArrayOfThreeFormattedStrings() {
 		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
-			Map.of(AudienceType.GUEST.name(), new long[] {4, 1}), Map.of());
+			Map.of(AudienceType.GUEST.name(), new long[] {4, 1}), Map.of(), false);
 
 		Object[] messageArguments = zeroResultPanel.getGuestMessageArguments();
 

@@ -25,11 +25,21 @@ def percentile(values, fraction):
     """The value at `fraction` (0 to 1) through a sorted copy, by linear
     interpolation between the two bracketing samples, the same method
     numpy.percentile defaults to: percentile(values, 0.9) is p90,
-    percentile(values, 0.025) is the low end of a 95% interval. Standard
-    library's statistics module gained quantiles() only in 3.8 and it does
-    not interpolate the same way, so this is its own small function rather
-    than two slightly different ones depending on which caller needs which
-    exact tail.
+    percentile(values, 0.025) is the low end of a 95% interval.
+
+    statistics.quantiles(values, n=..., method="inclusive") interpolates
+    the same way (R's type 7 / numpy's default "linear"), so it is not
+    rejected for disagreeing with this function; it is rejected for
+    taking a different shape of argument. It returns n - 1 equally spaced
+    cut points for a chosen n, not the value at one arbitrary fraction, so
+    every call site here (0.5, 0.9, 0.025, 0.975) would first have to
+    recover a (numerator, denominator) pair exactly representing its own
+    fraction - trivial for these particular fractions, but it is the kind
+    of indirection that makes the simpler function read worse, not
+    better, for the one thing every caller actually wants: percentile(
+    values, fraction). Kept as its own small function for that reason,
+    not because an equivalent does not already exist in the standard
+    library.
     """
     ordered = sorted(values)
     count = len(ordered)
