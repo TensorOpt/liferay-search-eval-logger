@@ -2229,6 +2229,46 @@ def check_admission_counters_and_background_tasks_parsing():
     )
 
 
+def check_zeroresult_none_handling():
+    """compute_z1 groups by audience_type, which jq's group_by sees as a
+    perfectly ordinary key even when it is null; compute_z2 skips a
+    zero-result first-page event whose query itself is null rather than
+    normalizing None and crashing."""
+    events_with_null_audience = [
+        {"requested_from": 0, "total_hits": 0, "audience_type": None},
+        {"requested_from": 0, "total_hits": 3, "audience_type": "GUEST"},
+    ]
+
+    expect_accepted(
+        "a null audience_type groups under its own key instead of raising",
+        lambda: _assert(
+            {
+                entry["audience_type"]: entry["searches"]
+                for entry in zeroresult.compute_z1(
+                    events_with_null_audience
+                )["by_audience"]
+            }
+            == {None: 1, "GUEST": 1}
+        ),
+    )
+
+    events_with_null_query = [
+        {"requested_from": 0, "total_hits": 0, "query": None},
+        {"requested_from": 0, "total_hits": 0, "query": "annual report"},
+    ]
+
+    expect_accepted(
+        "a null query is skipped by Z2 rather than normalized and counted",
+        lambda: _assert(
+            [
+                entry["query"]
+                for entry in zeroresult.compute_z2(events_with_null_query)
+            ]
+            == ["annual report"]
+        ),
+    )
+
+
 def check_pluginconfig_reading():
     """pluginconfig.read: Felix's typed configuration syntax, the entry
     format it insists on, and the manifest key mapping it hands back."""
@@ -2335,6 +2375,7 @@ def main():
         check_xml_sanitising()
         check_result_count_parsing()
         check_admission_counters_and_background_tasks_parsing()
+        check_zeroresult_none_handling()
         check_pluginconfig_reading()
 
     for line in CHECKED:
