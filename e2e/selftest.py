@@ -47,6 +47,11 @@ from harness.util import HarnessError  # noqa: E402
 
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
+# D13: scripts/package.py and scripts/publish.py are imported lazily, inside
+# the check functions that need them, so this path addition stays local to
+# those checks rather than changing every other check's import surface.
+SCRIPTS_DIRECTORY = os.path.join(os.path.dirname(DIRECTORY), "scripts")
+
 FAILURES = []
 
 CHECKED = []
@@ -62,6 +67,19 @@ def expect_rejected(description, function):
         return
 
     FAILURES.append("NOT CAUGHT: %s" % description)
+
+
+def _calls_sys_exit(function):
+    """scripts/package.py and scripts/publish.py both refuse with
+    sys.exit(message) rather than an exception; SystemExit is a
+    BaseException, not an Exception, so neither expect_rejected's except
+    clause nor expect_accepted's would otherwise see it at all. Wrapping the
+    call and re-raising as AssertionError lets a sys.exit refusal be
+    expressed with expect_rejected like every other one here."""
+    try:
+        function()
+    except SystemExit as system_exit:
+        raise AssertionError(str(system_exit)) from system_exit
 
 
 def expect_accepted(description, function):
@@ -2425,6 +2443,259 @@ def check_stats_percentile_and_bootstrap():
     )
 
 
+def check_package_pure_helpers_and_refusals():
+    """D13: scripts/package.py's pure string helpers, write_deterministic_zip's
+    reproducibility, and the two refusals that stop a release before it
+    writes anything (a version disagreement between the bundles, or between
+    the bundles and --version)."""
+    import tempfile
+
+    sys.path.insert(0, SCRIPTS_DIRECTORY)
+
+    import package as package_module
+
+    expect_accepted(
+        "dxp_title adds LTS only for a .q1 line",
+        lambda: _assert(
+            package_module.dxp_title("dxp-2026.q1") == "DXP 2026.Q1 LTS"
+        ),
+    )
+
+    expect_rejected(
+        "dxp_title dropping the LTS suffix for a .q1 line is caught",
+        lambda: _assert(
+            package_module.dxp_title("dxp-2026.q1") == "DXP 2026.Q1"
+        ),
+    )
+
+    expect_accepted(
+        "dxp_title names no LTS for a non-.q1 line",
+        lambda: _assert(
+            package_module.dxp_title("dxp-2026.q3") == "DXP 2026.Q3"
+        ),
+    )
+
+    expect_rejected(
+        "dxp_title adding LTS to a non-.q1 line is caught",
+        lambda: _assert(
+            package_module.dxp_title("dxp-2026.q3") == "DXP 2026.Q3 LTS"
+        ),
+    )
+
+    expect_accepted(
+        "dist_jar_name appends the line before the extension",
+        lambda: _assert(
+            package_module.dist_jar_name(
+                "/x/ai.tensoropt.sel.impl-1.0.0.jar", "dxp-2026.q3")
+            == "ai.tensoropt.sel.impl-1.0.0-dxp-2026.q3.jar"
+        ),
+    )
+
+    expect_accepted(
+        "jars_zip_name names the package, the version and the line",
+        lambda: _assert(
+            package_module.jars_zip_name("1.0.0", "dxp-2026.q3")
+            == "liferay-search-eval-logger-1.0.0-dxp-2026.q3-jars.zip"
+        ),
+    )
+
+    with tempfile.TemporaryDirectory(prefix="sel-package-selftest-") as tmp:
+        path_a = os.path.join(tmp, "a.zip")
+        path_b = os.path.join(tmp, "b.zip")
+        entries = [("b.txt", b"two"), ("a.txt", b"one")]
+
+        package_module.write_deterministic_zip(path_a, entries)
+        package_module.write_deterministic_zip(path_b, list(reversed(entries)))
+
+        with open(path_a, "rb") as file_a, open(path_b, "rb") as file_b:
+            bytes_a = file_a.read()
+            bytes_b = file_b.read()
+
+        expect_accepted(
+            "write_deterministic_zip produces identical bytes regardless of "
+            "entry order",
+            lambda: _assert(bytes_a == bytes_b),
+        )
+
+        entries_with_different_content = [("a.txt", b"one"), ("b.txt", b"TWO")]
+        path_c = os.path.join(tmp, "c.zip")
+
+        package_module.write_deterministic_zip(
+            path_c, entries_with_different_content)
+
+        with open(path_c, "rb") as file_c:
+            bytes_c = file_c.read()
+
+        expect_rejected(
+            "different content producing the same bytes is caught",
+            lambda: _assert(bytes_a == bytes_c),
+        )
+
+    original_required_jars = package_module.required_jars
+    original_bundle_version = package_module.bundle_version
+
+    try:
+        package_module.required_jars = lambda: ["a.jar", "b.jar"]
+
+        disagreeing_versions = {"a.jar": "1.0.0", "b.jar": "1.0.1"}
+
+        package_module.bundle_version = (
+            lambda jar: disagreeing_versions[jar]
+        )
+
+        with tempfile.TemporaryDirectory(
+                prefix="sel-package-selftest-dist-") as dist:
+
+            expect_rejected(
+                "bundles that disagree on their version are refused",
+                lambda: _calls_sys_exit(
+                    lambda: package_module.main(["--dist", dist])
+                ),
+            )
+
+        agreeing_versions = {"a.jar": "1.0.0", "b.jar": "1.0.0"}
+
+        package_module.bundle_version = lambda jar: agreeing_versions[jar]
+
+        with tempfile.TemporaryDirectory(
+                prefix="sel-package-selftest-dist-") as dist:
+
+            expect_rejected(
+                "a --version that disagrees with the built bundles is "
+                "refused",
+                lambda: _calls_sys_exit(
+                    lambda: package_module.main(
+                        ["--version", "9.9.9", "--dist", dist])
+                ),
+            )
+    finally:
+        package_module.required_jars = original_required_jars
+        package_module.bundle_version = original_bundle_version
+
+
+def check_publish_verify_packaged_and_preflight_and_links():
+    """D13: scripts/publish.py's verify_packaged refusals (a missing, dirty,
+    or other-commit package marker), preflight's "both sides already have a
+    release" refusal, and evaluation_service_urls's count."""
+    import json as json_module
+    import tempfile
+
+    sys.path.insert(0, SCRIPTS_DIRECTORY)
+
+    import publish as publish_module
+
+    with tempfile.TemporaryDirectory(prefix="sel-publish-selftest-") as tmp:
+        release = publish_module.Release("9.9.9", False)
+
+        release.directory = tmp
+        release.commit = "c" * 40
+
+        expect_rejected(
+            "a missing package marker is refused",
+            lambda: _calls_sys_exit(release.verify_packaged),
+        )
+
+        marker_path = os.path.join(tmp, "package-commit.json")
+
+        def write_marker(commit, dirty):
+            with open(marker_path, "w") as file_:
+                json_module.dump({"commit": commit, "dirty": dirty}, file_)
+
+        write_marker(release.commit, True)
+
+        expect_rejected(
+            "a marker recorded from a dirty working tree is refused",
+            lambda: _calls_sys_exit(release.verify_packaged),
+        )
+
+        write_marker("d" * 40, False)
+
+        expect_rejected(
+            "a marker recorded for a different commit than HEAD is refused",
+            lambda: _calls_sys_exit(release.verify_packaged),
+        )
+
+        write_marker(release.commit, False)
+
+        expect_accepted(
+            "a clean marker for the current commit is accepted",
+            release.verify_packaged,
+        )
+
+    # preflight: refuses only once both GitLab and GitHub already hold the
+    # release. Every network call preflight would otherwise make is stubbed
+    # to a fixed, successful answer, so the one thing varying between the
+    # three scenarios below is which side(s) already have a release.
+
+    env_overrides = {
+        "GITLAB_TOKEN": "x", "GITHUB_TOKEN": "y",
+        "GITLAB_PROJECT": "group/project",
+    }
+    previous_env = {
+        name: os.environ.get(name) for name in env_overrides
+    }
+
+    os.environ.update(env_overrides)
+
+    original_status = publish_module._status
+
+    publish_module._status = lambda url: 200
+
+    try:
+        release = publish_module.Release("9.9.9", False)
+        release.commit = "c" * 40
+
+        release._github = lambda *args, **kwargs: {"sha": release.commit}
+        release._github_tag_commit = lambda: release.commit
+
+        release._gitlab_release = lambda: None
+        release._github_release = lambda: None
+
+        expect_accepted(
+            "neither side having a release yet is not refused",
+            lambda: _assert(release.preflight() == []),
+        )
+
+        release._gitlab_release = lambda: {
+            "commit": {"id": release.commit}
+        }
+        release._github_release = lambda: None
+
+        expect_accepted(
+            "only one side already having a release is not refused",
+            lambda: _assert(release.preflight() == []),
+        )
+
+        release._gitlab_release = lambda: {
+            "commit": {"id": release.commit}
+        }
+        release._github_release = lambda: {"id": 1}
+
+        expect_accepted(
+            "both sides already having a release is refused",
+            lambda: _assert(
+                any(
+                    "already have a release" in problem
+                    for problem in release.preflight()
+                )
+            ),
+        )
+    finally:
+        publish_module._status = original_status
+
+        for name, value in previous_env.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+    expect_accepted(
+        "evaluation_service_urls finds exactly the two funnel URLs "
+        "EvaluationServiceLinks.java declares",
+        lambda: _assert(len(publish_module.evaluation_service_urls()) == 2),
+    )
+
+
 def check_results_trim_and_junit_outcomes():
     """results._trim's line budget, and that write_junit reports an
     EXPECTED_FAILURE as a skip carrying the whole traceback and an
@@ -2820,6 +3091,8 @@ def main():
         check_pluginconfig_reading()
         check_stats_helpers()
         check_stats_percentile_and_bootstrap()
+        check_package_pure_helpers_and_refusals()
+        check_publish_verify_packaged_and_preflight_and_links()
         check_results_trim_and_junit_outcomes()
         check_wait_for_stability_and_exceptions()
         check_remaining_harness_parsers()
