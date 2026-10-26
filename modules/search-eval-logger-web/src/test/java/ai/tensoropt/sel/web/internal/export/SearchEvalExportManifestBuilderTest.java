@@ -4,6 +4,7 @@
 
 package ai.tensoropt.sel.web.internal.export;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +18,7 @@ import com.liferay.portal.kernel.json.JSONException;
 import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
 
+import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 
@@ -252,6 +254,142 @@ public class SearchEvalExportManifestBuilderTest {
 
 		verify(_jsonArray).put("title");
 		verify(_jsonArray, never()).put(" title ");
+	}
+
+	/**
+	 * F2-26: every key DESIGN.md section 5's configuration surface puts into
+	 * the manifest, pinned by name and by the specific value a distinctly
+	 * configured mock produces for it. The fixture's JSONFactory returns one
+	 * shared mocked JSONObject for every object the builder creates (see
+	 * setUp), so this cannot isolate the configuration sub-object's calls
+	 * from the rest of the manifest's; it pins that each key below is put
+	 * with its configured value at least once, which is what would break if
+	 * _getConfiguration dropped or renamed a key.
+	 */
+	@Test
+	public void configurationBlockCarriesEveryKeyDesignDocSpecifies() {
+		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
+			SearchEvalLoggerConfiguration.class);
+
+		when(searchEvalLoggerConfiguration.enabled()).thenReturn(true);
+		when(searchEvalLoggerConfiguration.captureDepth()).thenReturn(42);
+		when(searchEvalLoggerConfiguration.retentionDays()).thenReturn(91);
+		when(
+			searchEvalLoggerConfiguration.capturedFieldNames()
+		).thenReturn(
+			new String[] {"title"}
+		);
+		when(
+			searchEvalLoggerConfiguration.excludeSuggestionTraffic()
+		).thenReturn(
+			true
+		);
+		when(
+			searchEvalLoggerConfiguration.admitFacetOnlySearches()
+		).thenReturn(
+			true
+		);
+		when(
+			searchEvalLoggerConfiguration.requireWebRequestContext()
+		).thenReturn(
+			true
+		);
+		when(searchEvalLoggerConfiguration.queryTextCap()).thenReturn(1234);
+		when(searchEvalLoggerConfiguration.samplingRate()).thenReturn(0.5);
+		when(
+			searchEvalLoggerConfiguration.excludedEntryClassNames()
+		).thenReturn(
+			new String[] {"com.example.Excluded"}
+		);
+		when(
+			searchEvalLoggerConfiguration.cohortSaltRotationDays()
+		).thenReturn(
+			14
+		);
+
+		_searchEvalExportManifestBuilder.build(
+			1L, new Date(0), new Date(1), new SearchEvalExportResult(),
+			searchEvalLoggerConfiguration);
+
+		verify(_jsonObject).put("enabled", true);
+		verify(_jsonObject).put("capture_depth", 42);
+		verify(_jsonObject).put("retention_days", 91);
+		verify(_jsonObject).put("exclude_suggestion_traffic", true);
+		verify(_jsonObject).put("admit_facet_only_searches", true);
+		verify(_jsonObject).put("require_web_request_context", true);
+		verify(_jsonObject).put("query_text_cap", 1234);
+		verify(_jsonObject).put("sampling_rate", 0.5);
+		verify(_jsonObject).put("cohort_salt_rotation_days", 14);
+		verify(
+			_jsonObject
+		).put(
+			eq("captured_field_names"),
+			any(com.liferay.portal.kernel.json.JSONArray.class)
+		);
+		verify(
+			_jsonObject
+		).put(
+			eq("excluded_entry_class_names"),
+			any(com.liferay.portal.kernel.json.JSONArray.class)
+		);
+	}
+
+	/**
+	 * F2-26: a field registered with the writer but never actually covered
+	 * by a hit still reports a rate, of zero, rather than being left out of
+	 * field_coverage_rates. Dropping it would read as "never asked for"
+	 * instead of "asked for and never present", which is the whole reason
+	 * registerField exists.
+	 */
+	@Test
+	public void fieldCoverageRatesReportsAZeroOccurrenceRegisteredFieldAsZero() {
+		SearchEvalExportResult searchEvalExportResult =
+			new SearchEvalExportResult();
+
+		searchEvalExportResult.incrementHitCount();
+		searchEvalExportResult.incrementFieldCount(
+			SearchEvalLoggerConstants.FIELD_TITLE);
+		searchEvalExportResult.registerField(
+			SearchEvalLoggerConstants.FIELD_SNIPPET);
+
+		_build(new Date(0), new Date(1), searchEvalExportResult);
+
+		verify(
+			_jsonObject
+		).put(
+			SearchEvalLoggerConstants.FIELD_TITLE, (Object)Double.valueOf(1.0)
+		);
+		verify(
+			_jsonObject
+		).put(
+			SearchEvalLoggerConstants.FIELD_SNIPPET,
+			(Object)Double.valueOf(0.0)
+		);
+	}
+
+	/**
+	 * F2-26: both version keys are always present, even though this test has
+	 * no real OSGi bundle (plugin_version) or running portal (liferay_version)
+	 * to produce a meaningful value from. The manifest must still carry the
+	 * key, exactly as formatVersionIsTheMajorMinorAPatchLeavesAlone already
+	 * pins format_version to null rather than an absent key in that case.
+	 */
+	@Test
+	public void bothVersionKeysArePresent() {
+		_build();
+
+		verify(
+			_jsonObject
+		).put(
+			eq("plugin_version"), org.mockito.ArgumentMatchers.nullable(
+				String.class)
+		);
+		verify(
+			_jsonObject
+		).put(
+			eq("liferay_version"), org.mockito.ArgumentMatchers.nullable(
+				String.class)
+		);
 	}
 
 	private void _build() {
