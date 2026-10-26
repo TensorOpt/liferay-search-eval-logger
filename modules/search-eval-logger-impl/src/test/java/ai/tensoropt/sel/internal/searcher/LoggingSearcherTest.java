@@ -147,10 +147,20 @@ public class LoggingSearcherTest {
 	/**
 	 * F2-9: the cheapest possible exit for the install default. Nothing is
 	 * observed, and the admission filter is never reached, let alone called.
+	 *
+	 * <p>
+	 * The search context's company is set equal to the thread's, so that
+	 * deleting the early disabled-return would not be masked by the later
+	 * re-check (which only re-queries for a search context on a different
+	 * company): with the companies equal, deleting the early return falls
+	 * straight through to observing and admitting the search.
+	 * </p>
 	 */
 	@Test
 	public void disabledLoggingSkipsObservedCountAndNeverCallsAdmit() {
 		CompanyThreadLocal.setCompanyId(42L);
+
+		_searchContext.setCompanyId(42L);
 
 		when(_configuration.enabled()).thenReturn(false);
 
@@ -190,6 +200,14 @@ public class LoggingSearcherTest {
 	 * for a different company (a background job running one company's
 	 * reindex while serving another's request, for instance) has to be
 	 * re-checked against its own configuration rather than the thread's.
+	 *
+	 * <p>
+	 * Company 222's configuration is a distinct, disabled mock (Mockito's
+	 * default for an unstubbed boolean), rather than the thread's own
+	 * enabled one: if the re-check reused company 111's configuration
+	 * instead of actually querying the registry again for 222, admit would
+	 * still be called, which this would catch.
+	 * </p>
 	 */
 	@Test
 	public void aDifferentSearchContextCompanyReQueriesTheRegistry() {
@@ -197,20 +215,33 @@ public class LoggingSearcherTest {
 
 		_searchContext.setCompanyId(222L);
 
+		SearchEvalLoggerConfiguration disabledConfiguration = mock(
+			SearchEvalLoggerConfiguration.class);
+
 		when(_registry.getConfiguration(111L)).thenReturn(_configuration);
-		when(_registry.getConfiguration(222L)).thenReturn(_configuration);
+		when(_registry.getConfiguration(222L)).thenReturn(disabledConfiguration);
 
 		_loggingSearcher.search(mock(SearchRequest.class));
 
 		verify(_registry).getConfiguration(111L);
 		verify(_registry).getConfiguration(222L);
-		verify(_admissionFilter).admit(any(), any(), any());
+		verify(_admissionFilter, never()).admit(any(), any(), any());
 	}
 
 	/**
-	 * No thread company at all (CompanyThreadLocal never set) skips the
-	 * early exit entirely rather than reading a stale or default company;
-	 * the search context's own company is what gets checked.
+	 * No thread company at all (CompanyThreadLocal never set, so it reads
+	 * as 0L) skips the early exit entirely rather than reading a stale or
+	 * default company; the search context's own company is what gets
+	 * checked.
+	 *
+	 * <p>
+	 * Company 0L is never queried: {@code setUp} stubs
+	 * {@code getConfiguration(anyLong())} to return the enabled
+	 * configuration for any argument, so a {@code threadCompanyId > 0}
+	 * weakened to {@code >= 0} would still let the search through, but
+	 * only by also querying the registry for company 0L on the way, which
+	 * this catches.
+	 * </p>
 	 */
 	@Test
 	public void noThreadCompanyUsesTheSearchContextsOwnCompany() {
@@ -221,6 +252,7 @@ public class LoggingSearcherTest {
 		_loggingSearcher.search(mock(SearchRequest.class));
 
 		verify(_registry).getConfiguration(333L);
+		verify(_registry, never()).getConfiguration(0L);
 		verify(_admissionFilter).admit(any(), any(), any());
 	}
 
