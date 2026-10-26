@@ -119,8 +119,8 @@ public interface SearchEvalLoggerConfiguration {
 	 * manifest so an evaluator knows whether the log is a census or a sample.
 	 */
 	@Meta.AD(
-		deflt = "1.0", description = "sampling-rate-description",
-		name = "sampling-rate", required = false
+		deflt = "1.0", description = "sampling-rate-description", max = "1",
+		min = "0", name = "sampling-rate", required = false
 	)
 	public double samplingRate();
 
