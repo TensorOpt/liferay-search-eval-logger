@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -663,6 +664,66 @@ public class CollectionCycleStatusImplTest {
 		assertTrue(
 			collectionCycle.isSignupBannerDismissed(),
 			"The dismissal itself must not be the one lost instead");
+	}
+
+	/**
+	 * D14: the notification send itself must not hold the per-company lock.
+	 * {@link CollectionNotifier#notifyCollectionStarted} can be slow
+	 * (building a link, resolving a recipient, calling into Liferay's
+	 * notification framework), and nothing else needing this company's lock,
+	 * {@link CollectionCycleStatusImpl#dismiss} here, should have to wait on
+	 * it. The mocked notifier blocks until released from the other thread;
+	 * if the lock were still held while it ran, <code>dismiss</code> could
+	 * not even begin its own read-modify-write and this test would hang
+	 * until the two-second timeout rather than complete quickly.
+	 */
+	@Test
+	public void theNotificationIsSentWithoutHoldingTheCompanyLock()
+		throws InterruptedException {
+
+		CountDownLatch notifierEntered = new CountDownLatch(1);
+		CountDownLatch dismissIsDone = new CountDownLatch(1);
+
+		doAnswer(
+			invocation -> {
+				notifierEntered.countDown();
+
+				dismissIsDone.await(2, TimeUnit.SECONDS);
+
+				return null;
+			}
+		).when(
+			_collectionNotifier
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
+
+		Thread notifyingThread = new Thread(
+			() -> _collectionCycleStatusImpl.recordPersistedEvent(
+				_COMPANY_ID, _date("2026-03-01T09:31:00Z")));
+
+		notifyingThread.start();
+
+		assertTrue(
+			notifierEntered.await(2, TimeUnit.SECONDS),
+			"The notifier was never called");
+
+		long startedWaitingAt = System.nanoTime();
+
+		_collectionCycleStatusImpl.dismiss(_COMPANY_ID);
+
+		long dismissMillis =
+			(System.nanoTime() - startedWaitingAt) / 1_000_000;
+
+		dismissIsDone.countDown();
+
+		notifyingThread.join(TimeUnit.SECONDS.toMillis(2));
+
+		assertTrue(
+			dismissMillis < 500,
+			"dismiss() took " + dismissMillis + "ms while the notification " +
+				"was still being sent; the per-company lock must be " +
+					"released before sending, not held through it");
 	}
 
 	/**
