@@ -5,12 +5,14 @@
 package ai.tensoropt.sel.internal.messaging;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.liferay.counter.kernel.service.CounterLocalService;
@@ -190,6 +192,12 @@ public class SearchEventPersistenceMessageListenerTest {
 		_listener.receive(_message(_capturedSearchEvent(0L)));
 
 		verify(_searchEvent).setAudienceType(AudienceType.GUEST.name());
+
+		// D9: a guest row carries no cohortHash at all, not merely a null
+		// one that happened to come back from an unstubbed hash call; the
+		// salt hash is never computed for a guest in the first place.
+		verify(_searchEvent).setCohortHash(null);
+		verifyNoInteractions(_cohortSaltRegistry);
 	}
 
 	@Test
@@ -219,10 +227,17 @@ public class SearchEventPersistenceMessageListenerTest {
 
 		when(user.isGuestUser()).thenReturn(false);
 		when(_userLocalService.fetchUser(7L)).thenReturn(user);
+		when(
+			_cohortSaltRegistry.hash(anyLong(), anyLong(), anyInt())
+		).thenReturn("a1b2c3");
 
 		_listener.receive(_message(_capturedSearchEvent(7L)));
 
 		verify(_searchEvent).setAudienceType(AudienceType.AUTHENTICATED.name());
+
+		// D9: unlike a guest row, an authenticated row carries the salt
+		// hash the registry computed, not null.
+		verify(_searchEvent).setCohortHash("a1b2c3");
 	}
 
 	@Test

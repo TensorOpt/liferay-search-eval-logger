@@ -66,7 +66,7 @@ For each recorded search:
 - applied facet selections, where the search path exposes them;
 - each result shown: rank, score, document ID, asset type, and the title and snippet when the response already contains them. The snippet is recorded as an object keyed by locale then field, each field's highlighted fragments an array, so which field and language a fragment came from is never lost to a join;
 - page size, offset and total hit count, so a capped result list is never mistaken for a short one;
-- whether the user was a guest or signed in, plus a salted hash of the user ID. The salt rotates weekly by default and is never exported.
+- whether the user was a guest or signed in, plus, for a signed-in user only, a salted hash of the user ID. A guest row carries no hash at all, since guests already share one permission set and hashing a non-existent user ID would produce one value every guest row shares forever. The salt rotates weekly by default and is never exported.
 
 Not collected: user IDs, names, email addresses, IP addresses or document bodies. The plugin never widens a query to capture more.
 
@@ -79,7 +79,7 @@ Without any labels (rung 2):
 - **Zero-result queries.** Searches with `total_hits` of 0, grouped by cause: a vocabulary gap, a typo, missing content or a permission filter.
 - **Head and tail.** Which few queries carry most of the traffic, and so deserve attention first.
 - **Facet use.** Which filters people apply, and on which content types.
-- **Reformulations, roughly.** Reworded searches from the same cohort hash within minutes suggest the first results failed. This is approximate, because there is no session ID, and it works only for signed-in users, because guests cannot be told apart.
+- **Reformulations, roughly.** Reworded searches from the same cohort hash within minutes suggest the first results failed. This is approximate, because there is no session ID, and it works only for signed-in users: a guest row carries no cohort hash at all, so guest searches cannot be grouped this way.
 
 With labels (rung 3 and up):
 
