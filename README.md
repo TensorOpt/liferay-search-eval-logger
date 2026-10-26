@@ -216,7 +216,8 @@ Search Eval Logger is written and maintained by TensorOpt (Crafting Software Dev
 
 **Uninstall.**
 - Delete the four `ai.tensoropt.sel.*.jar` files from `[Liferay Home]/osgi/modules`.
-- Search keeps working without a restart, but removing or redeploying the plugin's bundles briefly cascades a deactivate and reactivate through every other Liferay component that resolves `Searcher`, measured at about 22 seconds; during that window Liferay's own REST layer can log, and recover from, transient errors of its own. See [DESIGN.md, section 3.1](DESIGN.md#31-interception-point).
+- Search keeps working without a restart.
+- Removing or redeploying the plugin's bundles briefly cascades a deactivate and reactivate through every Liferay component actually bound to the wrapper (ordinarily just the two search entry points; after an earlier restart, every one of Liferay's search consumers), measured once in CI at about 22 seconds and expected to vary. A search made inside that window can fail, and Liferay's own REST layer is expected to log transient errors of its own during it. See [DESIGN.md, section 3.1](DESIGN.md#31-interception-point).
 - Liferay does not drop a plugin's tables on uninstall, so the data stays in the database, and reinstalling picks it up again.
 
 **Remove the tables as well.**
