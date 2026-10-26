@@ -21,6 +21,7 @@ LINE := $(shell sed -nE 's/^liferay\.workspace\.product=(dxp-[0-9]{4}\.q[0-9])\.
 # bump it in all four bnd.bnd files to release a new one.
 override VERSION := $(shell sed -nE 's/^Bundle-Version: *//p' modules/search-eval-logger-api/bnd.bnd)
 LPKG := build/e2e/liferay-search-eval-logger.lpkg
+PUBLISH := python3 scripts/publish.py publish --version $(VERSION)
 
 DB ?= postgres
 DBS ?= postgres mysql mysql-mariadb-driver mariadb
@@ -86,9 +87,9 @@ preflight:
 	python3 scripts/publish.py preflight --version $(VERSION)
 
 publish: preflight ## Publish the jars already built in build/dist (no build, no tests): what the CI release job runs after build and e2e passed
-	python3 scripts/publish.py publish --version $(VERSION)
+	$(PUBLISH)
 
 release: preflight ## Release the bundles' Bundle-Version for this DXP line: checks, clean build, make test, publish
 	./gradlew $(foreach module,$(MODULES),:modules:$(module):clean)
 	$(MAKE) test
-	python3 scripts/publish.py publish --version $(VERSION)
+	$(PUBLISH)
