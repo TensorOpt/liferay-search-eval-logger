@@ -49,11 +49,10 @@ public class SearchEvalExportManifestBuilderTest {
 
 		when(_jsonFactory.createJSONObject()).thenReturn(_jsonObject);
 		when(_jsonFactory.createJSONObject(anyString())).thenReturn(_jsonObject);
-		when(
-			_jsonFactory.createJSONArray()
-		).thenReturn(
-			mock(com.liferay.portal.kernel.json.JSONArray.class, RETURNS_SELF)
-		);
+		_jsonArray = mock(
+			com.liferay.portal.kernel.json.JSONArray.class, RETURNS_SELF);
+
+		when(_jsonFactory.createJSONArray()).thenReturn(_jsonArray);
 
 		_searchEvalLoggerStatistics = mock(SearchEvalLoggerStatistics.class);
 
@@ -225,6 +224,36 @@ public class SearchEvalExportManifestBuilderTest {
 		verify(_jsonObject).put("from", "2026-08-24T00:00:00Z");
 	}
 
+	/**
+	 * F2-12: the writer trims a captured field name before counting coverage
+	 * under it, so the manifest has to report the same trimmed name, or the
+	 * two would disagree about what "title" covers whenever the configuration
+	 * carries incidental whitespace.
+	 */
+	@Test
+	public void capturedFieldNamesAreTrimmedBeforeTheyReachTheManifest() {
+		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
+			SearchEvalLoggerConfiguration.class);
+
+		when(
+			searchEvalLoggerConfiguration.capturedFieldNames()
+		).thenReturn(
+			new String[] {" title ", "snippet"}
+		);
+		when(
+			searchEvalLoggerConfiguration.excludedEntryClassNames()
+		).thenReturn(
+			new String[0]
+		);
+
+		_searchEvalExportManifestBuilder.build(
+			1L, new Date(0), new Date(1), new SearchEvalExportResult(),
+			searchEvalLoggerConfiguration);
+
+		verify(_jsonArray).put("title");
+		verify(_jsonArray, never()).put(" title ");
+	}
+
 	private void _build() {
 		_build(new Date(0), new Date(1));
 	}
@@ -255,6 +284,7 @@ public class SearchEvalExportManifestBuilderTest {
 
 	private SearchEvalExportManifestBuilder _searchEvalExportManifestBuilder;
 	private JSONFactory _jsonFactory;
+	private com.liferay.portal.kernel.json.JSONArray _jsonArray;
 	private JSONObject _jsonObject;
 	private SearchEvalLoggerStatistics _searchEvalLoggerStatistics;
 
