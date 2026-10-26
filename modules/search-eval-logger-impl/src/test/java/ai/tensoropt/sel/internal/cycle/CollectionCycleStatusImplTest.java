@@ -792,6 +792,90 @@ public class CollectionCycleStatusImplTest {
 	}
 
 	/**
+	 * D14 (TO-144): a disable and re-enable landing inside the window
+	 * between the notification send and {@link
+	 * CollectionCycleStatusImpl#_recordCollectionStartedNotified} re-reading
+	 * the cycle must not stamp the marker onto the cycle that replaced the
+	 * one the notification was actually sent for. The mocked notifier closes
+	 * and reopens the cycle as its own side effect, which is exactly where
+	 * the real race's window sits: between {@link
+	 * CollectionCycleStatusImpl#_recordCollectionStart} releasing its lock to
+	 * send, and it reacquiring the lock to record that the send happened.
+	 *
+	 * <p>
+	 * Before this fix, the record step only checked {@link
+	 * CollectionCycle#isOpen()}, which the reopened cycle also satisfies, so
+	 * it stamped <code>collectionStartedNotifiedDate</code> onto the new
+	 * cycle before that cycle's own first event ever arrived. The comparison
+	 * added against <code>cycleOpenedDate</code>, captured under the same
+	 * lock that decided to send, is what tells the two cycles apart.
+	 * </p>
+	 */
+	@Test
+	public void aCycleReplacedDuringTheNotificationSendIsNotMarkedAsAlreadyNotified()
+		throws InterruptedException {
+
+		doAnswer(
+			invocation -> {
+				_collectionCycleStatusImpl.closeCycle(_COMPANY_ID);
+
+				// A real close and re-enable some moments later gets its own,
+				// later cycleOpenedDate; advancing the clock here is what
+				// makes the replacement distinguishable from the cycle the
+				// notification was actually sent for, the same way a real
+				// race would be.
+
+				_now = _now.plusSeconds(5);
+
+				_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+				return null;
+			}
+		).when(
+			_collectionNotifier
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
+
+		_collectionCycleStatusImpl.openCycle(_COMPANY_ID, 42L);
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:31:00Z"));
+
+		CollectionCycle replacedCycle =
+			_collectionCycleStatusImpl.getCollectionCycle(_COMPANY_ID);
+
+		assertTrue(
+			replacedCycle.isOpen(),
+			"The reopened cycle from inside the notifier must still be the "
+				+ "one on record");
+		assertNull(
+			replacedCycle.getCollectionStartedNotifiedDate(),
+			"The notification was sent for the cycle the disable/re-enable "
+				+ "replaced, not for this one; stamping this one's marker "
+					+ "anyway would stop its own first event from ever "
+						+ "notifying");
+
+		// The new cycle's own bookkeeping is bounded by the in-memory
+		// confirm cache the same way a cluster node's reopen already is
+		// (the class comment above _confirm); advancing past it is what
+		// theMarkerIsRecheckedAfterItExpires already does to force a fresh
+		// read, here to prove the new cycle's own first event still gets
+		// its own, genuine notification rather than none at all.
+
+		_now = _now.plus(Duration.ofMinutes(11));
+
+		_collectionCycleStatusImpl.recordPersistedEvent(
+			_COMPANY_ID, _date("2026-03-01T09:42:00Z"));
+
+		verify(
+			_collectionNotifier, times(2)
+		).notifyCollectionStarted(
+			anyLong(), anyLong()
+		);
+	}
+
+	/**
 	 * F2-25: an open cycle that already carries everything openCycle would
 	 * otherwise set, an enabling user and a cycle-opened date, has nothing
 	 * left to write. Reopening in place must stay a no-op, not merely a
