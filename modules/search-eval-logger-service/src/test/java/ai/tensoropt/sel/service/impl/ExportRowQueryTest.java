@@ -211,6 +211,27 @@ public class ExportRowQueryTest {
 	}
 
 	/**
+	 * F2-13: the sentinel the writer uses to tell a real hit row from a left
+	 * join's all-null row has to be in the select list for the writer to read
+	 * it. docUid was used for that once, and on Oracle an empty VARCHAR reads
+	 * back as NULL, so an admitted hit with no docUid became indistinguishable
+	 * from no hit at all. searchHitId is the hit's primary key and is never
+	 * blank.
+	 */
+	@Test
+	public void selectCarriesTheHitPrimaryKeyForTheLeftJoinSentinel() {
+		ExportRowQuery exportRowQuery = new ExportRowQuery(
+			_COMPANY_ID, _START_DATE, _END_DATE);
+
+		String sql = exportRowQuery.getSQL();
+
+		assertTrue(
+			sql.contains("h.searchHitId"),
+			"The select has to carry h.searchHitId for the left join " +
+				"sentinel: " + sql);
+	}
+
+	/**
 	 * Ordering is what lets the writer hold only one event's hits at a time
 	 * (DESIGN.md 6.1), so it has to survive whichever predicates were left
 	 * out, and it has to stay at the end of the statement.

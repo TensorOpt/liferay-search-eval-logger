@@ -276,8 +276,12 @@ public class SearchEvalExportWriter {
 
 			// A left join yields one row with null hit columns for an event
 			// that returned nothing, which must not become a phantom hit.
+			// searchHitId is the hit's primary key, never blank, so it is the
+			// sentinel rather than docUid: on Oracle an empty VARCHAR reads
+			// back as NULL, which would make a hit with an absent docUid
+			// indistinguishable from no hit at all.
 
-			if (resultSet.getString("docUid") != null) {
+			if (resultSet.getObject("searchHitId") != null) {
 				_currentHitsJSONArray.put(
 					_toHitJSONObject(resultSet, _searchEvalExportResult));
 			}
