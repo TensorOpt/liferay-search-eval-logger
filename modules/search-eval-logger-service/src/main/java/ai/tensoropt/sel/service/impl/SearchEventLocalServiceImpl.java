@@ -136,35 +136,38 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		return ServiceConnections.withConnection(
 			searchEventPersistence.getDataSource(),
 			connection -> {
-				Map<String, long[]> counts = new HashMap<>();
-
 				try (PreparedStatement preparedStatement =
 						connection.prepareStatement(
 							_AUDIENCE_COUNTS_SQL)) {
 
 					preparedStatement.setLong(1, companyId);
 
-					CompletableFuture<Void> cancellation = _cancelAfterTimeout(
-						preparedStatement);
+					CompletableFuture<Void> cancellation =
+						_scheduleCancellation(
+							preparedStatement, _PANEL_QUERY_TIMEOUT_SECONDS);
 
-					try (ResultSet resultSet =
-							preparedStatement.executeQuery()) {
+					try {
+						Map<String, long[]> counts = new HashMap<>();
 
-						while (resultSet.next()) {
-							counts.put(
-								resultSet.getString(1),
-								new long[] {
-									resultSet.getLong(2),
-									resultSet.getLong(3)
-								});
+						try (ResultSet resultSet =
+								preparedStatement.executeQuery()) {
+
+							while (resultSet.next()) {
+								counts.put(
+									resultSet.getString(1),
+									new long[] {
+										resultSet.getLong(2),
+										resultSet.getLong(3)
+									});
+							}
 						}
+
+						return counts;
 					}
 					finally {
 						cancellation.cancel(false);
 					}
 				}
-
-				return counts;
 			});
 	}
 
@@ -226,7 +229,7 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 		this.<E>_streamQuery(
 			connection, _ZERO_RESULT_QUERY_SQL,
 			preparedStatement -> preparedStatement.setLong(1, companyId),
-			true,
+			_PANEL_QUERY_TIMEOUT_SECONDS,
 			resultSet -> {
 
 				// Reading the column is wrapped here, not left to propagate
@@ -316,7 +319,7 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 
 		_streamQuery(
 			connection, exportRowQuery.getSQL(),
-			exportRowQuery::setParameters, false, rowConsumer);
+			exportRowQuery::setParameters, _NO_TIMEOUT, rowConsumer);
 	}
 
 	/**
@@ -328,11 +331,17 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	 * 6.1 depends on before the caller sees a single row), set the
 	 * statement's parameters, and walk the result set one row at a time.
 	 * Restores autocommit afterward either way.
+	 *
+	 * <p>
+	 * <code>timeoutSeconds</code> of <code>_NO_TIMEOUT</code> (zero) means
+	 * none: the export's cursor can run as long as the export itself does,
+	 * and only the zero-result panel's queries are ever bounded.
+	 * </p>
 	 */
 	private <E extends Throwable> void _streamQuery(
 			Connection connection, String sql,
 			UnsafeConsumer<PreparedStatement, SQLException> parameterSetter,
-			boolean panelQuery, UnsafeConsumer<ResultSet, E> rowConsumer)
+			int timeoutSeconds, UnsafeConsumer<ResultSet, E> rowConsumer)
 		throws E, SQLException {
 
 		boolean autoCommit = connection.getAutoCommit();
@@ -348,9 +357,8 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 
 			parameterSetter.accept(preparedStatement);
 
-			CompletableFuture<Void> cancellation =
-				panelQuery ? _cancelAfterTimeout(preparedStatement) :
-					CompletableFuture.completedFuture(null);
+			CompletableFuture<Void> cancellation = _scheduleCancellation(
+				preparedStatement, timeoutSeconds);
 
 			try (ResultSet resultSet = preparedStatement.executeQuery()) {
 				while (resultSet.next()) {
@@ -369,19 +377,24 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	}
 
 	/**
-	 * Bounds a zero-result panel query to _PANEL_QUERY_TIMEOUT_SECONDS. The
-	 * standard query timeout alone is not enough: the MariaDB driver DXP
-	 * 2025.Q1 ships (3.2.0) ignores it against a MySQL server and stays
-	 * blocked on a table lock, while every driver tested honours
-	 * <code>Statement.cancel()</code>. So both are set, the cancel on the
-	 * JDK's own delayed executor, which leaves this bundle no thread to
-	 * stop. The caller cancels the returned future once the query is done.
+	 * Bounds a query to <code>timeoutSeconds</code>, or schedules nothing at
+	 * all when it is <code>_NO_TIMEOUT</code>. The standard query timeout
+	 * alone is not enough: the MariaDB driver DXP 2025.Q1 ships (3.2.0)
+	 * ignores it against a MySQL server and stays blocked on a table lock,
+	 * while every driver tested honours <code>Statement.cancel()</code>. So
+	 * both are set, the cancel on the JDK's own delayed executor, which
+	 * leaves this bundle no thread to stop. The caller cancels the returned
+	 * future once the query is done.
 	 */
-	private static CompletableFuture<Void> _cancelAfterTimeout(
-			PreparedStatement preparedStatement)
+	private static CompletableFuture<Void> _scheduleCancellation(
+			PreparedStatement preparedStatement, int timeoutSeconds)
 		throws SQLException {
 
-		preparedStatement.setQueryTimeout(_PANEL_QUERY_TIMEOUT_SECONDS);
+		if (timeoutSeconds <= _NO_TIMEOUT) {
+			return CompletableFuture.completedFuture(null);
+		}
+
+		preparedStatement.setQueryTimeout(timeoutSeconds);
 
 		return CompletableFuture.runAsync(
 			() -> {
@@ -395,7 +408,7 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 				}
 			},
 			CompletableFuture.delayedExecutor(
-				_PANEL_QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+				timeoutSeconds, TimeUnit.SECONDS));
 	}
 
 	private static final String _AUDIENCE_COUNTS_SQL =
@@ -404,6 +417,12 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 				"requestedFrom = 0 group by audienceType";
 
 	private static final int _FETCH_SIZE = 1000;
+
+	/**
+	 * Passed as a query's timeout to mean none is scheduled at all, rather
+	 * than a real zero second timeout.
+	 */
+	private static final int _NO_TIMEOUT = 0;
 
 	/**
 	 * The zero-result panel's two queries run on each cache miss
