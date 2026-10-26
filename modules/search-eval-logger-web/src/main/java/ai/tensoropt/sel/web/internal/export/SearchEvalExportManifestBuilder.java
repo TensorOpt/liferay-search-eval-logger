@@ -149,7 +149,8 @@ public class SearchEvalExportManifestBuilder {
 			"retention_days", searchEvalLoggerConfiguration.retentionDays()
 		).put(
 			"captured_field_names",
-			_toJSONArray(searchEvalLoggerConfiguration.capturedFieldNames())
+			_toTrimmedJSONArray(
+				searchEvalLoggerConfiguration.capturedFieldNames())
 		).put(
 			"exclude_suggestion_traffic",
 			searchEvalLoggerConfiguration.excludeSuggestionTraffic()
@@ -244,7 +245,37 @@ public class SearchEvalExportManifestBuilder {
 		return bundle.getVersion();
 	}
 
+	/**
+	 * Used for every configured string array except {@code
+	 * capturedFieldNames}: the raw, untrimmed value, since {@link
+	 * ai.tensoropt.sel.internal.admission.AdmissionFilter} compares an
+	 * excluded entry class name as configured, with no trimming of its own,
+	 * and the manifest must report exactly what the filter matches against.
+	 */
 	private JSONArray _toJSONArray(String[] values) {
+		JSONArray jsonArray = _jsonFactory.createJSONArray();
+
+		if (values == null) {
+			return jsonArray;
+		}
+
+		for (String value : values) {
+			if (Validator.isNotNull(value)) {
+				jsonArray.put(value);
+			}
+		}
+
+		return jsonArray;
+	}
+
+	/**
+	 * Used only for {@code capturedFieldNames}: the export writer trims a
+	 * captured field name before counting coverage under it (F2-12), so the
+	 * manifest has to report the same trimmed name or the two would disagree
+	 * about what "title" covers whenever the configuration carries incidental
+	 * whitespace.
+	 */
+	private JSONArray _toTrimmedJSONArray(String[] values) {
 		JSONArray jsonArray = _jsonFactory.createJSONArray();
 
 		if (values == null) {
