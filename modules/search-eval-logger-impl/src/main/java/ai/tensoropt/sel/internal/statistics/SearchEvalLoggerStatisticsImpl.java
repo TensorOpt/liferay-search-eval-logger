@@ -7,6 +7,7 @@ package ai.tensoropt.sel.internal.statistics;
 import ai.tensoropt.sel.api.SearchEvalLoggerStatistics;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import org.osgi.service.component.annotations.Component;
 
@@ -44,29 +45,29 @@ public class SearchEvalLoggerStatisticsImpl
 
 	@Override
 	public long getObservedSearchCount() {
-		return _observedSearchCount.get();
+		return _observedSearchCount.sum();
 	}
 
 	@Override
 	public long getKeywordSearchCount() {
-		return _keywordSearchCount.get();
+		return _keywordSearchCount.sum();
 	}
 
 	@Override
 	public long getAdmittedSearchCount() {
-		return _admittedSearchCount.get();
+		return _admittedSearchCount.sum();
 	}
 
 	public void incrementObservedSearchCount() {
-		_observedSearchCount.incrementAndGet();
+		_observedSearchCount.increment();
 	}
 
 	public void incrementKeywordSearchCount() {
-		_keywordSearchCount.incrementAndGet();
+		_keywordSearchCount.increment();
 	}
 
 	public void incrementAdmittedSearchCount() {
-		_admittedSearchCount.incrementAndGet();
+		_admittedSearchCount.increment();
 	}
 
 	public void incrementDispatchedEventCount() {
@@ -93,10 +94,10 @@ public class SearchEvalLoggerStatisticsImpl
 		_droppedEventCount.incrementAndGet();
 	}
 
-	private final AtomicLong _admittedSearchCount = new AtomicLong();
+	private final LongAdder _admittedSearchCount = new LongAdder();
 	private final AtomicLong _dispatchedEventCount = new AtomicLong();
-	private final AtomicLong _keywordSearchCount = new AtomicLong();
-	private final AtomicLong _observedSearchCount = new AtomicLong();
+	private final LongAdder _keywordSearchCount = new LongAdder();
+	private final LongAdder _observedSearchCount = new LongAdder();
 	private final AtomicLong _droppedEventCount = new AtomicLong();
 	private final AtomicLong _persistedEventCount = new AtomicLong();
 
