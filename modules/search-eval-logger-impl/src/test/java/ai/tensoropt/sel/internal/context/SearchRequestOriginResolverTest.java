@@ -65,12 +65,18 @@ public class SearchRequestOriginResolverTest {
 
 	/**
 	 * The predecessor endpoint TO-115 still has to classify as a suggestion,
-	 * not just the current one.
+	 * not just the current one, through its own explicit prefix match
+	 * rather than only the generic trailing-segment fallback below: the
+	 * plain legacy path ends in "/suggestions" too, so a path that starts
+	 * with the legacy prefix but does not end in "/suggestions" is what
+	 * actually isolates the prefix check; deleting it would fail only this
+	 * case, not theLegacySuggestionsPathIsClassifiedAsASuggestion's old,
+	 * exact-path form.
 	 */
 	@Test
 	public void theLegacySuggestionsPathIsClassifiedAsASuggestion() {
 		SearchRequestOrigin searchRequestOrigin = _resolve(
-			"/o/portal-search-rest/v1.0/suggestions");
+			"/o/portal-search-rest/v1.0/suggestions/with-trailing-segment");
 
 		assertTrue(searchRequestOrigin.isSuggestion());
 	}

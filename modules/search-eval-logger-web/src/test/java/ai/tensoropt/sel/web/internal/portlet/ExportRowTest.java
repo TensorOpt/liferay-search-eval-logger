@@ -45,9 +45,10 @@ public class ExportRowTest {
 	}
 
 	/**
-	 * Duration.toHours() alone would read back as 0 past 24 hours; the
-	 * formatted string must carry the full hour count rather than wrapping
-	 * at a day boundary the way a plain hour-of-day field would.
+	 * Duration.toHoursPart(), which wraps to the 0-23 remainder after whole
+	 * days the way a plain hour-of-day field does, would read back as 3 for
+	 * a 27 hour duration; the formatted string must carry toHours()'s own
+	 * full, unwrapped count instead.
 	 */
 	@Test
 	public void aDurationOfAtLeastADayFormatsTheFullHourCount() {

@@ -170,17 +170,56 @@ public class FacetExtractorTest {
 	}
 
 	/**
-	 * Blank and null selections are dropped rather than put, and a facet
-	 * whose only selections are blank leaves nothing behind to capture, so
-	 * the field never appears and the whole extraction is not CAPTURED.
+	 * A blank selection is dropped rather than put, and a facet whose only
+	 * selection is blank leaves nothing behind to capture, so the field
+	 * never appears and the whole extraction is not CAPTURED.
+	 *
+	 * <p>
+	 * Kept apart from the null case below: a selections array holding both
+	 * "" and null still asserts NONE_APPLIED even when only one of the two
+	 * is actually filtered (whichever one is still skipped is enough to
+	 * leave nothing behind), so a single combined test cannot tell the two
+	 * apart or catch either one's filtering being broken on its own.
+	 * </p>
 	 */
 	@Test
-	public void blankAndNullSelectionsAreSkippedAndNotCaptured() {
+	public void aBlankSelectionIsSkippedAndNotCaptured() {
 		com.liferay.portal.search.facet.Facet facet = mock(
 			com.liferay.portal.search.facet.Facet.class);
 
 		when(facet.getFieldName()).thenReturn("category");
-		when(facet.getSelections()).thenReturn(new String[] {"", null});
+		when(facet.getSelections()).thenReturn(new String[] {""});
+
+		SearchContext searchContext = mock(SearchContext.class);
+
+		when(
+			searchContext.getFacets()
+		).thenReturn(
+			Map.<String, Facet>of("category", facet)
+		);
+
+		FacetCapture facetCapture = _facetExtractor.extract(
+			searchContext, SourceType.WIDGET);
+
+		assertSame(FacetCaptureStatus.NONE_APPLIED, facetCapture.getStatus());
+	}
+
+	/**
+	 * A null selection is dropped rather than put, on its own, with no
+	 * blank selection alongside it to leave nothing behind on its own
+	 * account. See the blank case above for why the two are not combined.
+	 */
+	@Test
+	public void aNullSelectionIsSkippedAndNotCaptured() {
+		com.liferay.portal.search.facet.Facet facet = mock(
+			com.liferay.portal.search.facet.Facet.class);
+
+		when(facet.getFieldName()).thenReturn("category");
+		when(
+			facet.getSelections()
+		).thenReturn(
+			new String[] {null}
+		);
 
 		SearchContext searchContext = mock(SearchContext.class);
 
@@ -282,8 +321,14 @@ public class FacetExtractorTest {
 
 		JSONArray jsonArray = mock(JSONArray.class);
 
+		// nullable, not anyString: a selection array can hold a null
+		// element (aNullSelectionIsSkippedAndNotCaptured), and that case
+		// only discriminates production's own null filtering if a null put
+		// actually reaches this backing list rather than being invisibly
+		// absorbed by an unmatched mock call.
+
 		when(
-			jsonArray.put(anyString())
+			jsonArray.put(org.mockito.ArgumentMatchers.nullable(String.class))
 		).thenAnswer(
 			invocation -> {
 				backing.add(invocation.getArgument(0));
