@@ -2165,7 +2165,7 @@ def check_admission_counters_and_background_tasks_parsing():
     counters_html = """
     <table>
     <tr><td>Searches observed while enabled</td><td>18</td></tr>
-    <tr><td>Searches carrying user keywords</td><td>10</td></tr>
+    <tr><td>Searches passing condition 1 (keywords, or facet selections when enabled)</td><td>10</td></tr>
     <tr><td>Searches admitted (all conditions)</td><td>9</td></tr>
     <tr><td>Events handed to the message bus</td><td>9</td></tr>
     <tr><td>Events dropped</td><td>1</td></tr>
