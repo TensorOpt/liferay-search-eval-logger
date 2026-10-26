@@ -249,7 +249,7 @@ SPDX-License-Identifier: Apache-2.0
 						/>
 					</p>
 
-					<c:if test="${zeroResultPanel.hasTopQueries}">
+					<c:if test="${not empty zeroResultPanel.topQueries}">
 						<table class="table table-autofit table-list">
 							<thead>
 								<tr>

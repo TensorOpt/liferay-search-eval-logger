@@ -38,7 +38,7 @@ public class ZeroResultPanelTest {
 			Map.of(), Map.of());
 
 		assertTrue(zeroResultPanel.isNoSearchesLogged());
-		assertFalse(zeroResultPanel.isHasTopQueries());
+		assertTrue(zeroResultPanel.getTopQueries().isEmpty());
 		assertArrayEquals(
 			new String[] {"0", "0", "0.0"},
 			zeroResultPanel.getOverallMessageArguments());
@@ -53,7 +53,7 @@ public class ZeroResultPanelTest {
 			Map.of());
 
 		assertFalse(zeroResultPanel.isNoSearchesLogged());
-		assertFalse(zeroResultPanel.isHasTopQueries());
+		assertTrue(zeroResultPanel.getTopQueries().isEmpty());
 		assertArrayEquals(
 			new String[] {"0", "30", "0.0"},
 			zeroResultPanel.getOverallMessageArguments());
@@ -124,7 +124,7 @@ public class ZeroResultPanelTest {
 			Map.of(AudienceType.GUEST.name(), new long[] {10, 1}),
 			Map.of("widget", 1L));
 
-		assertTrue(zeroResultPanel.isHasTopQueries());
+		assertFalse(zeroResultPanel.getTopQueries().isEmpty());
 		assertEquals(1, zeroResultPanel.getTopQueries().size());
 		assertEquals(
 			"widget", zeroResultPanel.getTopQueries().get(0).getQuery());
