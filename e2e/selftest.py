@@ -2818,44 +2818,126 @@ def check_package_pure_helpers_and_refusals():
 
     original_required_jars = package_module.required_jars
     original_bundle_version = package_module.bundle_version
+    original_write_lpkg = package_module.write_lpkg
+
+    def _assert_sys_exit_says(function, must_contain):
+        """D13 (TO-144): expect_rejected only wants to see *some* exception
+        in its narrow catch set; it does not read what main() actually
+        refused for, so a regression that happens to raise a different
+        exception for a different reason still reads as "caught". Worse,
+        with required_jars previously mocked to bare file names that do
+        not exist on disk, removing a refusal did not even make main()
+        return normally: it fell through to write_lpkg's own file read
+        and crashed with FileNotFoundError, a type expect_rejected does
+        not catch at all, taking the rest of this script down with it
+        instead of reporting one failed case. required_jars below now
+        points at real temporary files, and write_lpkg is stubbed, so a
+        removed refusal instead lets main() run to completion and this
+        returns normally, which expect_rejected correctly reports as
+        "NOT CAUGHT" rather than crashing on it.
+
+        Raises (so expect_rejected counts it as caught) only when
+        SystemExit actually fires with a message containing
+        `must_contain`; returns normally - "NOT CAUGHT" - for a mismatched
+        message or no SystemExit at all, each itself a sign something
+        about the refusal changed.
+        """
+        try:
+            function()
+        except SystemExit as system_exit:
+            message = str(system_exit)
+
+            if must_contain in message:
+                raise AssertionError(message) from system_exit
 
     try:
-        package_module.required_jars = lambda: ["a.jar", "b.jar"]
-
-        disagreeing_versions = {"a.jar": "1.0.0", "b.jar": "1.0.1"}
-
-        package_module.bundle_version = (
-            lambda jar: disagreeing_versions[jar]
-        )
-
         with tempfile.TemporaryDirectory(
-                prefix="sel-package-selftest-dist-") as dist:
+                prefix="sel-package-selftest-jars-") as jars_directory:
 
-            expect_rejected(
-                "bundles that disagree on their version are refused",
-                lambda: _calls_sys_exit(
-                    lambda: package_module.main(["--dist", dist])
-                ),
+            jar_a = os.path.join(jars_directory, "a.jar")
+            jar_b = os.path.join(jars_directory, "b.jar")
+
+            for path in (jar_a, jar_b):
+                with open(path, "wb") as file_:
+                    file_.write(b"not a real jar, just a file that exists")
+
+            package_module.required_jars = lambda: [jar_a, jar_b]
+            package_module.write_lpkg = lambda *args, **kwargs: None
+
+            disagreeing_versions = {jar_a: "1.0.0", jar_b: "1.0.1"}
+
+            package_module.bundle_version = (
+                lambda jar: disagreeing_versions[jar]
             )
 
-        agreeing_versions = {"a.jar": "1.0.0", "b.jar": "1.0.0"}
+            with tempfile.TemporaryDirectory(
+                    prefix="sel-package-selftest-dist-") as dist:
 
-        package_module.bundle_version = lambda jar: agreeing_versions[jar]
+                expect_rejected(
+                    "bundles that disagree on their version are refused",
+                    lambda: _assert_sys_exit_says(
+                        lambda: package_module.main(["--dist", dist]),
+                        "disagree",
+                    ),
+                )
 
-        with tempfile.TemporaryDirectory(
-                prefix="sel-package-selftest-dist-") as dist:
+            agreeing_versions = {jar_a: "1.0.0", jar_b: "1.0.0"}
 
-            expect_rejected(
-                "a --version that disagrees with the built bundles is "
-                "refused",
-                lambda: _calls_sys_exit(
-                    lambda: package_module.main(
-                        ["--version", "9.9.9", "--dist", dist])
-                ),
+            package_module.bundle_version = (
+                lambda jar: agreeing_versions[jar]
             )
+
+            with tempfile.TemporaryDirectory(
+                    prefix="sel-package-selftest-dist-") as dist:
+
+                expect_rejected(
+                    "a --version that disagrees with the built bundles is "
+                    "refused",
+                    lambda: _assert_sys_exit_says(
+                        lambda: package_module.main(
+                            ["--version", "9.9.9", "--dist", dist]),
+                        "Asked to package 9.9.9",
+                    ),
+                )
     finally:
         package_module.required_jars = original_required_jars
         package_module.bundle_version = original_bundle_version
+        package_module.write_lpkg = original_write_lpkg
+
+    original_repository = package_module.REPOSITORY
+
+    try:
+        with tempfile.TemporaryDirectory(
+                prefix="sel-package-selftest-repo-") as fake_repository:
+
+            properties_path = os.path.join(
+                fake_repository, "gradle.properties")
+
+            package_module.REPOSITORY = fake_repository
+
+            with open(properties_path, "w") as file_:
+                file_.write(
+                    "liferay.workspace.product=dxp-2026.q1.13-lts\n")
+
+            expect_accepted(
+                "dxp_line reads the product key's major line, dropping "
+                "the patch and the -lts suffix",
+                lambda: _assert(
+                    package_module.dxp_line() == "dxp-2026.q1"),
+            )
+
+            with open(properties_path, "w") as file_:
+                file_.write(
+                    "liferay.workspace.product=not-a-product-key\n")
+
+            expect_rejected(
+                "a malformed product key is refused rather than "
+                "silently misread",
+                lambda: _assert_sys_exit_says(
+                    package_module.dxp_line, "names no dxp"),
+            )
+    finally:
+        package_module.REPOSITORY = original_repository
 
 
 def check_publish_verify_packaged_and_preflight_and_links():
