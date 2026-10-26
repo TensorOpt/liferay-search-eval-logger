@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,9 +20,12 @@ import com.liferay.portal.kernel.json.JSONFactory;
 import com.liferay.portal.kernel.json.JSONObject;
 import com.liferay.portal.kernel.language.Language;
 import com.liferay.portal.kernel.model.Group;
+import com.liferay.portal.kernel.model.Role;
 import com.liferay.portal.kernel.model.User;
+import com.liferay.portal.kernel.model.role.RoleConstants;
 import com.liferay.portal.kernel.notifications.NotificationEvent;
 import com.liferay.portal.kernel.service.GroupLocalService;
+import com.liferay.portal.kernel.service.RoleLocalService;
 import com.liferay.portal.kernel.service.UserLocalService;
 import com.liferay.portal.kernel.service.UserNotificationEventLocalService;
 import com.liferay.portal.kernel.util.Portal;
@@ -29,6 +33,7 @@ import com.liferay.portal.kernel.util.Portal;
 import ai.tensoropt.sel.api.SearchEvalLoggerConstants;
 import ai.tensoropt.sel.internal.TestInjection;
 
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
@@ -78,6 +83,8 @@ public class CollectionNotifierTest {
 
 		_groupLocalService = mock(GroupLocalService.class);
 		_portal = mock(Portal.class);
+		_roleLocalService = mock(RoleLocalService.class);
+		_userLocalService = userLocalService;
 
 		// Same fallback SearchEvalLoggerUserNotificationHandlerTest uses:
 		// returning the key it was asked for, since there is no running
@@ -98,6 +105,8 @@ public class CollectionNotifierTest {
 		TestInjection.set(_collectionNotifier, "_jsonFactory", jsonFactory);
 		TestInjection.set(_collectionNotifier, "_language", language);
 		TestInjection.set(_collectionNotifier, "_portal", _portal);
+		TestInjection.set(
+			_collectionNotifier, "_roleLocalService", _roleLocalService);
 		TestInjection.set(
 			_collectionNotifier, "_userLocalService", userLocalService);
 		TestInjection.set(
@@ -243,6 +252,182 @@ public class CollectionNotifierTest {
 		_verifyDelivered();
 	}
 
+	/**
+	 * F2-24: no enabling user is recorded at all (EC-14), so the fallback the
+	 * class comment describes is exercised: the company's active
+	 * administrators.
+	 */
+	@Test
+	public void enabledByUserIdZeroFallsBackToActiveAdministrators()
+		throws Exception {
+
+		User administrator = _mockUser(30001L, true, false);
+
+		_mockAdministrators(administrator);
+
+		_collectionNotifier.notifyReadiness(1L, 0L);
+
+		verify(
+			_userNotificationEventLocalService
+		).addUserNotificationEvent(
+			eq(30001L), eq(true), anyBoolean(), any(NotificationEvent.class)
+		);
+	}
+
+	/**
+	 * The recorded enabling user no longer being active is exactly the kind
+	 * of unresolvable recipient the class comment says is expected, not
+	 * exceptional.
+	 */
+	@Test
+	public void anInactiveEnablingUserFallsBackToActiveAdministrators()
+		throws Exception {
+
+		User inactiveUser = _mockUser(_USER_ID, false, false);
+		User administrator = _mockUser(30002L, true, false);
+
+		when(_userLocalService.fetchUser(_USER_ID)).thenReturn(inactiveUser);
+
+		_mockAdministrators(administrator);
+
+		_collectionNotifier.notifyReadiness(1L, _USER_ID);
+
+		verify(
+			_userNotificationEventLocalService
+		).addUserNotificationEvent(
+			eq(30002L), eq(true), anyBoolean(), any(NotificationEvent.class)
+		);
+		verify(
+			_userNotificationEventLocalService, never()
+		).addUserNotificationEvent(
+			eq(_USER_ID), anyBoolean(), anyBoolean(),
+			any(NotificationEvent.class)
+		);
+	}
+
+	/**
+	 * A recorded enabling user who resolves to the instance's guest user is
+	 * unresolvable the same way an inactive one is.
+	 */
+	@Test
+	public void aGuestEnablingUserFallsBackToActiveAdministrators()
+		throws Exception {
+
+		User guestUser = _mockUser(_USER_ID, true, true);
+		User administrator = _mockUser(30003L, true, false);
+
+		when(_userLocalService.fetchUser(_USER_ID)).thenReturn(guestUser);
+
+		_mockAdministrators(administrator);
+
+		_collectionNotifier.notifyReadiness(1L, _USER_ID);
+
+		verify(
+			_userNotificationEventLocalService
+		).addUserNotificationEvent(
+			eq(30003L), eq(true), anyBoolean(), any(NotificationEvent.class)
+		);
+	}
+
+	/**
+	 * Neither the enabling user nor any administrator resolves to anyone: the
+	 * notification is skipped rather than sent to nobody. The warning itself
+	 * is not independently asserted here; there is no running portal in this
+	 * test to observe a log line against, so what is pinned is the
+	 * observable behaviour the warning describes, that nothing is delivered.
+	 */
+	@Test
+	public void noRecipientsSendsNoNotificationAndNoEmail() throws Exception {
+		_collectionNotifier.notifyReadiness(1L, 0L);
+
+		verify(
+			_userNotificationEventLocalService, never()
+		).addUserNotificationEvent(
+			anyLong(), anyBoolean(), anyBoolean(), any(NotificationEvent.class)
+		);
+		verify(
+			_emailDelivery, never()
+		).send(
+			anyLong(), any(InternetAddress.class), anyString(), anyString()
+		);
+	}
+
+	/**
+	 * A recipient with no recorded locale must not fail the email path; it
+	 * falls back to the platform default rather than propagating a failure
+	 * that would also undo the website delivery already completed for the
+	 * same recipient.
+	 */
+	@Test
+	public void aRecipientWithNoLocaleStillGetsTheEmail() throws Exception {
+		User user = _mockUser(_USER_ID, true, false);
+
+		when(user.getLocale()).thenReturn(null);
+
+		when(_userLocalService.fetchUser(_USER_ID)).thenReturn(user);
+		when(_emailDelivery.isWanted(_USER_ID)).thenReturn(true);
+
+		_collectionNotifier.notifyReadiness(1L, _USER_ID);
+
+		verify(
+			_emailDelivery
+		).send(
+			eq(1L), any(InternetAddress.class), anyString(), anyString()
+		);
+	}
+
+	/**
+	 * A failure recording the website notification must not propagate: the
+	 * next recipient, and the caller, are unaffected.
+	 */
+	@Test
+	public void addUserNotificationEventThrowingIsSwallowed() throws Exception {
+		doThrow(
+			new RuntimeException("boom")
+		).when(
+			_userNotificationEventLocalService
+		).addUserNotificationEvent(
+			anyLong(), anyBoolean(), anyBoolean(), any(NotificationEvent.class)
+		);
+
+		_collectionNotifier.notifyReadiness(1L, _USER_ID);
+
+		verify(
+			_emailDelivery, never()
+		).send(
+			anyLong(), any(InternetAddress.class), anyString(), anyString()
+		);
+	}
+
+	private void _mockAdministrators(User... administrators) {
+		Role role = mock(Role.class);
+
+		when(role.getRoleId()).thenReturn(_ADMINISTRATOR_ROLE_ID);
+		when(
+			_roleLocalService.fetchRole(1L, RoleConstants.ADMINISTRATOR)
+		).thenReturn(
+			role
+		);
+		when(
+			_userLocalService.getRoleUsers(_ADMINISTRATOR_ROLE_ID)
+		).thenReturn(
+			Arrays.asList(administrators)
+		);
+	}
+
+	private User _mockUser(long userId, boolean active, boolean guest) {
+		User user = mock(User.class);
+
+		when(user.getUserId()).thenReturn(userId);
+		when(user.isActive()).thenReturn(active);
+		when(user.isGuestUser()).thenReturn(guest);
+		when(user.getEmailAddress()).thenReturn("user" + userId + "@example.com");
+		when(user.getFullName()).thenReturn("User " + userId);
+		when(user.getLocale()).thenReturn(Locale.US);
+
+		return user;
+	}
+
 	private void _verifyDelivered() throws Exception {
 		verify(
 			_userNotificationEventLocalService
@@ -251,6 +436,8 @@ public class CollectionNotifierTest {
 		);
 	}
 
+	private static final long _ADMINISTRATOR_ROLE_ID = 10001L;
+
 	private static final long _USER_ID = 20124L;
 
 	private final CollectionNotifier _collectionNotifier =
@@ -258,6 +445,8 @@ public class CollectionNotifierTest {
 	private EmailDelivery _emailDelivery;
 	private GroupLocalService _groupLocalService;
 	private Portal _portal;
+	private RoleLocalService _roleLocalService;
+	private UserLocalService _userLocalService;
 	private UserNotificationEventLocalService
 		_userNotificationEventLocalService;
 
