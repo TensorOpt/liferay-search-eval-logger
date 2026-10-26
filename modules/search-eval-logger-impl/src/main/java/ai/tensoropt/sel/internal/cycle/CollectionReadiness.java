@@ -19,15 +19,14 @@ import java.time.temporal.ChronoUnit;
 public final class CollectionReadiness {
 
 	/**
-	 * Whether the log has collected long enough and widely enough to be worth
-	 * exporting.
+	 * The date half of the readiness check of DESIGN.md 3.6: whether the log
+	 * has collected long enough to be worth exporting.
 	 *
 	 * <p>
-	 * Both thresholds are inclusive: a minimum of thirty days is met on the
-	 * thirtieth day, not the thirty-first. They are read from the
-	 * configuration, where an administrator who wants the notification sooner
-	 * can lower either, so an off-by-one here would quietly contradict the
-	 * number they typed.
+	 * The threshold is inclusive: a minimum of thirty days is met on the
+	 * thirtieth day, not the thirty-first. It is read from the configuration,
+	 * where an administrator who wants the notification sooner can lower it,
+	 * so an off-by-one here would quietly contradict the number they typed.
 	 * </p>
 	 *
 	 * <p>
@@ -37,22 +36,13 @@ public final class CollectionReadiness {
 	 * by however long the bypass lasted, and anchoring on the toggle would
 	 * announce a dataset that does not exist.
 	 * </p>
-	 */
-	public static boolean isReady(
-		CollectionCycle collectionCycle, LocalDate today, int minimumDays,
-		long eventCount, int minimumEvents) {
-
-		if (!hasCollectedLongEnough(collectionCycle, today, minimumDays)) {
-			return false;
-		}
-
-		return eventCount >= minimumEvents;
-	}
-
-	/**
-	 * The date half of {@link #isReady}, separate because it is the cheap half:
-	 * counting events costs a query, and there is no reason to run it on an
-	 * instance that started collecting yesterday.
+	 *
+	 * <p>
+	 * This is only the cheap half of the readiness check. Counting events
+	 * costs a query, so {@link CollectionCycleMonitor} runs that query, and
+	 * compares it against the minimum event count itself, only once this is
+	 * true.
+	 * </p>
 	 */
 	public static boolean hasCollectedLongEnough(
 		CollectionCycle collectionCycle, LocalDate today, int minimumDays) {

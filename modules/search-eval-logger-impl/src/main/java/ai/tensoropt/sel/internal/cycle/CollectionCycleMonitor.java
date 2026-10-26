@@ -142,10 +142,7 @@ public class CollectionCycleMonitor {
 				companyId,
 				_toDate(collectionCycle.getCollectionStartDate()));
 
-		if (!CollectionReadiness.isReady(
-				collectionCycle, today, minimumDays, eventCount,
-				minimumEvents)) {
-
+		if (eventCount < minimumEvents) {
 			return;
 		}
 

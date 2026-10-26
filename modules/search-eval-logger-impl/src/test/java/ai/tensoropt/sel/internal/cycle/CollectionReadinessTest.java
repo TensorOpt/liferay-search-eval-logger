@@ -22,61 +22,46 @@ import org.junit.jupiter.api.Test;
  */
 public class CollectionReadinessTest {
 
+	/**
+	 * The event count comparison itself is a plain {@code >=} now done at
+	 * {@code CollectionCycleMonitor}, which {@code CollectionCycleMonitorTest}
+	 * covers end to end (both met, event count short). What is pinned here is
+	 * {@link CollectionReadiness#hasCollectedLongEnough}, the date half this
+	 * class still owns.
+	 */
 	@Test
-	public void notReadyWhileNothingHasBeenCollected() {
+	public void notCollectedLongEnoughWithNoCollectionStartDate() {
 		assertFalse(
-			CollectionReadiness.isReady(
-				CollectionCycle.open(1L, 0, _OPENED), _TODAY, 30, 100000L,
-				500),
+			CollectionReadiness.hasCollectedLongEnough(
+				CollectionCycle.open(1L, 0, _OPENED), _TODAY, 30),
 			"A cycle with no collection start date has collected nothing, " +
 				"whatever else is true of it");
 	}
 
 	@Test
-	public void readyOnTheDayBothThresholdsAreMet() {
+	public void collectedLongEnoughOnTheDayTheThresholdIsMet() {
 		assertTrue(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY.minusDays(30)), _TODAY, 30, 500L, 500));
+			CollectionReadiness.hasCollectedLongEnough(
+				_cycleStartedOn(_TODAY.minusDays(30)), _TODAY, 30));
 	}
 
 	@Test
-	public void notReadyOnTheDayBeforeTheDayThreshold() {
+	public void notCollectedLongEnoughOnTheDayBeforeTheThreshold() {
 		assertFalse(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY.minusDays(29)), _TODAY, 30, 500L, 500));
-	}
-
-	@Test
-	public void notReadyOneEventShortOfTheEventThreshold() {
-		assertFalse(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY.minusDays(30)), _TODAY, 30, 499L, 500));
+			CollectionReadiness.hasCollectedLongEnough(
+				_cycleStartedOn(_TODAY.minusDays(29)), _TODAY, 30));
 	}
 
 	/**
-	 * Both conditions, not either. A log that has run for months but recorded
-	 * almost nothing is exactly the case 3.6's event threshold exists for.
+	 * A zero threshold means "collected long enough as soon as anything has
+	 * been collected", which is a legitimate setting on a busy instance and
+	 * must not be read as "never".
 	 */
 	@Test
-	public void bothThresholdsAreRequired() {
-		assertFalse(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY.minusDays(365)), _TODAY, 30, 12L, 500));
-		assertFalse(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY), _TODAY, 30, 1000000L, 500));
-	}
-
-	/**
-	 * Zero for both means "notify as soon as anything has been collected",
-	 * which is a legitimate setting on a busy instance and must not be read as
-	 * "never".
-	 */
-	@Test
-	public void zeroThresholdsAreMetOnTheFirstDay() {
+	public void aZeroThresholdIsMetOnTheFirstDay() {
 		assertTrue(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY), _TODAY, 0, 0L, 0));
+			CollectionReadiness.hasCollectedLongEnough(
+				_cycleStartedOn(_TODAY), _TODAY, 0));
 	}
 
 	/**
@@ -85,10 +70,10 @@ public class CollectionReadinessTest {
 	 * dataset that does not exist yet.
 	 */
 	@Test
-	public void aFutureStartDateIsNotReady() {
+	public void aFutureStartDateHasNotCollectedLongEnough() {
 		assertFalse(
-			CollectionReadiness.isReady(
-				_cycleStartedOn(_TODAY.plusDays(1)), _TODAY, 0, 1000L, 0));
+			CollectionReadiness.hasCollectedLongEnough(
+				_cycleStartedOn(_TODAY.plusDays(1)), _TODAY, 0));
 	}
 
 	@Test
