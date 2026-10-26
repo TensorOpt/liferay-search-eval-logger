@@ -7,6 +7,7 @@ from 6.2, the purge behaviour from 3.4, the funnel link shapes from 10.1 and
 10.3, the restart constraint from 3.1.
 """
 
+import html
 import io
 import json
 import os
@@ -1418,7 +1419,7 @@ def signup_banner(context, case):
 
     assert_true(match, "The signup banner's dismiss resource URL was not found")
 
-    dismiss_url = _unescape_html(match.group(1))
+    dismiss_url = html.unescape(match.group(1))
 
     case.note("dismiss URL: %s" % dismiss_url)
 
@@ -2659,7 +2660,7 @@ def _anchor_for(text, label):
         body = re.sub(r"<[^>]+>", " ", match.group(4))
 
         if label.lower() in " ".join(body.split()).lower():
-            return _unescape_html(match.group(2)), match.group(1) + match.group(3)
+            return html.unescape(match.group(2)), match.group(1) + match.group(3)
 
     return None, None
 
@@ -2809,7 +2810,7 @@ def zero_egress(context, case):
         pattern = r"<%s\b[^>]*?\b%s\s*=\s*[\"']([^\"']+)" % (element, attribute)
 
         for match in re.finditer(pattern, text, re.I | re.S):
-            url = _unescape_html(match.group(1).strip())
+            url = html.unescape(match.group(1).strip())
 
             if not url or url.lower().startswith(_INERT_SCHEMES):
                 continue
@@ -2856,28 +2857,18 @@ def _inside_anchor_href(text, position):
     return re.search(r'href\s*=\s*["\']?[^"\']*$', tag, re.I) is not None
 
 
-def visible_text(html):
+def visible_text(page_html):
     """The text a reader sees: no scripts, no styles, no tags, one space each.
 
     Used wherever an assertion is about what the page says rather than how it
     is marked up, so highlight markup inside a matched phrase cannot hide it.
     """
     without_scripts = re.sub(
-        r"<(script|style)\b.*?</\1>", " ", html, flags=re.I | re.S
+        r"<(script|style)\b.*?</\1>", " ", page_html, flags=re.I | re.S
     )
 
     return " ".join(
-        _unescape_html(re.sub(r"<[^>]+>", " ", without_scripts)).split()
-    )
-
-
-def _unescape_html(value):
-    return (
-        value.replace("&amp;", "&")
-        .replace("&quot;", '"')
-        .replace("&#034;", '"')
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
+        html.unescape(re.sub(r"<[^>]+>", " ", without_scripts)).split()
     )
 
 
