@@ -156,11 +156,12 @@ public final class SearchEvalExportReadmeBuilder {
 
 	private static final String _COHORT_HASH_SUFFIX =
 		" days and is never exported. Rows sharing a value within one " +
-			"rotation window are the same signed-in user; every guest row " +
-				"in a window shares one value, so guests cannot be told " +
-					"apart. Across windows, signed-in users are unrelated " +
-						"too. A single cohort cannot be followed across the " +
-							"whole range.\n\n";
+			"rotation window are the same signed-in user; guest rows " +
+				"share a value too, one per guest identity Liferay " +
+					"assigns, so guests cannot be told apart from one " +
+						"another. Across windows, signed-in users are " +
+							"unrelated too. A single cohort cannot be " +
+								"followed across the whole range.\n\n";
 
 	private static final String _CONTENTS =
 		"## Contents\n\n- `events.jsonl` - one JSON object per line: a " +
@@ -179,15 +180,20 @@ public final class SearchEvalExportReadmeBuilder {
 	private static final String _ADMISSION_COUNTERS =
 		"**The admission funnel is in the manifest.** Reading down " +
 			"`admission_counters`: `observed_search_count` is every search " +
-				"the collector saw, `keyword_search_count` those carrying " +
-					"user keywords, `admitted_search_count` those that " +
-						"passed every admission rule, then dispatched, " +
-							"dropped and persisted. The gap between the " +
-								"first two is internal Liferay traffic the " +
-									"collector ignores on purpose; the ratio " +
-										"tells you how narrow a slice of all " +
-											"search activity this dataset " +
-												"is.\n\n";
+				"the collector saw, `keyword_search_count` those that " +
+					"passed condition 1 (keywords, or facet selections " +
+						"when `admit_facet_only_searches` is on), " +
+							"`admitted_search_count` those that passed " +
+								"every admission rule, then dispatched, " +
+									"dropped and persisted. The gap between " +
+										"the first two is internal Liferay " +
+											"traffic the collector ignores " +
+												"on purpose; the ratio " +
+													"tells you how narrow a " +
+														"slice of all search " +
+															"activity this " +
+																"dataset " +
+																	"is.\n\n";
 
 	private static final String _DROP_COUNTS =
 		"**Those counters are process-wide.** They count since the plugin " +

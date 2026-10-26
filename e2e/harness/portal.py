@@ -717,7 +717,7 @@ def parse_admission_counters(html):
     """
     labels = {
         "observed": "Searches observed while enabled",
-        "keywords": "Searches carrying user keywords",
+        "keywords": "Searches passing condition 1 (keywords, or facet selections when enabled)",
         "admitted": "Searches admitted (all conditions)",
         "dispatched": "Events handed to the message bus",
         "dropped": "Events dropped",
