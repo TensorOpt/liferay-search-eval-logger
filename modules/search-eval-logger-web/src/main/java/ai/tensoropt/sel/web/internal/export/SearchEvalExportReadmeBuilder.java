@@ -154,9 +154,11 @@ public class SearchEvalExportReadmeBuilder {
 
 	private static final String _COHORT_HASH_SUFFIX =
 		" days and is never exported. Rows sharing a value within one " +
-			"rotation window are the same person; across windows they are " +
-				"unrelated. A single cohort cannot be followed across the " +
-					"whole range.\n\n";
+			"rotation window are the same signed-in user; every guest row " +
+				"in a window shares one value, so guests cannot be told " +
+					"apart. Across windows, signed-in users are unrelated " +
+						"too. A single cohort cannot be followed across the " +
+							"whole range.\n\n";
 
 	private static final String _CONTENTS =
 		"## Contents\n\n- `events.jsonl` - one JSON object per line: a " +
@@ -164,10 +166,12 @@ public class SearchEvalExportReadmeBuilder {
 				"(query, result[]) record.\n- `manifest.json` - the " +
 					"archive's `format_version` (the plugin's major.minor: " +
 						"exports with the same value share one layout), " +
-							"range, counts, plugin and Liferay versions, the " +
-								"collector's configuration at export time, " +
-									"admission counters and per-field " +
-										"coverage rates.\n- `README.md` - " +
+							"the company id, when it was exported, the " +
+								"range, counts, plugin and Liferay versions, " +
+									"the collector's configuration at export " +
+										"time, admission counters and " +
+											"per-field coverage " +
+												"rates.\n- `README.md` - " +
 											"this file.\n\n";
 
 	private static final String _ADMISSION_COUNTERS =
@@ -234,10 +238,13 @@ public class SearchEvalExportReadmeBuilder {
 
 	private static final String _INTERNAL_TRAFFIC =
 		"**Internal traffic was filtered out.** Liferay uses its search " +
-			"engine for administrative work as well as user search, so only " +
-				"searches carrying user keywords were recorded. The " +
-					"admission rules in force are recorded in " +
-						"`manifest.json`.\n\n";
+			"engine for administrative work as well as user search, so " +
+				"only searches carrying user keywords were recorded, " +
+					"unless `admit_facet_only_searches` was on, in which " +
+						"case a keyword-free search with facet selections " +
+							"was recorded too. The admission rules in " +
+								"force are recorded in " +
+									"`manifest.json`.\n\n";
 
 	private static final String _RANK_NUMBERING =
 		"**Ranks start at 1.** `rank` on each hit is the absolute rank " +
