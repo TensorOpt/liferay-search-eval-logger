@@ -24,6 +24,7 @@ alongside the unit tests rather than only before a release:
 import io
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -2659,6 +2660,72 @@ def check_stats_percentile_and_bootstrap():
         "a reversed interval (high quoted as the low end) is caught",
         lambda: _assert(low > high),
     )
+
+    # The two cases above do not discriminate two real mutations: the
+    # all-constant case collapses to one point regardless of which
+    # percentile tail bootstrap_ratio_ci reads or whether it resamples
+    # both sides, and the varying-samples case only checks that the point
+    # estimate falls somewhere inside the reported interval, which a wrong
+    # tail fraction or a side that is never actually resampled still
+    # satisfies more often than not. _reference_bootstrap_ratio_ci is an
+    # independent reimplementation of the same resampling loop (duplicated
+    # deliberately, not imported from stats, since reusing the function
+    # under test would make this comparison trivially true regardless of
+    # what stats.bootstrap_ratio_ci actually does); with the same seed and
+    # samples it must match exactly, not merely bracket.
+
+    both_sides_enabled = [0.060, 0.063, 0.066, 0.069, 0.072] * 6
+    both_sides_disabled = [0.050, 0.052, 0.054, 0.056, 0.058] * 6
+
+    expected_low, expected_high = _reference_bootstrap_ratio_ci(
+        both_sides_enabled, both_sides_disabled, resamples=200, seed=7,
+    )
+
+    expect_accepted(
+        "with both sides varying, the interval is non-degenerate (unlike "
+        "the all-constant case above)",
+        lambda: _assert(expected_low < expected_high),
+    )
+
+    expect_accepted(
+        "a seeded bootstrap with both sides varying matches an "
+        "independently recomputed interval exactly, not just loosely",
+        lambda: _assert(
+            stats.bootstrap_ratio_ci(
+                both_sides_enabled, both_sides_disabled,
+                resamples=200, seed=7,
+            )
+            == (expected_low, expected_high)
+        ),
+    )
+
+
+def _reference_bootstrap_ratio_ci(enabled_samples, disabled_samples, resamples, seed):
+    """An independent reimplementation of stats.bootstrap_ratio_ci's own
+    resampling loop: same algorithm (resample both sides every iteration,
+    the 2.5th/97.5th percentile of the resampled ratios), reusing only the
+    already separately covered primitives (median, ratio, percentile), not
+    the function this exists to check. A seeded run here is the expected
+    value check_stats_percentile_and_bootstrap compares the real function
+    against exactly, which catches either side quietly going unresampled
+    or the tail fraction drifting (say, to 0.95) in a way a loose bracket
+    check would not.
+    """
+    rng = random.Random(seed)
+
+    ratios = []
+
+    for _ in range(resamples):
+        enabled_resample = rng.choices(enabled_samples, k=len(enabled_samples))
+        disabled_resample = rng.choices(disabled_samples, k=len(disabled_samples))
+
+        ratios.append(
+            stats.ratio(
+                stats.median(enabled_resample), stats.median(disabled_resample)
+            )
+        )
+
+    return stats.percentile(ratios, 0.025), stats.percentile(ratios, 0.975)
 
 
 def check_package_pure_helpers_and_refusals():
