@@ -199,11 +199,12 @@ SPDX-License-Identifier: Apache-2.0
 	</div>
 
 	<%--
-	DESIGN.md 6 (TO-135): computed from the existing log only, on the server
-	when this screen renders, for the whole retention window (there is no
-	date picker here, unlike the export above; the retention purge already
-	bounds what the log holds). Nothing new is collected and nothing is sent
-	anywhere. Gated on "zeroResultPanel" being present, not directly on
+	DESIGN.md 6 (TO-135): computed from the existing log only, for the whole
+	retention window (there is no date picker here, unlike the export above;
+	the retention purge already bounds what the log holds), and cached for up
+	to an hour per virtual instance (ZeroResultPanelLoader), so this render
+	may show a figure computed on an earlier one. Nothing new is collected and
+	nothing is sent anywhere. Gated on "zeroResultPanel" being present, not directly on
 	hasExportPermission: the attribute is only ever set when the viewer holds
 	that permission (see SearchEvalLoggerPortlet#doView), so a viewer without
 	it still cannot reach this sheet's data by any route, not only by the
