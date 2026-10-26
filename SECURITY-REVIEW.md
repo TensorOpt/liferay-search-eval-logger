@@ -111,8 +111,10 @@ an array, not a single string joined across fields (`DESIGN.md` §4.4).
 context, plus `audienceType` (`GUEST`/`AUTHENTICATED`) (`DESIGN.md` §4.3).
 `cohortHash` is computed only for an `AUTHENTICATED` row; a `GUEST` row
 stores it as `null`, never as a hash of a non-existent user ID, since that
-would be one stable value every guest row shares forever rather than
-something salt rotation ever caps.
+would be one value every guest row shares within the current rotation
+window — still rotating out between windows, not a value fixed forever —
+and is a single shared pseudonymous identifier for no partitioning benefit
+at all, given guests already share one permission set.
 **The salt rotates on a configurable schedule, weekly by default**
 (`CohortSaltRegistry`), held in memory only and never exported; superseded
 salts are discarded, which caps how long a `cohortHash` stays linkable to one
