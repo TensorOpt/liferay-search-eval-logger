@@ -25,46 +25,19 @@ import org.junit.jupiter.api.Test;
 public class EvaluationServiceLinksTest {
 
 	@Test
-	public void bothLinksAreHiddenWhenTheSettingIsOff() {
-		assertFalse(
-			EvaluationServiceLinks.isCollectionStartLinkVisible(
-				false, true, _COLLECTION_START_DATE));
+	public void theExportCompleteLinkIsHiddenWhenTheSettingIsOff() {
 		assertFalse(
 			EvaluationServiceLinks.isExportCompleteLinkVisible(false, true));
 	}
 
 	/**
-	 * 10.1: shown only once a collection start date exists, which means an
-	 * event has actually been persisted.
+	 * TO-112: the signup banner is shown only when the setting is on,
+	 * interception is not bypassed (3.1, which would schedule a reminder
+	 * against a dataset that will never exist), and a collection start date
+	 * exists, meaning an event has actually been persisted.
 	 */
 	@Test
-	public void theCollectionStartLinkNeedsACollectionStartDate() {
-		assertFalse(
-			EvaluationServiceLinks.isCollectionStartLinkVisible(
-				true, true, null));
-		assertTrue(
-			EvaluationServiceLinks.isCollectionStartLinkVisible(
-				true, true, _COLLECTION_START_DATE));
-	}
-
-	/**
-	 * 10.1: hidden while the bypass warning of 3.1 is active. Offering it
-	 * there would schedule a reminder against a dataset that will never
-	 * exist.
-	 */
-	@Test
-	public void theCollectionStartLinkIsHiddenWhileInterceptionIsBypassed() {
-		assertFalse(
-			EvaluationServiceLinks.isCollectionStartLinkVisible(
-				true, false, _COLLECTION_START_DATE));
-	}
-
-	/**
-	 * TO-112: the signup banner follows the same base rule as the link it
-	 * replaces.
-	 */
-	@Test
-	public void theSignupBannerNeedsTheSameConditionsAsTheLinkItReplaces() {
+	public void theSignupBannerNeedsEveryBaseCondition() {
 		assertFalse(
 			EvaluationServiceLinks.isSignupBannerVisible(
 				false, true, _COLLECTION_START_DATE, false));

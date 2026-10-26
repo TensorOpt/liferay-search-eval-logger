@@ -5,8 +5,6 @@
 package ai.tensoropt.sel.web.internal.security.permission.resource;
 
 import com.liferay.portal.kernel.exception.PortalException;
-import com.liferay.portal.kernel.model.Layout;
-import com.liferay.portal.kernel.security.permission.PermissionChecker;
 import com.liferay.portal.kernel.service.permission.PortletPermissionUtil;
 import com.liferay.portal.kernel.theme.ThemeDisplay;
 
@@ -28,15 +26,6 @@ import ai.tensoropt.sel.web.internal.constants.SearchEvalLoggerPortletKeys;
  */
 public class SearchEvalLoggerPortletPermission {
 
-	public static boolean contains(
-			PermissionChecker permissionChecker, Layout layout, String actionId)
-		throws PortalException {
-
-		return PortletPermissionUtil.contains(
-			permissionChecker, layout, SearchEvalLoggerPortletKeys.PORTLET_NAME,
-			actionId);
-	}
-
 	public static boolean contains(ThemeDisplay themeDisplay, String actionId)
 		throws PortalException {
 
@@ -44,9 +33,9 @@ public class SearchEvalLoggerPortletPermission {
 			return false;
 		}
 
-		return contains(
+		return PortletPermissionUtil.contains(
 			themeDisplay.getPermissionChecker(), themeDisplay.getLayout(),
-			actionId);
+			SearchEvalLoggerPortletKeys.PORTLET_NAME, actionId);
 	}
 
 	private SearchEvalLoggerPortletPermission() {
