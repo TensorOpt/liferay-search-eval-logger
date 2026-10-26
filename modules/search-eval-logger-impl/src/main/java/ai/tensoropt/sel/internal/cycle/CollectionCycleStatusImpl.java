@@ -15,11 +15,13 @@ import ai.tensoropt.sel.internal.configuration.SearchEvalLoggerConfigurationRegi
 import ai.tensoropt.sel.internal.notifications.CollectionNotifier;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
 import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -74,8 +76,13 @@ import org.osgi.service.component.annotations.Reference;
  * happens as one step with respect to every other caller for that company.
  * <b>One exception (D14):</b> {@link #_recordCollectionStart} releases the
  * lock before actually sending the collection-started notification, so that
- * a slow send cannot make {@link #dismiss}, or any other caller, wait on it;
- * see that method's own comment for why this is still race-free.
+ * a slow send cannot make {@link #dismiss}, or any other caller, wait on it.
+ * Releasing the lock opens a gap a disable and re-enable can land in, which a
+ * naive re-check of {@link CollectionCycle#isOpen()} alone cannot see through:
+ * both the cycle the notification was computed for and the one that replaced
+ * it are open. {@link #_recordCollectionStartedNotified} closes that gap by
+ * also comparing <code>cycleOpenedDate</code>, captured under the same lock
+ * that decided to send; see that method's own comment for the mechanism.
  * </p>
  *
  * <p>
@@ -296,9 +303,11 @@ public class CollectionCycleStatusImpl
 	 * <code>collectionStartDate</code> already set,
 	 * <code>collectionStartedNotifiedDate</code> still unset. Without this
 	 * distinction, that later event would read the unset marker as "just
-	 * started" and send "collection started, confirming the restart worked" a
-	 * second time, for a restart that already happened and was already
-	 * reported. <code>justStarted</code> is <code>true</code> only when the
+	 * started" and send the collection-started notification a second time,
+	 * for a cycle that already started and was already reported, whatever
+	 * let it start: a restart that let a bypassed consumer rebind, an
+	 * ordinary enable, or a cycle reopened by a disable and re-enable.
+	 * <code>justStarted</code> is <code>true</code> only when the
 	 * branch above actually transitioned the date from unset to set in this
 	 * very call; any other call finding the marker unset records it silently
 	 * instead, without sending again.
@@ -325,7 +334,11 @@ public class CollectionCycleStatusImpl
 	 * before the lock is released: <code>shouldSend</code> is computed and
 	 * captured into a local variable while still inside the locked region, so
 	 * releasing the lock before sending cannot let a second thread decide to
-	 * send a second time for the same transition.
+	 * send a second time for the same transition. That gap can still let a
+	 * disable and re-enable replace the cycle this decision was made for
+	 * before {@link #_recordCollectionStartedNotified} runs; see that
+	 * method's own comment (D14) for how it tells the replaced cycle apart
+	 * from the one it was asked to mark.
 	 * </p>
 	 *
 	 * <p>
@@ -335,7 +348,7 @@ public class CollectionCycleStatusImpl
 	 * <code>collectionStartDate</code> set and <code>collectionStartedNotifiedDate</code>
 	 * still unset, exactly the state the comment above this method already
 	 * describes for a plain transient store failure. The very next event
-	 * persisted after a restart reads that state the same way: <code>
+	 * persisted in the same cycle reads that state the same way: <code>
 	 * isCollectionStarted()</code> is already true, so <code>justStarted</code>
 	 * is <code>false</code>, so <code>shouldSend</code> is <code>false</code>
 	 * - it records the marker silently rather than sending again. The window
@@ -349,6 +362,7 @@ public class CollectionCycleStatusImpl
 		boolean shouldSend = false;
 		LocalDate collectionStartDate = null;
 		long enabledByUserId = 0;
+		Instant cycleOpenedDate = null;
 
 		synchronized (_lockFor(companyId)) {
 			CollectionCycle collectionCycle = _collectionCycleStore.get(
@@ -403,6 +417,7 @@ public class CollectionCycleStatusImpl
 				shouldSend = justStarted;
 				collectionStartDate = collectionCycle.getCollectionStartDate();
 				enabledByUserId = collectionCycle.getEnabledByUserId();
+				cycleOpenedDate = collectionCycle.getCycleOpenedDate();
 
 				if (!shouldSend && _log.isInfoEnabled()) {
 					_log.info(
@@ -410,7 +425,7 @@ public class CollectionCycleStatusImpl
 							" was already recorded by an earlier call; " +
 								"recording collectionStartedNotifiedDate " +
 									"without sending a second notification " +
-										"for the same restart");
+										"for the same cycle");
 				}
 			}
 		}
@@ -430,7 +445,7 @@ public class CollectionCycleStatusImpl
 			}
 
 			if (!_recordCollectionStartedNotified(
-					companyId, collectionStartDate)) {
+					companyId, collectionStartDate, cycleOpenedDate)) {
 
 				return;
 			}
@@ -440,28 +455,54 @@ public class CollectionCycleStatusImpl
 	}
 
 	/**
-	 * Its own read-modify-write, inside the lock {@link
-	 * #_recordCollectionStart} already holds (re-entrant on the same
-	 * company's lock object), rather than reusing that method's in-memory
-	 * <code>collectionCycle</code>: the notification attempt above may have
-	 * taken long enough that reusing a stale snapshot here could overwrite a
-	 * concurrent change to an unrelated field on this same cycle.
+	 * Its own read-modify-write, under a fresh acquisition of the same
+	 * per-company lock, <b>not</b> one {@link #_recordCollectionStart} still
+	 * holds: by the time this runs, that method has already released its own
+	 * lock and, when <code>shouldSend</code> was true, attempted the
+	 * notification send outside it (D14). Re-reading the cycle here, rather
+	 * than reusing that method's in-memory <code>collectionCycle</code>, is
+	 * what makes that safe: the notification attempt may have taken long
+	 * enough that a stale snapshot could overwrite a concurrent change to an
+	 * unrelated field on this same cycle.
+	 *
+	 * <p>
+	 * <b>D14, the cross-cycle race this guards against.</b> The gap between
+	 * releasing the lock in {@link #_recordCollectionStart} and this method
+	 * reacquiring it is exactly when a disable and a re-enable can land: a
+	 * close clears the cycle this notification was computed for, and the
+	 * reopen starts a new one with its own, later <code>cycleOpenedDate</code>
+	 * but no <code>collectionStartDate</code> of its own yet. Checking only
+	 * {@link CollectionCycle#isOpen()} cannot tell those two cycles apart,
+	 * since the new one is open too; stamping
+	 * <code>collectionStartedNotifiedDate</code> onto it regardless would
+	 * mark the new cycle as already notified before its own first event ever
+	 * arrives, so that event would never send its own, genuine notification.
+	 * <code>cycleOpenedDate</code> is captured by {@link
+	 * #_recordCollectionStart} under the same lock that decided to notify, so
+	 * comparing it here against the live record tells the two cycles apart:
+	 * a mismatch means the cycle has moved on, and is treated the same as a
+	 * cycle found closed below, nothing left to do for the notification this
+	 * call was sent for.
+	 * </p>
 	 *
 	 * <p>
 	 * Returns whether the marker is now durably recorded, so {@link
 	 * #_recordCollectionStart} can decide whether to arm {@link #_confirm}: a
-	 * cycle found already closed counts as nothing left to do (returns
-	 * <code>true</code>) rather than as a failure to retry forever.
+	 * cycle found closed, or reopened since, counts as nothing left to do
+	 * (returns <code>true</code>) rather than as a failure to retry forever.
 	 * </p>
 	 */
 	private boolean _recordCollectionStartedNotified(
-		long companyId, LocalDate date) {
+		long companyId, LocalDate date, Instant cycleOpenedDate) {
 
 		synchronized (_lockFor(companyId)) {
 			CollectionCycle collectionCycle = _collectionCycleStore.get(
 				companyId);
 
-			if (!collectionCycle.isOpen()) {
+			if (!collectionCycle.isOpen() ||
+				!Objects.equals(
+					collectionCycle.getCycleOpenedDate(), cycleOpenedDate)) {
+
 				return true;
 			}
 
