@@ -406,12 +406,13 @@ public class SearchEventLocalServiceImpl extends SearchEventLocalServiceBaseImpl
 	private static final int _FETCH_SIZE = 1000;
 
 	/**
-	 * The zero-result panel's two queries run on every render of the export
-	 * screen, which did not touch SEL_SearchEvent before them. Without a
-	 * timeout, anything holding an exclusive lock on the table (a schema
-	 * change, the e2e suite's queue-overflow case) froze the whole screen.
-	 * On a timeout the driver throws, and ZeroResultPanelLoader leaves the
-	 * panel out while the rest of the screen renders.
+	 * The zero-result panel's two queries run on each cache miss
+	 * (ZeroResultPanelLoader caches a computed panel for an hour per virtual
+	 * instance), on a table the export screen did not otherwise touch.
+	 * Without a timeout, anything holding an exclusive lock on the table (a
+	 * schema change, the e2e suite's queue-overflow case) froze the whole
+	 * screen. On a timeout the driver throws, and ZeroResultPanelLoader
+	 * leaves the panel out while the rest of the screen renders.
 	 */
 	private static final int _PANEL_QUERY_TIMEOUT_SECONDS = 10;
 

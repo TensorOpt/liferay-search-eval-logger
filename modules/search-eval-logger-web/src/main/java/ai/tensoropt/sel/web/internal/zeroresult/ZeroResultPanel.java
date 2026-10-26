@@ -16,8 +16,9 @@ import java.util.Map;
  * audience, and the most frequent zero-result queries.
  *
  * <p>
- * Built once per render from two aggregates {@link ZeroResultPanelLoader}
- * reads: a SQL <code>group by audienceType</code>
+ * Built, on a cache miss, from two aggregates {@link ZeroResultPanelLoader}
+ * reads and caches for an hour per virtual instance: a SQL
+ * <code>group by audienceType</code>
  * (<code>SearchEventLocalService#getFirstPageSearchCountsByAudienceType</code>),
  * and a map of normalized query text to count that the loader itself builds
  * by streaming raw rows

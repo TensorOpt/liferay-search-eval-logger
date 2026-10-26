@@ -84,11 +84,11 @@ public class EmailDeliveryImpl implements EmailDelivery {
 	}
 
 	/**
-	 * The portal's own configured "from" address (Control Panel &gt; General
-	 * Configuration &gt; Mail Notifications), the same source Liferay's own
-	 * system emails use. Never the installing administrator's own address:
-	 * this is mail the portal sends to its own users, not mail attributed to
-	 * a person.
+	 * The portal's own configured "from" address (Instance Settings &gt;
+	 * Email &gt; Email Sender, per company; falls back to the portal
+	 * property), the same source Liferay's own system emails use. Never the
+	 * installing administrator's own address: this is mail the portal sends
+	 * to its own users, not mail attributed to a person.
 	 */
 	private InternetAddress _from(long companyId) throws Exception {
 		return new InternetAddress(
