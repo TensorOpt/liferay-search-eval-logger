@@ -387,7 +387,11 @@ public class CollectionNotifierTest {
 		).send(
 			eq(1L), any(InternetAddress.class), anyString(), anyString()
 		);
-		verify(_language, atLeastOnce()).get(any(ResourceBundle.class), anyString());
+		verify(
+			_language, atLeastOnce()
+		).get(
+			any(ResourceBundle.class), anyString()
+		);
 	}
 
 	/**
