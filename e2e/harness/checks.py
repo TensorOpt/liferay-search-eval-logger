@@ -165,7 +165,7 @@ STALL_NOTIFICATION_TEXT = "Restart the portal to begin collecting."
 READINESS_NOTIFICATION_TEXT = "Open Search Eval Export to produce the archive."
 
 COLLECTION_STARTED_NOTIFICATION_TEXT = (
-    "confirming that the restart after installation worked"
+    "interception is in place and the first search was recorded"
 )
 
 # Keys that would satisfy the shape checks while carrying nothing. A file whose

@@ -1256,9 +1256,10 @@ You do not have any notifications. </div></div>
 NOTIFICATIONS_LISTED = """
 <div id="p_p_id_com_liferay_notifications_web_portlet_NotificationsPortlet_">
 <div class="portlet-body"> Notifications List (1) <script>var x = 1;</script>
-<p>Logging is switched on but nothing is being recorded, because
-Liferay&#39;s search components bound their searcher before this plugin was
-installed. <strong>Restart the portal to begin collecting.</strong></p>
+<p>Logging is switched on but nothing is being recorded: the automatic
+rebind of the search widgets and search bar suggestions onto this plugin
+did not succeed, so they are still bound to the portal&#39;s own search
+service. <strong>Restart the portal to begin collecting.</strong></p>
 </div></div>
 """
 
