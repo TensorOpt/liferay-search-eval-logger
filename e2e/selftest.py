@@ -1561,7 +1561,9 @@ def check_log_clean():
         "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
         "CxfJaxrsServiceRegistrator.rewire(CxfJaxrsServiceRegistrator.java:354)\n"
         "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
-        "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator.java:106)\n"
+        "CxfJaxrsServiceRegistrator.remove(CxfJaxrsServiceRegistrator.java:339)\n"
+        "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+        "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator.java:109)\n"
         "Caused by: java.lang.NullPointerException: Cannot invoke "
         "\"Object.getClass()\" because \"resource\" is null\n"
         "\tat com.liferay.portal.vulcan.internal.jaxrs.writer.interceptor."
@@ -1604,12 +1606,26 @@ def check_log_clean():
             clean + whiteboard_error.replace(
                 "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
                 "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator."
-                "java:106)\n",
+                "java:109)\n",
                 "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
                 "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator."
-                "java:106)\n"
+                "java:109)\n"
                 "\tat ai.tensoropt.sel.internal.searcher.LoggingSearcher.search"
                 "(LoggingSearcher.java:90)\n",
+            ),
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
+    expect_rejected(
+        "the same vulcan cause without the rewire frame",
+        lambda: checks.assert_log_clean(
+            clean + whiteboard_error.replace(
+                "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+                "CxfJaxrsServiceRegistrator.rewire(CxfJaxrsServiceRegistrator."
+                "java:354)\n",
+                "",
             ),
             "uninstalling",
             tolerated=checks.UNINSTALL_TOLERATED,
