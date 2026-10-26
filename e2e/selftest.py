@@ -1542,6 +1542,80 @@ def check_log_clean():
         ),
     )
 
+    # TO-144: the CI signature that UNINSTALL_TOLERATED's AopServiceManager
+    # rule does not cover, trimmed from
+    # build/gitlab/e2e/results/mysql-mariadb-driver/logs/sel-e2e-liferay.log
+    # (mysql-mariadb-driver, dxp-2025.q1, 2026-10-26 06:34:03). Aries' own
+    # Whiteboard logger, not Equinox's FrameworkEvent dispatcher, reports
+    # CxfJaxrsServiceRegistrator.rewire failing on Liferay's vulcan NPE, with
+    # no "FrameworkEvent" marker on the line at all.
+    whiteboard_error = (
+        "2026-10-26 06:34:03.084 ERROR [SystemExecutorServiceUtil-8]"
+        "[Whiteboard:80] ServiceReference CachingServiceReference "
+        "{...AccountResource...} for endpoint produced error: {} [Sanitized]\n"
+        "org.apache.cxf.service.factory.ServiceConstructionException: null\n"
+        "\tat org.apache.cxf.jaxrs.JAXRSServerFactoryBean.create"
+        "(JAXRSServerFactoryBean.java:220)\n"
+        "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+        "CxfJaxrsServiceRegistrator.doRewire(CxfJaxrsServiceRegistrator.java:533)\n"
+        "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+        "CxfJaxrsServiceRegistrator.rewire(CxfJaxrsServiceRegistrator.java:354)\n"
+        "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+        "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator.java:106)\n"
+        "Caused by: java.lang.NullPointerException: Cannot invoke "
+        "\"Object.getClass()\" because \"resource\" is null\n"
+        "\tat com.liferay.portal.vulcan.internal.jaxrs.writer.interceptor."
+        "NestedFieldsWriterInterceptor$NestedFieldServiceTrackerCustomizer."
+        "addingService(NestedFieldsWriterInterceptor.java:149)\n"
+        "2026-10-26 06:34:03.114 WARN  [Framework Event Dispatcher: Equinox "
+        "Container: 85df][Framework:53] FrameworkEvent WARNING\n"
+    )
+
+    expect_accepted(
+        "the exact CI Whiteboard/vulcan signature",
+        lambda: checks.assert_log_clean(
+            clean + whiteboard_error,
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
+    expect_rejected(
+        "the same Whiteboard line without the vulcan cause",
+        lambda: checks.assert_log_clean(
+            clean + whiteboard_error.replace(
+                "Caused by: java.lang.NullPointerException: Cannot invoke "
+                "\"Object.getClass()\" because \"resource\" is null\n"
+                "\tat com.liferay.portal.vulcan.internal.jaxrs.writer.interceptor."
+                "NestedFieldsWriterInterceptor$NestedFieldServiceTrackerCustomizer."
+                "addingService(NestedFieldsWriterInterceptor.java:149)\n",
+                "Caused by: java.lang.IllegalStateException: something else "
+                "entirely\n",
+            ),
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
+    expect_rejected(
+        "the same Whiteboard/vulcan signature with this plugin's code in "
+        "the trace",
+        lambda: checks.assert_log_clean(
+            clean + whiteboard_error.replace(
+                "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+                "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator."
+                "java:106)\n",
+                "\tat org.apache.aries.jax.rs.whiteboard.internal.cxf."
+                "CxfJaxrsServiceRegistrator.add(CxfJaxrsServiceRegistrator."
+                "java:106)\n"
+                "\tat ai.tensoropt.sel.internal.searcher.LoggingSearcher.search"
+                "(LoggingSearcher.java:90)\n",
+            ),
+            "uninstalling",
+            tolerated=checks.UNINSTALL_TOLERATED,
+        ),
+    )
+
 def check_format_version():
     """TO-122: the archive format is named by the plugin's major.minor."""
     expect_accepted(
