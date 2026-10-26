@@ -373,9 +373,11 @@ plugin's own code:
   activation and, separately, Liferay's own vulcan NPE further down the same
   cascade have both been seen). Of the 50 `FrameworkEvent ERROR` entries seen
   in the CI log, 49 carried both `AopServiceManager` and the vulcan NPE in
-  their own trace, and the fiftieth was `ObjectDefinitionDeployerImpl`'s own
-  `ComponentException`, so the rule names the cascade rather than each
-  victim.
+  their own trace; the fiftieth, `ObjectDefinitionDeployerImpl`'s own
+  `ComponentException`, carried no vulcan NPE, but its trace still carried
+  `AopServiceManager` (registering the component whose activation then
+  failed), which is the only reason the rule tolerated it too, and is also
+  why the rule names the cascade rather than each victim.
 - Aries' own Whiteboard logger, not Equinox's `FrameworkEvent` dispatcher,
   reporting `CxfJaxrsServiceRegistrator.rewire` failing on that same vulcan
   NPE (`NestedFieldsWriterInterceptor` seeing a null prototype-scoped
