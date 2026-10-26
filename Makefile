@@ -11,7 +11,10 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 
-MODULES := search-eval-logger-api search-eval-logger-service search-eval-logger-impl search-eval-logger-web
+# Derived from the modules/ directory itself, rather than a hand kept copy of
+# its four names: e2e/run_e2e.py's own MODULES is the Python side of the same
+# idea, from the same directory.
+MODULES := $(notdir $(wildcard modules/search-eval-logger-*))
 
 LINE := $(shell sed -nE 's/^liferay\.workspace\.product=(dxp-[0-9]{4}\.q[0-9])\..*/\1/p' gradle.properties)
 # The release version is the bundles' own Bundle-Version, never a parameter:
