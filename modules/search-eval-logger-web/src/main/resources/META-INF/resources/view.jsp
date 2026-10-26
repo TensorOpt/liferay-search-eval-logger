@@ -270,6 +270,12 @@ SPDX-License-Identifier: Apache-2.0
 						<p class="text-muted small mb-0">
 							<liferay-ui:message key="zero-result-grouping-note" />
 						</p>
+
+						<c:if test="${zeroResultPanel.topQueriesApproximate}">
+							<p class="text-muted small mb-0">
+								<liferay-ui:message key="zero-result-approximate-note" />
+							</p>
+						</c:if>
 					</c:if>
 				</c:otherwise>
 			</c:choose>

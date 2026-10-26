@@ -10,9 +10,6 @@ import com.liferay.portal.kernel.cache.PortalCache;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Builds the zero-result panel (DESIGN.md 6, TO-135) from
  * {@code SearchEventLocalService}, with nothing allowed to escape and take
@@ -76,18 +73,19 @@ public final class ZeroResultPanelLoader {
 		SearchEventLocalService searchEventLocalService, long companyId) {
 
 		try {
-			Map<String, Long> zeroResultQueryCounts = new HashMap<>();
+			ZeroResultQueryCounts zeroResultQueryCounts =
+				new ZeroResultQueryCounts();
 
 			searchEventLocalService.forEachZeroResultFirstPageQuery(
 				companyId,
-				queryText -> zeroResultQueryCounts.merge(
-					ZeroResultQueryNormalizer.normalize(queryText), 1L,
-					Long::sum));
+				queryText -> zeroResultQueryCounts.add(
+					ZeroResultQueryNormalizer.normalize(queryText)));
 
 			return ZeroResultPanel.build(
 				searchEventLocalService.
 					getFirstPageSearchCountsByAudienceType(companyId),
-				zeroResultQueryCounts);
+				zeroResultQueryCounts.getCounts(),
+				zeroResultQueryCounts.isDistinctQueryCapHit());
 		}
 		catch (Exception exception) {
 			if (_log.isWarnEnabled()) {

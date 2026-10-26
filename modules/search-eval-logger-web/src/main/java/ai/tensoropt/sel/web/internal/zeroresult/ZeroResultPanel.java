@@ -55,6 +55,24 @@ public class ZeroResultPanel {
 		Map<String, long[]> firstPageSearchCountsByAudienceType,
 		Map<String, Long> normalizedZeroResultFirstPageQueryCounts) {
 
+		return build(
+			firstPageSearchCountsByAudienceType,
+			normalizedZeroResultFirstPageQueryCounts, false);
+	}
+
+	/**
+	 * @param topQueriesApproximate whether {@link ZeroResultQueryCounts}
+	 *        dropped at least one distinct normalized query because its
+	 *        10,000-entry cap was already reached (DESIGN.md 6.3); the top
+	 *        20 may then be missing a query that would otherwise have
+	 *        placed, though an already-counted query is never undercounted
+	 *        by it
+	 */
+	public static ZeroResultPanel build(
+		Map<String, long[]> firstPageSearchCountsByAudienceType,
+		Map<String, Long> normalizedZeroResultFirstPageQueryCounts,
+		boolean topQueriesApproximate) {
+
 		long overallSearches = 0;
 		long overallZeroResultSearches = 0;
 
@@ -86,7 +104,7 @@ public class ZeroResultPanel {
 		return new ZeroResultPanel(
 			overallSearches, overallZeroResultSearches, guestCounts[0],
 			guestCounts[1], signedInCounts[0], signedInCounts[1],
-			topQueries);
+			topQueries, topQueriesApproximate);
 	}
 
 	/**
@@ -129,6 +147,17 @@ public class ZeroResultPanel {
 	}
 
 	/**
+	 * Whether the top-20 table may be missing a query: DESIGN.md 6.3's
+	 * 10,000-entry cap on distinct normalized zero-result queries was
+	 * reached while this panel was computed. The audience rate figures are
+	 * never affected, since they come from a separate SQL aggregate, not
+	 * from the capped map this flag describes.
+	 */
+	public boolean isTopQueriesApproximate() {
+		return _topQueriesApproximate;
+	}
+
+	/**
 	 * The log held nothing to compute a rate from at all. Distinct from "no
 	 * zero-result searches", which still has a rate to show (0 (0.0%)).
 	 *
@@ -153,7 +182,7 @@ public class ZeroResultPanel {
 		long overallSearches, long overallZeroResultSearches,
 		long guestSearches, long guestZeroResultSearches,
 		long signedInSearches, long signedInZeroResultSearches,
-		List<ZeroResultQuery> topQueries) {
+		List<ZeroResultQuery> topQueries, boolean topQueriesApproximate) {
 
 		_overallSearches = overallSearches;
 		_overallZeroResultSearches = overallZeroResultSearches;
@@ -162,6 +191,7 @@ public class ZeroResultPanel {
 		_signedInSearches = signedInSearches;
 		_signedInZeroResultSearches = signedInZeroResultSearches;
 		_topQueries = topQueries;
+		_topQueriesApproximate = topQueriesApproximate;
 	}
 
 	private static final long[] _NO_COUNTS = {0, 0};
@@ -178,5 +208,6 @@ public class ZeroResultPanel {
 	private final long _signedInSearches;
 	private final long _signedInZeroResultSearches;
 	private final List<ZeroResultQuery> _topQueries;
+	private final boolean _topQueriesApproximate;
 
 }

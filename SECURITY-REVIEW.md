@@ -198,7 +198,13 @@ administrator's own Control Panel page as HTML, which an export's downloaded
 JSON file never does. The JSP renders each query through `<c:out>`
 (`view.jsp`), which HTML-escapes it, so a query such as
 `<img src=x onerror=...>` renders as literal, inert text rather than running
-as markup in the viewing administrator's session. The panel is also built,
+as markup in the viewing administrator's session. Because a query is
+guest-controlled input, the panel also bounds how much of it it will hold in
+memory at once: at most 10,000 distinct normalized zero-result queries
+(`ZeroResultQueryCounts`, D11), so an attacker submitting an unbounded
+variety of distinct search strings cannot grow this computation's memory
+without limit; past that cap the top-20 table is marked approximate rather
+than silently dropping rows without saying so. The panel is also built,
 and present as a request attribute, only for a viewer who holds the
 permission (`SearchEvalLoggerPortlet#doView`, delegating to
 `ZeroResultPanelLoader`); checked by `export-permission-refused`. Checked by
