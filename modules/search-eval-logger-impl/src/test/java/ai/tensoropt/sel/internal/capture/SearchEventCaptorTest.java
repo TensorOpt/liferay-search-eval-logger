@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,12 +31,14 @@ import com.liferay.portal.search.hits.SearchHits;
 import com.liferay.portal.search.searcher.SearchRequest;
 import com.liferay.portal.search.searcher.SearchResponse;
 
+import ai.tensoropt.sel.api.FacetCaptureStatus;
 import ai.tensoropt.sel.api.SourceType;
 import ai.tensoropt.sel.configuration.SearchEvalLoggerConfiguration;
 import ai.tensoropt.sel.internal.TestInjection;
 import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -542,6 +545,580 @@ public class SearchEventCaptorTest {
 		verify(_language, never()).getCompanyAvailableLocales(anyLong());
 	}
 
+	/**
+	 * F2-7: capture depth is min(K, hits returned) (D4), never more than
+	 * either side offers.
+	 */
+	@Test
+	public void captureDepthBoundsHowManyOfTheHitsAreCaptured() {
+		assertEquals(2, _captureHits(3, 2).getHits().size());
+		assertEquals(0, _captureHits(3, 0).getHits().size());
+		assertEquals(3, _captureHits(3, 10).getHits().size());
+	}
+
+	/**
+	 * A negative captureDepth is clamped to zero rather than throwing or
+	 * being read as "no limit".
+	 */
+	@Test
+	public void aNegativeCaptureDepthCapturesNothing() {
+		assertEquals(0, _captureHits(3, -5).getHits().size());
+	}
+
+	@Test
+	public void queryTextExactlyAtTheCapIsNotTruncated() {
+		when(_configuration.queryTextCap()).thenReturn(10);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("0123456789");
+
+		CapturedSearchEvent capturedSearchEvent = _captureQuery(searchContext);
+
+		assertEquals("0123456789", capturedSearchEvent.getQueryText());
+		assertFalse(capturedSearchEvent.isQueryTruncated());
+	}
+
+	@Test
+	public void queryTextOneOverTheCapIsTruncatedAndFlagged() {
+		when(_configuration.queryTextCap()).thenReturn(10);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("01234567890");
+
+		CapturedSearchEvent capturedSearchEvent = _captureQuery(searchContext);
+
+		assertEquals("0123456789", capturedSearchEvent.getQueryText());
+		assertTrue(capturedSearchEvent.isQueryTruncated());
+	}
+
+	/**
+	 * The configured cap is itself clamped to the column width, so a
+	 * configuration asking for more than the column can hold still
+	 * produces a row that fits rather than a SQL error.
+	 */
+	@Test
+	public void aQueryTextCapAboveTheColumnWidthIsClampedToIt() {
+		when(_configuration.queryTextCap()).thenReturn(5000);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("x".repeat(2500));
+
+		CapturedSearchEvent capturedSearchEvent = _captureQuery(searchContext);
+
+		assertEquals(2000, capturedSearchEvent.getQueryText().length());
+		assertTrue(capturedSearchEvent.isQueryTruncated());
+	}
+
+	/**
+	 * A configured cap of zero or less is clamped to one rather than
+	 * capturing nothing at all.
+	 */
+	@Test
+	public void aQueryTextCapOfZeroIsClampedToOne() {
+		when(_configuration.queryTextCap()).thenReturn(0);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		CapturedSearchEvent capturedSearchEvent = _captureQuery(searchContext);
+
+		assertEquals("a", capturedSearchEvent.getQueryText());
+		assertTrue(capturedSearchEvent.isQueryTruncated());
+	}
+
+	@Test
+	public void queryTextIsTrimmedBeforeTheCapIsApplied() {
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("  annual leave  ");
+
+		CapturedSearchEvent capturedSearchEvent = _captureQuery(searchContext);
+
+		assertEquals("annual leave", capturedSearchEvent.getQueryText());
+	}
+
+	@Test
+	public void aNullHitListCapturesNoHitsWithoutThrowing() {
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(null);
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		assertTrue(capturedSearchEvent.getHits().isEmpty());
+	}
+
+	/**
+	 * A null element in the hits list is skipped, and the real hit after
+	 * it keeps the rank its own position earns, rather than being
+	 * renumbered as though the null were not there.
+	 */
+	@Test
+	public void aNullHitElementIsSkippedWithAbsoluteRanksPreserved() {
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		Document document = mock(Document.class);
+
+		when(document.getString(anyString())).thenReturn(null);
+
+		SearchHit realHit = mock(SearchHit.class);
+
+		when(realHit.getDocument()).thenReturn(document);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(
+			searchHits.getSearchHits()
+		).thenReturn(
+			Arrays.asList(null, realHit)
+		);
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		assertEquals(1, capturedSearchEvent.getHits().size());
+		assertEquals(2, _firstHit(capturedSearchEvent).getRank());
+	}
+
+	/**
+	 * A hit with no document at all still carries its rank and score;
+	 * every other field stays unset rather than the capture failing.
+	 */
+	@Test
+	public void aHitWithNoDocumentCapturesOnlyRankAndScore() {
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		SearchHit hit = mock(SearchHit.class);
+
+		when(hit.getScore()).thenReturn(4.5f);
+		when(hit.getDocument()).thenReturn(null);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of(hit));
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		CapturedSearchHit capturedSearchHit = _firstHit(capturedSearchEvent);
+
+		assertEquals(1, capturedSearchHit.getRank());
+		assertEquals(4.5, capturedSearchHit.getScore());
+		assertNull(capturedSearchHit.getDocUid());
+		assertNull(capturedSearchHit.getTitle());
+	}
+
+	/**
+	 * The search context's own languageId wins over its Locale; a
+	 * language id longer than the column (20 characters) is truncated the
+	 * same way every other captured string is. A mocked SearchContext,
+	 * not a real one, since the real class derives getLanguageId() from
+	 * its own Locale field and the two can never disagree on it; this
+	 * isolates the fallback _getLanguageId itself implements.
+	 */
+	@Test
+	public void theLanguageIdWinsOverLocaleAndIsTruncatedAtTwentyCharacters() {
+		SearchContext searchContext = mock(SearchContext.class);
+
+		when(searchContext.getKeywords()).thenReturn("annual leave");
+		when(
+			searchContext.getLanguageId()
+		).thenReturn(
+			"en_US_avariantlongenoughtooverflow"
+		);
+		when(searchContext.getLocale()).thenReturn(new Locale("sv", "SE"));
+
+		CapturedSearchEvent capturedSearchEvent = _capture(
+			"Title", searchContext);
+
+		assertEquals(20, capturedSearchEvent.getLocale().length());
+		assertEquals(
+			"en_US_avariantlongen", capturedSearchEvent.getLocale());
+	}
+
+	/**
+	 * With no languageId at all, the Locale's own string form is used
+	 * instead.
+	 */
+	@Test
+	public void theLocaleIsUsedWhenNoLanguageIdIsSet() {
+		SearchContext searchContext = mock(SearchContext.class);
+
+		when(searchContext.getKeywords()).thenReturn("annual leave");
+		when(searchContext.getLanguageId()).thenReturn(null);
+		when(searchContext.getLocale()).thenReturn(new Locale("sv", "SE"));
+
+		CapturedSearchEvent capturedSearchEvent = _capture(
+			"Title", searchContext);
+
+		assertEquals("sv_SE", capturedSearchEvent.getLocale());
+	}
+
+	@Test
+	public void aDocUidOverTheColumnWidthIsTruncatedAtFiveHundred() {
+		CapturedSearchHit capturedSearchHit = _captureDocumentField(
+			Field.UID, "x".repeat(600));
+
+		assertEquals(500, capturedSearchHit.getDocUid().length());
+	}
+
+	@Test
+	public void anEntryClassNameOverTheColumnWidthIsTruncatedAtTwoHundred() {
+		CapturedSearchHit capturedSearchHit = _captureDocumentField(
+			Field.ENTRY_CLASS_NAME, "x".repeat(300));
+
+		assertEquals(200, capturedSearchHit.getEntryClassName().length());
+	}
+
+	@Test
+	public void aBlueprintIdOverTheColumnWidthIsTruncatedAtOneHundred() {
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setAttribute(
+			"search.experiences.blueprint.id", "x".repeat(150));
+
+		CapturedSearchEvent capturedSearchEvent = _capture(
+			"Title", searchContext);
+
+		assertEquals(100, capturedSearchEvent.getBlueprintId().length());
+	}
+
+	/**
+	 * scopeGroupIds is the other comma separated column (TO-94): a long
+	 * list is cut on a separator boundary, never mid identifier.
+	 */
+	@Test
+	public void aLongScopeGroupIdsListIsCutOnASeparator() {
+		long[] groupIds = new long[100];
+
+		for (int i = 0; i < groupIds.length; i++) {
+			groupIds[i] = 1000000000L + i;
+		}
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setGroupIds(groupIds);
+
+		String captured = _capture(
+			"Title", searchContext
+		).getScopeGroupIds();
+
+		assertTrue(captured.length() <= 500);
+		assertFalse(captured.endsWith(","));
+
+		for (String groupId : captured.split(",")) {
+			assertTrue(
+				captured.contains(groupId),
+				groupId + " is a fragment, not a captured group id");
+		}
+	}
+
+	/**
+	 * Only the configured, non-snippet, non-title fields land in
+	 * extra_fields, read as named first and falling back to the search's
+	 * own language id when the plain name is absent.
+	 */
+	@Test
+	public void extraFieldsAreCapturedFromTheConfiguredSetWithLocalizedFallback() {
+		when(
+			_configuration.capturedFieldNames()
+		).thenReturn(
+			new String[] {"department", "location"}
+		);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+		searchContext.setLocale(new Locale("en", "US"));
+
+		Document document = mock(Document.class);
+
+		when(document.getString(anyString())).thenReturn(null);
+		when(document.getString(Field.UID)).thenReturn("uid");
+		when(document.getString("department")).thenReturn("HR");
+		when(document.getString("location_en_US")).thenReturn("Dublin");
+
+		SearchHit searchHit = mock(SearchHit.class);
+
+		when(searchHit.getDocument()).thenReturn(document);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of(searchHit));
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		_searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		// Asserted against the mocked extra_fields JSONObject's own put
+		// calls, the same way the snippet tests read their JSONObject
+		// structure directly, rather than through JSONObject#toString(),
+		// which this fake does not implement (see _snippetJSONObject).
+
+		JSONObject extraFieldsJSONObject = _createdJSONObjects.get(0);
+
+		verify(extraFieldsJSONObject).put("department", "HR");
+		verify(extraFieldsJSONObject).put("location", "Dublin");
+	}
+
+	/**
+	 * A configured field name is trimmed before it is read, matched, and
+	 * used as the extra_fields key.
+	 */
+	@Test
+	public void aConfiguredFieldNameIsTrimmedBeforeItIsRead() {
+		when(
+			_configuration.capturedFieldNames()
+		).thenReturn(
+			new String[] {"  department  "}
+		);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		Document document = mock(Document.class);
+
+		when(document.getString(anyString())).thenReturn(null);
+		when(document.getString(Field.UID)).thenReturn("uid");
+		when(document.getString("department")).thenReturn("HR");
+
+		SearchHit searchHit = mock(SearchHit.class);
+
+		when(searchHit.getDocument()).thenReturn(document);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of(searchHit));
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		_searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		JSONObject extraFieldsJSONObject = _createdJSONObjects.get(0);
+
+		verify(extraFieldsJSONObject).put("department", "HR");
+	}
+
+	/**
+	 * A blank or missing configured field name never reaches extra_fields
+	 * at all: there is no key to put a value under.
+	 */
+	@Test
+	public void blankOrMissingConfiguredFieldValuesAreSkipped() {
+		when(
+			_configuration.capturedFieldNames()
+		).thenReturn(
+			new String[] {"department", "location"}
+		);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		Document document = mock(Document.class);
+
+		when(document.getString(anyString())).thenReturn(null);
+		when(document.getString(Field.UID)).thenReturn("uid");
+		when(document.getString("department")).thenReturn("");
+
+		SearchHit searchHit = mock(SearchHit.class);
+
+		when(searchHit.getDocument()).thenReturn(document);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of(searchHit));
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		assertNull(_firstHit(capturedSearchEvent).getExtraFields());
+	}
+
+	/**
+	 * Facet status, userId, companyId, sourceType and requestedSize are
+	 * each propagated straight through onto the captured event.
+	 */
+	@Test
+	public void facetStatusUserIdCompanyIdSourceTypeAndRequestedSizePropagate()
+		throws Exception {
+		FacetExtractor facetExtractor = mock(FacetExtractor.class);
+
+		when(
+			facetExtractor.extract(any(), any())
+		).thenReturn(
+			FacetCapture.captured("{\"category\":[\"HR\"]}")
+		);
+
+		TestInjection.set(_searchEventCaptor, "_facetExtractor", facetExtractor);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+		searchContext.setUserId(777L);
+		searchContext.setCompanyId(888L);
+
+		SearchRequest searchRequest = mock(SearchRequest.class);
+
+		when(searchRequest.getSize()).thenReturn(25);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of());
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			searchRequest, searchResponse, searchContext, _configuration,
+			new SearchRequestOrigin(SourceType.HEADLESS, false, false, true));
+
+		assertEquals(
+			FacetCaptureStatus.CAPTURED,
+			capturedSearchEvent.getFacetCaptureStatus());
+		assertEquals(777L, capturedSearchEvent.getUserId());
+		assertEquals(888L, capturedSearchEvent.getCompanyId());
+		assertEquals(SourceType.HEADLESS, capturedSearchEvent.getSourceType());
+		assertEquals(25, capturedSearchEvent.getRequestedSize());
+	}
+
+	private CapturedSearchHit _captureDocumentField(
+		String fieldName, String value) {
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		Document document = mock(Document.class);
+
+		when(document.getString(anyString())).thenReturn(null);
+		when(document.getString(Field.UID)).thenReturn("uid");
+		when(document.getString(fieldName)).thenReturn(value);
+
+		SearchHit searchHit = mock(SearchHit.class);
+
+		when(searchHit.getDocument()).thenReturn(document);
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of(searchHit));
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		CapturedSearchEvent capturedSearchEvent = _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+
+		return _firstHit(capturedSearchEvent);
+	}
+
+	private CapturedSearchEvent _captureQuery(SearchContext searchContext) {
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(List.of());
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		return _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+	}
+
+	/**
+	 * Builds hitCount hits, each with a document carrying only a uid, and
+	 * captures them with captureDepth configured as given.
+	 */
+	private CapturedSearchEvent _captureHits(int hitCount, int captureDepth) {
+		when(_configuration.captureDepth()).thenReturn(captureDepth);
+
+		SearchContext searchContext = new SearchContext();
+
+		searchContext.setKeywords("annual leave");
+
+		List<SearchHit> hits = new ArrayList<>();
+
+		for (int i = 0; i < hitCount; i++) {
+			Document document = mock(Document.class);
+
+			when(document.getString(anyString())).thenReturn(null);
+			when(document.getString(Field.UID)).thenReturn("uid-" + i);
+
+			SearchHit searchHit = mock(SearchHit.class);
+
+			when(searchHit.getDocument()).thenReturn(document);
+
+			hits.add(searchHit);
+		}
+
+		SearchHits searchHits = mock(SearchHits.class);
+
+		when(searchHits.getSearchHits()).thenReturn(hits);
+
+		SearchResponse searchResponse = mock(SearchResponse.class);
+
+		when(searchResponse.getSearchHits()).thenReturn(searchHits);
+
+		return _searchEventCaptor.capture(
+			mock(SearchRequest.class), searchResponse, searchContext,
+			_configuration,
+			new SearchRequestOrigin(SourceType.WIDGET, false, false, true));
+	}
+
 	private Map<String, HighlightField> _highlightFieldsMap(
 		Object... namesAndFragments) {
 
@@ -601,6 +1178,36 @@ public class SearchEventCaptorTest {
 		return _createdJSONObjects.get(0);
 	}
 
+	/**
+	 * A minimal, real JSON rendering of a flat String-valued backing map,
+	 * only ever used for extra_fields: that is the one case where
+	 * {@code JSONObject#toString()}'s actual text is read back by
+	 * production code ({@code CapturedSearchHit#setExtraFields}) rather
+	 * than compared as a fake object, as the snippet assertions above do.
+	 */
+	private String _toJSONString(Map<String, Object> backing) {
+		StringBuilder sb = new StringBuilder("{");
+		boolean first = true;
+
+		for (Map.Entry<String, Object> entry : backing.entrySet()) {
+			if (!first) {
+				sb.append(",");
+			}
+
+			first = false;
+
+			sb.append("\"");
+			sb.append(entry.getKey());
+			sb.append("\":\"");
+			sb.append(entry.getValue());
+			sb.append("\"");
+		}
+
+		sb.append("}");
+
+		return sb.toString();
+	}
+
 	private JSONObject _newJSONObject() {
 		Map<String, Object> backing = new LinkedHashMap<>();
 
@@ -623,6 +1230,31 @@ public class SearchEventCaptorTest {
 
 				return jsonObject;
 			}
+		);
+
+		// extra_fields puts a plain String value for each configured,
+		// non-title, non-snippet field, rather than a nested JSONObject or
+		// JSONArray; tracked in the same backing map so length() reflects
+		// it, exactly as it does for the other two put overloads above.
+
+		when(
+			jsonObject.put(anyString(), any(String.class))
+		).thenAnswer(
+			invocation -> {
+				backing.put(invocation.getArgument(0), invocation.getArgument(1));
+
+				return jsonObject;
+			}
+		);
+		when(
+			jsonObject.getString(anyString())
+		).thenAnswer(
+			invocation -> backing.get(invocation.getArgument(0))
+		);
+		when(
+			jsonObject.toString()
+		).thenAnswer(
+			invocation -> _toJSONString(backing)
 		);
 		when(
 			jsonObject.getJSONObject(anyString())
@@ -767,6 +1399,7 @@ public class SearchEventCaptorTest {
 
 	private List<JSONObject> _createdJSONObjects;
 	private SearchEvalLoggerConfiguration _configuration;
+	private FacetExtractor _facetExtractor;
 	private JSONFactory _jsonFactory;
 	private Language _language;
 	private final SearchEventCaptor _searchEventCaptor =
