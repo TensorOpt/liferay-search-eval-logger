@@ -17,8 +17,6 @@ import ai.tensoropt.sel.internal.context.SearchRequestOrigin;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
 import ai.tensoropt.sel.internal.context.SearchRequestOriginResolver;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.osgi.service.component.annotations.Component;
@@ -182,14 +180,17 @@ public class AdmissionFilter {
 			return false;
 		}
 
-		List<String> excluded = Arrays.asList(excludedEntryClassNames);
+		for (String entryClassName :
+				EntryClassNames.get(searchRequest, searchContext)) {
 
-		return EntryClassNames.get(
-			searchRequest, searchContext
-		).stream(
-		).anyMatch(
-			excluded::contains
-		);
+			for (String excludedEntryClassName : excludedEntryClassNames) {
+				if (excludedEntryClassName.equals(entryClassName)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
