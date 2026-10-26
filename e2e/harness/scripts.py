@@ -374,32 +374,6 @@ com.liferay.portal.kernel.service.PortletPreferencesLocalServiceUtil.
 result = "ok"
 """
 
-# Moves the collection start date back, so the readiness condition can be
-# evaluated against its real thresholds instead of thresholds lowered to suit
-# the test. It writes the same preference the plugin writes, through the same
-# service, so nothing about the record's shape is assumed.
-CYCLE_BACKDATE = """
-long companyId = %(company_id)dL
-
-def preferences =
-    com.liferay.portal.kernel.service.PortletPreferencesLocalServiceUtil.
-        getPreferences(
-            companyId, companyId,
-            com.liferay.portal.kernel.util.PortletKeys.PREFS_OWNER_TYPE_COMPANY,
-            com.liferay.portal.kernel.util.PortletKeys.PREFS_PLID_SHARED,
-            "%(portlet_id)s")
-
-preferences.setValue("collectionStartDate", "%(collection_start_date)s")
-
-com.liferay.portal.kernel.service.PortletPreferencesLocalServiceUtil.
-    updatePreferences(
-        companyId,
-        com.liferay.portal.kernel.util.PortletKeys.PREFS_OWNER_TYPE_COMPANY,
-        com.liferay.portal.kernel.util.PortletKeys.PREFS_PLID_SHARED,
-        "%(portlet_id)s", preferences)
-
-result = "%(collection_start_date)s"
-"""
 
 # Lets an ordinary signed in user open the plugin's screen while leaving EXPORT
 # ungranted, which is the only way to exercise the refusal path: a user who
