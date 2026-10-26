@@ -356,12 +356,13 @@ MySQL on Linux does not.
 ## Reading the uninstall-and-reinstall case
 
 Removing the plugin's bundles unregisters the wrapper and sets off a
-Declarative Services cascade through every other component bound to
-`Searcher` (`DESIGN.md` §3.1), measured in CI at about 22 seconds. During that
-window Liferay's own REST layer can log transient errors of its own that it
-recovers from, so `assert_log_clean` accepts exactly two, narrowly named
-shapes through `checks.UNINSTALL_TOLERATED`, never an error whose trace runs
-through this plugin's own code:
+Declarative Services cascade through every component actually bound to it
+(`DESIGN.md` §3.1), measured once in CI at about 22 seconds; it varies.
+During that window Liferay's own REST layer is expected to log transient
+errors of its own that it is expected to recover from, so `assert_log_clean`
+accepts exactly three, narrowly named shapes through
+`checks.UNINSTALL_TOLERATED`, never an error whose trace runs through this
+plugin's own code:
 
 - `[PortletTracker: ... is already in use`, with no trace requirement: the
   new portlet instance registers before the old one is fully gone.
@@ -384,13 +385,23 @@ through this plugin's own code:
 Tolerating those log lines is not the same as the whiteboard actually having
 recovered, so the case also polls
 `org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime#getRuntimeDTO()`, through
-the script console, for `failedApplicationDTOs`, `failedResourceDTOs` and
-`failedExtensionDTOs`, both after the uninstall settles and again after the
-reinstall, and compares each against a baseline taken before the uninstall
-rather than asserting the counts are zero, since a stock portal can carry its
-own pre-existing failures. A tolerance rule can never stand in for this
-positive check: it only says a known, transient log line is not itself a
-failure, while this says the whiteboard the cascade disturbed came back.
+the script console, for the counts of `failedApplicationDTOs`,
+`failedResourceDTOs` and `failedExtensionDTOs`, both after the uninstall
+settles and again after the reinstall, and asserts each count is no higher
+than a baseline taken before the uninstall, rather than asserting the counts
+are zero, since a stock portal can carry its own pre-existing failures. A
+tolerance rule can never stand in for this positive check: it only says a
+known, transient log line is not itself a failure, while this says the
+whiteboard the cascade is expected to have disturbed came back. Whether it
+actually recovers from the race that motivated the tolerance rule above is
+still unconfirmed: the CI run that hit the race failed before this check
+existed, and no run since, with the check in place, has hit it. The
+reinstall-side poll normally passes on its first sample, because reinstalling
+bounces no REST components on its own; it stays in place as a baseline
+regression guard, not as evidence of a reinstall-time cascade. The
+comparison is by count, not by which application, resource or extension
+failed, so a baseline failure clearing while an unrelated new one appears at
+the same count would still pass; that gap is accepted, not closed.
 
 ## Reading the EXPORT permission case
 
