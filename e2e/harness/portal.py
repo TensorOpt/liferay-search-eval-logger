@@ -301,7 +301,7 @@ class Portal:
             reported = re.findall(r"<pre>(.*?)</pre>", response.text, re.S)
 
             if reported:
-                lines = _unescape(reported[0]).strip().splitlines()
+                lines = html_module.unescape(reported[0]).strip().splitlines()
 
                 hint = " Script console reported:\n%s" % "\n".join(lines[:12])
 
@@ -497,7 +497,7 @@ class Portal:
                 "permission is missing or the screen did not render its form."
             )
 
-        return _unescape(match.group(1))
+        return html_module.unescape(match.group(1))
 
     def start_export(self, start_date=None, end_date=None, expect_task=True):
         """Submits the export form and, by default, waits for a task to appear.
@@ -620,7 +620,7 @@ class Portal:
                     "finished": cells[1] if len(cells) > 1 else "",
                     "duration": cells[2] if len(cells) > 2 else "",
                     "status": cells[3] if len(cells) > 3 else "",
-                    "download_url": _unescape(download.group(1)) if download else None,
+                    "download_url": html_module.unescape(download.group(1)) if download else None,
                 }
             )
 
@@ -725,16 +725,6 @@ def _first(values, message):
         raise HarnessError(message)
 
     return values[0]
-
-
-def _unescape(value):
-    return (
-        value.replace("&amp;", "&")
-        .replace("&quot;", '"')
-        .replace("&#034;", '"')
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-    )
 
 
 _SCRIPT_TEMPLATE = """
