@@ -594,12 +594,14 @@ public class SearchEventCaptor {
 		return truncated;
 	}
 
-	// TO-139: Liferay's preferred way to name a blueprint, stable across
-	// instances; the ID attribute is the older one. Both are recorded.
-
-	// Column widths from portlet-model-hints.xml in the service module. Values
-	// are truncated here rather than at the database, so these must move
-	// together with that file.
+	// The constants below are alphabetical, so the two kinds cannot sit next
+	// to their own kind: the *_ATTRIBUTE_NAME constants are the SearchContext
+	// attribute names TO-139 reads a Blueprint from (the external reference
+	// code is Liferay's preferred, instance-stable name; the ID attribute is
+	// the older one, and both are recorded). The *_MAX_LENGTH constants are
+	// the column widths from portlet-model-hints.xml in the service module;
+	// values are truncated here rather than at the database, so these must
+	// move together with that file.
 
 	private static final String
 		_BLUEPRINT_EXTERNAL_REFERENCE_CODE_ATTRIBUTE_NAME =
