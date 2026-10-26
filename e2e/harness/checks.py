@@ -3054,6 +3054,36 @@ def _assert_jaxrs_whiteboard_recovered(context, baseline, while_doing, timeout=1
     )
 
 
+def _remove_plugin_jars(context):
+    """Removes the plugin's four jars and waits for every bundle to report
+    STOPPED, the shared first step of uninstall_and_reinstall and
+    lpkg_install.
+
+    Returns the monotonic time the removal started, so a caller that needs
+    to keep reading the log from that point (uninstall_and_reinstall does,
+    for its later log cleanliness assertion) does not have to capture it
+    twice.
+    """
+    removed_at = time.monotonic()
+
+    context.stack.liferay_exec(
+        "sh", "-c", "rm -f /opt/liferay/osgi/modules/ai.tensoropt.sel.*.jar"
+    )
+
+    def stopped():
+        log_text = context.stack.liferay_log(
+            since="%ds" % (int(time.monotonic() - removed_at) + 2)
+        )
+
+        return all(
+            ("STOPPED %s_" % name) in log_text for name in BUNDLE_SYMBOLIC_NAMES
+        )
+
+    wait_for("the plugin's bundles to stop", stopped, timeout=300, interval=3.0)
+
+    return removed_at
+
+
 def uninstall_and_reinstall(context, case):
     """TO-111: removing the plugin leaves search and the data intact, and
     installing it again picks both up, without a restart (TO-140).
@@ -3086,22 +3116,7 @@ def uninstall_and_reinstall(context, case):
 
     widgets_before = _search_widgets_deployed(context)
 
-    uninstalled_at = time.monotonic()
-
-    context.stack.liferay_exec(
-        "sh", "-c", "rm -f /opt/liferay/osgi/modules/ai.tensoropt.sel.*.jar"
-    )
-
-    def stopped():
-        log_text = context.stack.liferay_log(
-            since="%ds" % (int(time.monotonic() - uninstalled_at) + 2)
-        )
-
-        return all(
-            ("STOPPED %s_" % name) in log_text for name in BUNDLE_SYMBOLIC_NAMES
-        )
-
-    wait_for("the four bundles to stop", stopped, timeout=300, interval=3.0)
+    uninstalled_at = _remove_plugin_jars(context)
 
     # STOPPED is not yet the end of it: the search widgets are still being
     # redeployed against the portal's own Searcher, and a search rendered
@@ -3266,22 +3281,7 @@ def lpkg_install(context, case):
     """
     lpkg = context.options.lpkg
 
-    removed_at = time.monotonic()
-
-    context.stack.liferay_exec(
-        "sh", "-c", "rm -f /opt/liferay/osgi/modules/ai.tensoropt.sel.*.jar"
-    )
-
-    def stopped():
-        log_text = context.stack.liferay_log(
-            since="%ds" % (int(time.monotonic() - removed_at) + 2)
-        )
-
-        return all(
-            ("STOPPED %s_" % name) in log_text for name in BUNDLE_SYMBOLIC_NAMES
-        )
-
-    wait_for("the jar bundles to stop", stopped, timeout=300, interval=3.0)
+    _remove_plugin_jars(context)
 
     deployed_at = time.monotonic()
 
