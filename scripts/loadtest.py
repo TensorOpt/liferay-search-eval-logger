@@ -4,7 +4,8 @@
 with a confidence interval, against a portal already started by `make run`.
 
     scripts/loadtest.py [--database postgres] [--http-port 8080]
-                        [--blocks 10] [--searches 30] [--seed 1] [--json]
+                        [--blocks 10] [--searches 30] [--seed 1]
+                        [--term TERM] [--json]
 
 Where the e2e suite's search-overhead case (DESIGN.md 7, D8) is a coarse
 pass/fail gate sized to tolerate a busy CI runner, this script is the actual
@@ -21,6 +22,35 @@ It reuses the e2e harness's Portal and Stack classes, and the
 SET_CONFIGURATION_ENABLED/CONFIGURATION_ENABLED Groovy scripts the
 search-overhead case itself uses, the same way scripts/portal.py reuses the
 harness rather than keeping a second copy of it.
+
+**Side effects on the portal it runs against.** This is written for a
+throwaway `make run` portal, not a shared or production one:
+
+- With no `--term`, it seeds `_SEED_COUNT` blog postings carrying a marker
+  term through the headless API (the same mechanism the e2e suite's
+  `content_and_searches` uses), idempotently: a run against a portal
+  already seeded by an earlier run finds the content through a search
+  first and skips seeding. That is deliberate, not an incidental
+  side-effect to tolerate: searching a term that matches nothing (what
+  this script measured before this change) skips the per-hit capture cost
+  `SearchEventCaptor` runs synchronously on the search thread, up to
+  `captureDepth` hits, for every hit in the response, so it only measured
+  the admission filter's cost on a guaranteed miss, not the cost that
+  actually scales with what a search returns.
+- Every search this script runs while collection is enabled writes an
+  event (and its hits) to the plugin's tables.
+- Every `--blocks` pair of disabled/enabled toggles closes and reopens the
+  collection cycle (DESIGN.md 3.6) once, which sends a "collection
+  started" notification to the signed-in administrator on each reopen.
+- It leaves a company-scoped `SearchEvalLoggerConfiguration` row behind
+  (Configuration Admin's own storage), the same as the e2e suite's
+  `SET_CONFIGURATION_ENABLED` does, since the API that reads every other
+  configured value and writes it back has no narrower way to flip one
+  key.
+
+None of that matters on a portal `make run` starts for exactly this
+purpose and `make stop VOLUMES=1` discards afterward; it would on anything
+else.
 """
 
 import argparse
@@ -41,14 +71,16 @@ from harness.stack import DATABASES  # noqa: E402
 from harness.util import HarnessError, log, wait_for  # noqa: E402
 from portal import stack_for  # noqa: E402
 
-# A term that matches nothing is a defensible, conservative floor: it still
-# exercises the admission filter and the configuration check on every
-# search, which is where collection's synchronous overhead actually lives
-# (DESIGN.md 3.1's LoggingSearcher), even without any guarantee that the
-# portal this runs against has indexed content a richer term could match.
-# A portal started through `make run` has no content seeded into it, unlike
-# the e2e suite's own fixtures.
-SEARCH_TERM = "search-eval-logger-loadtest-probe-term"
+# Seeded, by default, as findable content (see _ensure_content_seeded):
+# distinctive enough that it cannot collide with anything already on a
+# portal somebody runs this against.
+DEFAULT_SEARCH_TERM = "search-eval-logger-loadtest-probe-term"
+
+# How many blog postings _ensure_content_seeded creates, each carrying
+# DEFAULT_SEARCH_TERM, so each measured search returns this many hits and
+# SearchEventCaptor's per-hit capture cost is actually exercised (up to
+# captureDepth, default 100, so this stays well under the ceiling).
+_SEED_COUNT = 20
 
 
 def _ensure_portal_running(portal, base_url):
@@ -90,7 +122,64 @@ def _set_enabled(admin, company_id, enabled):
     return previous
 
 
-def _run_blocks(guest, blocks, searches_per_block, admin, company_id):
+def _ensure_content_seeded(admin, company_id, term):
+    """Seeds _SEED_COUNT blog postings carrying `term` through the headless
+    API, the same way the e2e suite's content_and_searches does, unless a
+    search for `term` already finds at least that many: a second run
+    against a portal an earlier run already seeded must not keep adding
+    more postings forever.
+
+    Waits until the seeded content is actually searchable before
+    returning, the same control content_and_searches applies, so a
+    measurement that starts immediately after does not undercount hits
+    because indexing is still catching up.
+    """
+    count, _ = admin.search_result_count(term)
+
+    if count is not None and count >= _SEED_COUNT:
+        log(
+            "%d existing hits for %r already meet the %d needed; not seeding"
+            % (count, term, _SEED_COUNT)
+        )
+
+        return
+
+    group_id = admin.group_id(company_id)
+
+    log("Seeding %d blog postings carrying %r into group %d" % (
+        _SEED_COUNT, term, group_id,
+    ))
+
+    for index in range(_SEED_COUNT):
+        status, body = admin.headless(
+            "POST",
+            "/o/headless-delivery/v1.0/sites/%d/blog-postings" % group_id,
+            {
+                "headline": "%s note %d" % (term, index),
+                "articleBody": (
+                    "%s is the marker term scripts/loadtest.py measures "
+                    "against. Note %d covers leave, expenses and travel."
+                    % (term, index)
+                ),
+            },
+        )
+
+        if status != 200:
+            raise HarnessError(
+                "Creating a loadtest blog posting failed (%d): %r"
+                % (status, body)
+            )
+
+    wait_for(
+        "the seeded content to become searchable for %r" % term,
+        lambda: (admin.search_result_count(term)[0] or 0) >= _SEED_COUNT,
+        timeout=120, interval=3.0,
+    )
+
+    log("Seeded content is now searchable")
+
+
+def _run_blocks(guest, blocks, searches_per_block, admin, company_id, term):
     disabled_samples = []
     enabled_samples = []
 
@@ -100,7 +189,7 @@ def _run_blocks(guest, blocks, searches_per_block, admin, company_id):
 
         for _ in range(searches_per_block):
             started = time.monotonic()
-            guest.search(SEARCH_TERM)
+            guest.search(term)
             disabled_samples.append(time.monotonic() - started)
 
         log("block %d/%d: enabled" % (block + 1, blocks))
@@ -108,7 +197,7 @@ def _run_blocks(guest, blocks, searches_per_block, admin, company_id):
 
         for _ in range(searches_per_block):
             started = time.monotonic()
-            guest.search(SEARCH_TERM)
+            guest.search(term)
             enabled_samples.append(time.monotonic() - started)
 
     return disabled_samples, enabled_samples
@@ -139,7 +228,15 @@ def main(argv):
     )
     parser.add_argument("--seed", type=int, default=None, help="seeds the bootstrap")
     parser.add_argument("--json", action="store_true", help="also print a JSON object")
+    parser.add_argument(
+        "--term", default=None,
+        help="search term to measure with, assumed to already return hits "
+             "on the target portal (default: %r, seeded by this script if "
+             "not already present)" % DEFAULT_SEARCH_TERM,
+    )
     options = parser.parse_args(argv)
+
+    term = options.term or DEFAULT_SEARCH_TERM
 
     stack = stack_for(options)
     admin = Portal(stack)
@@ -151,6 +248,9 @@ def main(argv):
 
     company_id = admin.company_id()
 
+    if options.term is None:
+        _ensure_content_seeded(admin, company_id, term)
+
     original_enabled = admin.run_script(
         scripts.CONFIGURATION_ENABLED % {"company_id": company_id}
     ) == "true"
@@ -159,10 +259,10 @@ def main(argv):
         log("warming up with %d searches" % options.warmup)
 
         for _ in range(options.warmup):
-            guest.search(SEARCH_TERM)
+            guest.search(term)
 
         disabled_samples, enabled_samples = _run_blocks(
-            guest, options.blocks, options.searches, admin, company_id
+            guest, options.blocks, options.searches, admin, company_id, term
         )
     finally:
         log("restoring enabled=%s" % original_enabled)
@@ -181,6 +281,7 @@ def main(argv):
     )
 
     report = {
+        "term": term,
         "disabled": {
             "samples": len(disabled_samples),
             "median_ms": disabled_median * 1000,
@@ -199,10 +300,12 @@ def main(argv):
 
     print(
         """
+Term:     %(term)r
 Disabled: %(disabled_samples)d samples, median %(disabled_median).1f ms, p90 %(disabled_p90).1f ms
 Enabled:  %(enabled_samples)d samples, median %(enabled_median).1f ms, p90 %(enabled_p90).1f ms
 Overhead: %(overhead).1f%% (95%% CI %(ci_low).1f%% to %(ci_high).1f%%, %(resamples)d bootstrap resamples)
 """ % {
+            "term": term,
             "disabled_samples": report["disabled"]["samples"],
             "disabled_median": report["disabled"]["median_ms"],
             "disabled_p90": report["disabled"]["p90_ms"],
