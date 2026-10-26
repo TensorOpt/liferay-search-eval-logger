@@ -94,12 +94,13 @@ class ExportRowQuery {
 					"e.blueprintExternalReferenceCode, e.audienceType, " +
 						"e.cohortHash, e.requestedSize, e.requestedFrom, " +
 							"e.totalHits, e.loggedHitCount, e.sourceType, " +
-								"h.rank_, h.score, h.docUid, h.entryClassName, " +
-									"h.entryClassPK, h.title, h.snippet, " +
-										"h.extraFields from SEL_SearchEvent e " +
-											"left join SEL_SearchHit h on " +
-												"h.searchEventUuid = e.uuid_ " +
-													"where e.companyId = ?";
+								"h.searchHitId, h.rank_, h.score, h.docUid, " +
+									"h.entryClassName, h.entryClassPK, h.title, " +
+										"h.snippet, h.extraFields from " +
+											"SEL_SearchEvent e left join " +
+												"SEL_SearchHit h on " +
+													"h.searchEventUuid = e.uuid_ " +
+														"where e.companyId = ?";
 
 	private static final String _START_DATE_PREDICATE =
 		" and e.createDate >= ?";
