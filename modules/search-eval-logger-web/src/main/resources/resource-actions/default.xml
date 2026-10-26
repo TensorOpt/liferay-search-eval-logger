@@ -15,10 +15,11 @@
 
 			<!--
 			No site member or guest defaults. EXPORT is the permission of
-			DESIGN.md 6.1: it has to be granted deliberately, to the people who
-			are allowed to produce a dataset that leaves the instance, and
-			granting it by default to anyone would defeat the point of having
-			it separate from portal administration.
+			DESIGN.md 6.1. Liferay's own company-administrator check bypasses
+			resource actions, so the Administrator role holds it implicitly,
+			the same as every other resource action; anyone else who should be
+			allowed to produce a dataset that leaves the instance needs it
+			granted deliberately, to a role.
 			-->
 
 			<site-member-defaults />
