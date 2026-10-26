@@ -926,6 +926,12 @@ def capture(context, case):
     assert_funnel_adds_up(counters)
     assert_equal(counters["dropped"], 0, "Events were dropped under no load")
 
+    # D9: count(distinct cohortHash) already excludes NULL in standard SQL,
+    # so this reads as "how many distinct cohorts" whether these marker
+    # searches turn out authenticated (a real hash each) or guest (every
+    # row NULL, 0 distinct non-null values, never a shared value the
+    # export would wrongly suggest is one comparable guest cohort).
+
     rows = context.stack.sql(
         "select count(*), min(sourceType), min(audienceType), "
         "count(distinct cohortHash) from SEL_SearchEvent "

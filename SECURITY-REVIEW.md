@@ -109,6 +109,10 @@ an array, not a single string joined across fields (`DESIGN.md` §4.4).
 **No raw user identifiers (D3).** The only per-user signal stored is
 `cohortHash`, a salted hash of the user ID read directly from the search
 context, plus `audienceType` (`GUEST`/`AUTHENTICATED`) (`DESIGN.md` §4.3).
+`cohortHash` is computed only for an `AUTHENTICATED` row; a `GUEST` row
+stores it as `null`, never as a hash of a non-existent user ID, since that
+would be one stable value every guest row shares forever rather than
+something salt rotation ever caps.
 **The salt rotates on a configurable schedule, weekly by default**
 (`CohortSaltRegistry`), held in memory only and never exported; superseded
 salts are discarded, which caps how long a `cohortHash` stays linkable to one
