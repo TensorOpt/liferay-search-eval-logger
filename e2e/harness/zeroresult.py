@@ -25,6 +25,15 @@ recipe from scratch at every call site. It is a port, not a reimplementation
 of the idea: every departure from the obvious Python spelling is here because
 jq does something the obvious spelling would not reproduce, and is commented
 at that line.
+
+D11: the plugin's own panel caps distinct normalized zero-result queries at
+10,000 (ZeroResultQueryCounts), past which the top 20 is marked approximate.
+This module has no such cap and never needs one: the e2e suite's data volume
+is many orders of magnitude below it (the zero-result-panel case's own seeded
+queries, plus whatever the smoke/medium scale tiers generate, is nowhere near
+10,000 distinct zero-result query strings), so the comparison this module
+supports stays exact rather than needing to reason about two sides
+approximating the same cap differently.
 """
 
 import decimal

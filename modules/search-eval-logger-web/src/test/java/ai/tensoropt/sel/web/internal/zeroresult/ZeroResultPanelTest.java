@@ -44,6 +44,33 @@ public class ZeroResultPanelTest {
 			zeroResultPanel.getOverallMessageArguments());
 	}
 
+	/**
+	 * D11: the two-argument {@code build} overload every other test here
+	 * uses, same as {@link ZeroResultPanelLoader} did before the cap, must
+	 * still report "not approximate" rather than leaving the flag unset in
+	 * some other, surprising way.
+	 */
+	@Test
+	public void theTwoArgumentOverloadIsNeverApproximate() {
+		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
+			Map.of(), Map.of());
+
+		assertFalse(zeroResultPanel.isTopQueriesApproximate());
+	}
+
+	/**
+	 * D11: the cap is {@link ZeroResultQueryCounts}'s own concern; this only
+	 * checks that {@code build} carries the flag it is given through to the
+	 * JSP-facing getter unchanged.
+	 */
+	@Test
+	public void theApproximateFlagIsCarriedThrough() {
+		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
+			Map.of(), Map.of(), true);
+
+		assertTrue(zeroResultPanel.isTopQueriesApproximate());
+	}
+
 	@Test
 	public void noZeroResultSearchesShowsZeroRateButStillRendersTheLines() {
 		ZeroResultPanel zeroResultPanel = ZeroResultPanel.build(
