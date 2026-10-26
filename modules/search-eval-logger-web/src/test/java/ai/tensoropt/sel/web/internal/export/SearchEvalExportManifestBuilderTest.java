@@ -257,6 +257,37 @@ public class SearchEvalExportManifestBuilderTest {
 	}
 
 	/**
+	 * Finding 4 (TO-144 round 2): unlike captured_field_names,
+	 * excluded_entry_class_names must reach the manifest raw. AdmissionFilter
+	 * compares a configured excluded entry class name as-is, with no
+	 * trimming of its own, so a manifest that trimmed it would claim a class
+	 * is excluded that the filter never actually matches.
+	 */
+	@Test
+	public void excludedEntryClassNamesReachTheManifestUntrimmed() {
+		SearchEvalLoggerConfiguration searchEvalLoggerConfiguration = mock(
+			SearchEvalLoggerConfiguration.class);
+
+		when(
+			searchEvalLoggerConfiguration.capturedFieldNames()
+		).thenReturn(
+			new String[0]
+		);
+		when(
+			searchEvalLoggerConfiguration.excludedEntryClassNames()
+		).thenReturn(
+			new String[] {" com.example.Excluded "}
+		);
+
+		_searchEvalExportManifestBuilder.build(
+			1L, new Date(0), new Date(1), new SearchEvalExportResult(),
+			searchEvalLoggerConfiguration);
+
+		verify(_jsonArray).put(" com.example.Excluded ");
+		verify(_jsonArray, never()).put("com.example.Excluded");
+	}
+
+	/**
 	 * F2-26: every key DESIGN.md section 5's configuration surface puts into
 	 * the manifest, pinned by name and by the specific value a distinctly
 	 * configured mock produces for it. The fixture's JSONFactory returns one
