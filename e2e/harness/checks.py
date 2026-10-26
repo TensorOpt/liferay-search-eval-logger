@@ -157,7 +157,7 @@ OVERFLOW_CLIENTS = 16
 # be recognised whatever else the response carries.
 FOREIGN_ATTACHMENT_CONTENT = "E2E-FOREIGN-ATTACHMENT-CONTENT"
 
-# The rendered bodies of the three notifications, from the web module's
+# The rendered bodies of the three notifications, from the api module's
 # Language.properties. The notifications list shows the body, not the title.
 STALL_NOTIFICATION_TEXT = "Restart the portal to begin collecting."
 
@@ -614,7 +614,7 @@ def stall_grace_period(context, case):
 
 
 def stall_notification(context, case):
-    """DESIGN.md 3.6 condition 1, and the runtime half of EC-14.
+    """DESIGN.md 3.6 notification 2 (stall), and EC-14 delivery.
 
     Running the daily check by hand is the only way to see this inside a CI
     run. It opens the cycle, finds interception bypassed and nothing collected,
@@ -622,8 +622,8 @@ def stall_notification(context, case):
 
     cycleOpenedDate is backdated past the TO-112 grace period first.
     stall-grace-period already proved the fresh-cycle suppression; this is
-    the other half, the notification DESIGN.md 3.6 condition 1 promises once
-    that period has passed.
+    the other half, the notification DESIGN.md 3.6's stall condition
+    promises once that period has passed.
     """
     backdated = (
         datetime.now(timezone.utc) - timedelta(hours=25)
@@ -1621,7 +1621,7 @@ def retention_purge(context, case):
 
 
 def funnel_readiness(context, case):
-    """DESIGN.md 3.6 condition 2, against the configured thresholds.
+    """DESIGN.md 3.6 notification 3 (readiness), against the configured thresholds.
 
     The collection start date is moved back rather than the thresholds moved
     down. Lowering readinessMinimumDays to zero would exercise a comparison
