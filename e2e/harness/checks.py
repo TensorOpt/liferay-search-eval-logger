@@ -3579,6 +3579,23 @@ def assert_attachment_not_served(body):
     )
 
 
+def _hand_built_export_action_url(namespace, auth_token):
+    """The export action's URL, built directly rather than scraped off a
+    rendered admin screen.
+
+    Portal.export_action_url scrapes the form off the screen the caller is
+    actually viewing, which is exactly wrong here: this needs to post the
+    action as a user whose own screen never renders the form at all, which
+    is the point of the permission check this builds the URL for.
+    """
+    return (
+        "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
+        "&p_p_state=maximized&%sjavax.portlet.action="
+        "%%2Fsearch_eval_logger%%2Fexport&p_auth=%s"
+        % (ADMIN_PORTLET_ID, namespace, auth_token)
+    )
+
+
 def export_permission_refused(context, case):
     """DESIGN.md 6.1: the dedicated EXPORT permission actually refuses.
 
@@ -3663,12 +3680,7 @@ def export_permission_refused(context, case):
 
     namespace = "_%s_" % ADMIN_PORTLET_ID
 
-    action = (
-        "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
-        "&p_p_state=maximized&%sjavax.portlet.action="
-        "%%2Fsearch_eval_logger%%2Fexport&p_auth=%s"
-        % (ADMIN_PORTLET_ID, namespace, viewer.auth_token())
-    )
+    action = _hand_built_export_action_url(namespace, viewer.auth_token())
 
     response = viewer.post(
         action, {namespace + "startDate": "", namespace + "endDate": ""}
@@ -3709,12 +3721,8 @@ def export_permission_refused(context, case):
 
     control_before = administrator.background_task_count()
 
-    control_action = (
-        "/group/control_panel/manage?p_p_id=%s&p_p_lifecycle=1"
-        "&p_p_state=maximized&%sjavax.portlet.action="
-        "%%2Fsearch_eval_logger%%2Fexport&p_auth=%s"
-        % (ADMIN_PORTLET_ID, namespace, administrator.auth_token())
-    )
+    control_action = _hand_built_export_action_url(
+        namespace, administrator.auth_token())
 
     start_date, end_date = context.export_range
 
