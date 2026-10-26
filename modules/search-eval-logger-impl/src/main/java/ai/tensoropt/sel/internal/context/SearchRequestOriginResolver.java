@@ -175,7 +175,7 @@ public class SearchRequestOriginResolver {
 	 * deliberate: a false positive costs a few unlogged searches, while a false
 	 * negative lets typeahead traffic swamp the log, which is the failure this
 	 * exclusion exists to prevent (DESIGN.md 5.1). Whether suggestion requests
-	 * reach this code at all is EC-2.
+	 * reach this code at all was EC-2, now confirmed: they do.
 	 */
 	private boolean _isSuggestionPath(String path) {
 		if (path.startsWith(_SUGGESTIONS_PATH) ||

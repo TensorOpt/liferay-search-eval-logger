@@ -61,10 +61,9 @@ public class RetentionPurgeSchedulerJobConfiguration
 	 * <p>
 	 * A time of day rather than a one-day interval. An interval trigger's
 	 * first fire is one interval after the job registers, which is every
-	 * portal start and every redeploy of this bundle, and the restart DESIGN.md
-	 * 3.1 requires after each one. On an instance restarted at least daily the
-	 * purge would never run, and the retention window would silently stop
-	 * being a guarantee (TO-110).
+	 * portal start and every redeploy of this bundle. On an instance
+	 * restarted at least daily the purge would never run, and the retention
+	 * window would silently stop being a guarantee (TO-110).
 	 * </p>
 	 */
 	static final String CRON_EXPRESSION = "0 0 3 * * ?";
