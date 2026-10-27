@@ -571,11 +571,10 @@ def ec3_bypass_detected(context, case):
     # Nothing logs a warning on this path: the rebinder, which is what logs
     # it, was disabled before the bypass was forced, specifically so it
     # could not immediately undo the rest of this script. The decision that
-    # drives that warning (whether an entry point is still bypassing once a
-    # rebind attempt is done) is covered instead by
-    # SearchConsumerRebinderTest.aRebindThatDoesNotClearTheBypassReturnsTheStillBypassingComponents,
-    # against a rebind attempt that actually ran and failed to clear it,
-    # which is the path that actually logs it.
+    # drives that warning (an entry point still bypassing after a completed
+    # attempt, or every attempt failing) is covered instead by
+    # SearchConsumerRebinderTest's rebindWithRetries cases, against attempts
+    # that actually ran, which is the path that actually logs it.
 
 
 def stall_grace_period(context, case):

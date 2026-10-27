@@ -41,8 +41,8 @@ import org.osgi.service.component.runtime.dto.SatisfiedReferenceDTO;
 import org.osgi.util.promise.Promises;
 
 /**
- * TO-140: {@link SearchConsumerRebinder#rebind()} must never throw, whatever
- * {@code ServiceComponentRuntime} does, and {@link SearchConsumerRebinder#activate(BundleContext)}
+ * TO-140: {@link SearchConsumerRebinder#rebindWithRetries()} must never
+ * throw, whatever {@code ServiceComponentRuntime} does, and {@link SearchConsumerRebinder#activate(BundleContext)}
  * must never block waiting for it. The components {@code rebind()} reports
  * still bypassing once it is done are both the test's hook and exactly what
  * drives the restart warning in production, so asserting on that return
@@ -373,6 +373,162 @@ public class SearchConsumerRebinderTest {
 			any(Bundle[].class)
 		);
 		verify(_serviceComponentRuntime, never()).disableComponent(any());
+	}
+
+	/**
+	 * A component this loop disabled but could not re-enable is invisible to
+	 * the next registry read, so the loop has to remember it and re-enable
+	 * it itself on the next attempt, rather than conclude the run was clean.
+	 */
+	@Test
+	public void aFailedReenableIsRetriedOnTheNextAttempt() throws Exception {
+		ComponentDescriptionDTO description = _bypassingEntryPointComponent();
+
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenReturn(
+			List.of(description)
+		).thenReturn(
+			List.of()
+		);
+		when(
+			_serviceComponentRuntime.disableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+		when(
+			_serviceComponentRuntime.enableComponent(description)
+		).thenThrow(
+			new IllegalStateException("enable failed")
+		).thenReturn(
+			Promises.resolved(null)
+		);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(_serviceComponentRuntime).disableComponent(description);
+		verify(
+			_serviceComponentRuntime, times(2)
+		).enableComponent(
+			description
+		);
+	}
+
+	@Test
+	public void aPersistentlyFailingReenableGivesUpAfterFiveAttempts()
+		throws Exception {
+
+		ComponentDescriptionDTO description = _bypassingEntryPointComponent();
+
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenReturn(
+			List.of(description)
+		).thenReturn(
+			List.of()
+		);
+		when(
+			_serviceComponentRuntime.disableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+		when(
+			_serviceComponentRuntime.enableComponent(description)
+		).thenThrow(
+			new IllegalStateException("enable failed")
+		);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(
+			_serviceComponentRuntime, times(5)
+		).enableComponent(
+			description
+		);
+		verify(
+			_searchInterceptionStatusImpl
+		).recordFailedToReenable(
+			eq(List.of(description))
+		);
+	}
+
+	/**
+	 * An attempt that completes but still finds the entry point bypassing is
+	 * not repeated: another bounce would resolve the same reference to the
+	 * same service, and each one costs a few failed searches.
+	 */
+	@Test
+	public void aCompletedAttemptThatStillFindsABypassIsNotRetried()
+		throws Exception {
+
+		ComponentDescriptionDTO description = _bypassingEntryPointComponent();
+
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenReturn(
+			List.of(description)
+		);
+		when(
+			_serviceComponentRuntime.disableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+		when(
+			_serviceComponentRuntime.enableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(_serviceComponentRuntime).disableComponent(description);
+		verify(
+			_serviceComponentRuntime, times(2)
+		).getComponentDescriptionDTOs(
+			any(Bundle[].class)
+		);
+	}
+
+	@Test
+	public void aCleanFirstAttemptMakesNoFurtherReads() throws Exception {
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenReturn(
+			List.of()
+		);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(
+			_serviceComponentRuntime, times(2)
+		).getComponentDescriptionDTOs(
+			any(Bundle[].class)
+		);
+	}
+
+	@Test
+	public void aDeactivatedRebinderMakesNoAttempt() throws Exception {
+		TestInjection.set(_searchConsumerRebinder, "_deactivated", true);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(
+			_serviceComponentRuntime, never()
+		).getComponentDescriptionDTOs(
+			any(Bundle[].class)
+		);
 	}
 
 	/**
