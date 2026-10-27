@@ -90,8 +90,12 @@ def dxp_line():
 
 
 def dxp_title(line):
-    """DXP 2026.Q1 for dxp-2026.q1. Shared with scripts/publish.py's release title."""
-    return line.replace("dxp-", "DXP ").replace(".q", ".Q")
+    """DXP 2026.Q1 LTS for dxp-2026.q1, DXP 2026.Q3 for dxp-2026.q3: only
+    a year's Q1 release is an LTS. Shared with scripts/publish.py's release
+    title."""
+    title = line.replace("dxp-", "DXP ").replace(".q", ".Q")
+
+    return title + " LTS" if line.endswith(".q1") else title
 
 
 def bundle_version(jar):
@@ -217,12 +221,12 @@ def release_notes(version, line, sums, zip_name):
     dxp = dxp_title(line)
     checksums = "\n".join("%s  %s" % (digest, name) for name, digest in sums)
 
-    return """# Liferay Search Eval Logger %(version)s for %(dxp)s LTS
+    return """# Liferay Search Eval Logger %(version)s for %(dxp)s
 
 Records what people search for on a Liferay DXP site and the results they were
 shown, so search quality can be measured on your own content.
 
-Built for **%(dxp)s LTS**; each DXP LTS line has its own release. The
+Built for **%(dxp)s**; each DXP release line has its own release. The
 README's Requirements section lists the other DXP releases these jars run on.
 
 ## Install

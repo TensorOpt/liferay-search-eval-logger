@@ -16,6 +16,8 @@ import static org.mockito.Mockito.when;
 
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.security.auth.CompanyThreadLocal;
+import com.liferay.portal.kernel.util.Props;
+import com.liferay.portal.kernel.util.PropsUtil;
 import com.liferay.portal.search.searcher.SearchRequest;
 import com.liferay.portal.search.searcher.SearchRequestBuilder;
 import com.liferay.portal.search.searcher.SearchRequestBuilderFactory;
@@ -33,6 +35,7 @@ import ai.tensoropt.sel.internal.messaging.SearchEventDispatcher;
 import ai.tensoropt.sel.internal.statistics.SearchEvalLoggerStatisticsImpl;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +46,20 @@ import org.junit.jupiter.api.Test;
  * holding.
  */
 public class LoggingSearcherTest {
+
+	/**
+	 * Setting a non-default company id, as several cases below do, makes
+	 * <code>CompanyThreadLocal.setCompanyId</code> sync the thread's own
+	 * database partition state, which reads <code>PropsUtil</code>. A unit
+	 * test has none, the same gap
+	 * {@link SearchEvalLoggerConfigurationRegistry}'s own test fills the same
+	 * way, so this fills it too rather than depending on test execution order
+	 * to pick up another class's own fix.
+	 */
+	@BeforeAll
+	public static void setUpClass() {
+		PropsUtil.setProps(mock(Props.class));
+	}
 
 	@BeforeEach
 	public void setUp() throws Exception {

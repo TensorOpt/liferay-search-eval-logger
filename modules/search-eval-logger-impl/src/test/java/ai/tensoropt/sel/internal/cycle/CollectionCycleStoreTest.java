@@ -23,7 +23,7 @@ import com.liferay.portal.kernel.service.PortletPreferencesLocalService;
 import ai.tensoropt.sel.api.CollectionCycle;
 import ai.tensoropt.sel.internal.TestInjection;
 
-import jakarta.portlet.PortletPreferences;
+import javax.portlet.PortletPreferences;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
