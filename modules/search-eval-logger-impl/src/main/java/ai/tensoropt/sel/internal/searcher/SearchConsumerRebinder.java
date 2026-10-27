@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.runtime.ServiceComponentRuntime;
 import org.osgi.service.component.runtime.dto.ComponentDescriptionDTO;
@@ -86,22 +87,39 @@ public class SearchConsumerRebinder {
 	protected void activate(BundleContext bundleContext) {
 		_bundleContext = bundleContext;
 
-		Thread thread = new Thread(
+		_thread = new Thread(
 			this::rebindWithRetries, "search-eval-logger-consumer-rebinder");
 
-		thread.setDaemon(true);
+		_thread.setDaemon(true);
 
-		thread.start();
+		_thread.start();
 	}
 
 	/**
-	 * What the background thread runs: {@link #rebind()} up to
-	 * {@link #_MAX_ATTEMPTS} times, {@link #_retryDelayMillis} apart, until
-	 * an attempt ends with no entry point bypassing. A registry read that
-	 * throws counts as a failed attempt, not as a clean result. Visible for
-	 * testing.
+	 * Stops a rebind still in progress, so a thread started by an instance
+	 * that a redeploy or an uninstall has since replaced cannot keep bouncing
+	 * components or log a restart warning on behalf of a component that no
+	 * longer exists.
+	 */
+	@Deactivate
+	protected void deactivate() {
+		_deactivated = true;
+
+		_thread.interrupt();
+	}
+
+	/**
+	 * What the background thread runs: {@link #rebind(List)} up to
+	 * {@link #_MAX_ATTEMPTS} times, {@link #_retryDelayMillis} apart, while an
+	 * attempt fails, meaning its registry read threw or it disabled a
+	 * component it could not re-enable. Each later attempt first re-enables
+	 * what an earlier one left disabled. An attempt that completes and still
+	 * finds an entry point bypassing is not repeated: bouncing the component
+	 * again would not change what its reference resolves to, and every bounce
+	 * costs a few failed searches (DESIGN.md 3.1). Visible for testing.
 	 */
 	void rebindWithRetries() {
+		List<ComponentDescriptionDTO> failedToReenable = new ArrayList<>();
 		Throwable lastFailure = null;
 
 		for (int attempt = 1; attempt <= _MAX_ATTEMPTS; attempt++) {
@@ -116,12 +134,25 @@ public class SearchConsumerRebinder {
 				}
 			}
 
+			if (_deactivated) {
+				return;
+			}
+
 			try {
-				if (rebind().isEmpty()) {
-					return;
-				}
+				failedToReenable.removeIf(this::_enable);
+
+				List<ComponentDescriptionDTO> stillBypassing = rebind(
+					failedToReenable);
 
 				lastFailure = null;
+
+				if (failedToReenable.isEmpty()) {
+					if (!stillBypassing.isEmpty() && _log.isWarnEnabled()) {
+						_log.warn(_RESTART_REQUIRED_WARNING);
+					}
+
+					return;
+				}
 			}
 			catch (Throwable throwable) {
 				lastFailure = throwable;
@@ -135,14 +166,12 @@ public class SearchConsumerRebinder {
 			}
 		}
 
-		// The cases the attempts above did not fix: a bypassing entry point
-		// component whose disable/enable did not move it onto the wrapper,
-		// one this loop disabled but failed to bring back, or a registry
-		// that never became readable. Logged here, after the attempts, and
-		// not unconditionally on activation: every fresh install and every
-		// redeploy runs this automatic rebind first, so warning before it
-		// has had a chance to run would report a restart as needed when the
-		// rebind was about to make it unnecessary.
+		// Every attempt failed: the registry never became readable, or a
+		// component this loop disabled could not be brought back. Logged
+		// here, after the attempts, and not unconditionally on activation:
+		// every fresh install and every redeploy runs this automatic rebind
+		// first, so warning before it has had a chance to run would report a
+		// restart as needed when the rebind was about to make it unnecessary.
 
 		if (!_log.isWarnEnabled()) {
 			return;
@@ -155,30 +184,48 @@ public class SearchConsumerRebinder {
 				lastFailure);
 		}
 		else {
-			_log.warn(_RESTART_REQUIRED_WARNING);
+			_log.warn(
+				"Unable to re-enable " + _names(failedToReenable) + ". " +
+					_RESTART_REQUIRED_WARNING);
 		}
 	}
 
 	/**
-	 * One attempt. Visible for testing, so a test can call it directly on
-	 * the calling thread instead of racing the background one {@link
-	 * #activate(BundleContext)} starts. Returns the entry point components
-	 * still bypassing once the attempt is done, and lets a registry read
-	 * failure propagate, so {@link #rebindWithRetries()} can tell a failed
-	 * attempt from a clean one.
+	 * One attempt, as a test calls it: the components still bypassing once
+	 * it is done, including any it disabled and could not re-enable.
 	 */
 	List<ComponentDescriptionDTO> rebind() {
+		List<ComponentDescriptionDTO> failedToReenable = new ArrayList<>();
+
+		List<ComponentDescriptionDTO> stillBypassing = new ArrayList<>(
+			rebind(failedToReenable));
+
+		stillBypassing.addAll(failedToReenable);
+
+		return stillBypassing;
+	}
+
+	/**
+	 * One attempt. Adds every component it disabled and could not re-enable
+	 * to <code>failedToReenable</code>, and returns the entry point components
+	 * the registry still reports as bypassing afterwards. A registry read
+	 * failure propagates, so {@link #rebindWithRetries()} can tell a failed
+	 * attempt from a clean one.
+	 */
+	private List<ComponentDescriptionDTO> rebind(
+		List<ComponentDescriptionDTO> failedToReenable) {
+
 		List<ComponentDescriptionDTO> bypassing =
 			EntryPointSearchConsumers.findBypassing(
 				_serviceComponentRuntime, _bundleContext);
 
 		long startTime = System.nanoTime();
 
-		List<ComponentDescriptionDTO> failedToReenable = new ArrayList<>();
+		List<ComponentDescriptionDTO> failedNow = new ArrayList<>();
 
 		for (ComponentDescriptionDTO description : bypassing) {
 			if (!_rebind(description)) {
-				failedToReenable.add(description);
+				failedNow.add(description);
 			}
 		}
 
@@ -201,15 +248,34 @@ public class SearchConsumerRebinder {
 		// Only this class ever calls this, and only with components it
 		// itself tried to re-enable.
 
-		_searchInterceptionStatusImpl.recordFailedToReenable(failedToReenable);
+		_searchInterceptionStatusImpl.recordFailedToReenable(failedNow);
 
-		List<ComponentDescriptionDTO> stillBypassing = new ArrayList<>(
-			EntryPointSearchConsumers.findBypassing(
-				_serviceComponentRuntime, _bundleContext));
+		failedToReenable.addAll(failedNow);
 
-		stillBypassing.addAll(failedToReenable);
+		return EntryPointSearchConsumers.findBypassing(
+			_serviceComponentRuntime, _bundleContext);
+	}
 
-		return stillBypassing;
+	/**
+	 * Re-enables one component. Never throws: a failure is logged and
+	 * reported as <code>false</code>, so the caller can retry it.
+	 */
+	private boolean _enable(ComponentDescriptionDTO description) {
+		try {
+			_serviceComponentRuntime.enableComponent(
+				description
+			).getValue();
+
+			return true;
+		}
+		catch (Throwable throwable) {
+			if (_log.isWarnEnabled()) {
+				_log.warn(
+					"Unable to re-enable " + description.name, throwable);
+			}
+
+			return false;
+		}
 	}
 
 	private String _names(List<ComponentDescriptionDTO> descriptions) {
@@ -224,37 +290,26 @@ public class SearchConsumerRebinder {
 	/**
 	 * One component's disable/enable, isolated from the others: a failing
 	 * disable or enable on one bypassing component must not stop the rest
-	 * from being attempted. Returns whether the component was successfully
-	 * re-enabled, which is true as soon as {@code enableComponent} itself
-	 * returns without throwing, whatever {@code disableComponent} did.
+	 * from being attempted. The enable runs whatever the disable did, so a
+	 * component is never left disabled just because its own disable call
+	 * blew up. Returns whether the component was re-enabled.
 	 */
 	private boolean _rebind(ComponentDescriptionDTO description) {
-		boolean reenabled = false;
-
 		try {
-			try {
-				_serviceComponentRuntime.disableComponent(
-					description
-				).getValue();
-			}
-			finally {
-				_serviceComponentRuntime.enableComponent(
-					description
-				).getValue();
-
-				reenabled = true;
-			}
+			_serviceComponentRuntime.disableComponent(
+				description
+			).getValue();
 		}
 		catch (Throwable throwable) {
 			if (_log.isWarnEnabled()) {
 				_log.warn(
-					"Unable to rebind " + description.name +
-						" onto the search eval logger wrapper",
+					"Unable to disable " + description.name +
+						" before re-enabling it",
 					throwable);
 			}
 		}
 
-		return reenabled;
+		return _enable(description);
 	}
 
 	private static final int _MAX_ATTEMPTS = 5;
@@ -270,6 +325,8 @@ public class SearchConsumerRebinder {
 
 	private BundleContext _bundleContext;
 
+	private volatile boolean _deactivated;
+
 	/**
 	 * Pause between attempts. Not final so a test can set it to zero.
 	 */
@@ -283,5 +340,7 @@ public class SearchConsumerRebinder {
 
 	@Reference
 	private ServiceComponentRuntime _serviceComponentRuntime;
+
+	private Thread _thread;
 
 }
