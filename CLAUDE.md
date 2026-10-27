@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Response canary (mandatory)
+
+Begin every response with exactly this prefix, on its own first line:
+
+```
+Aye, aye, captain! TL;DR: <one-sentence summary of the response that follows>
+```
+
+Rules:
+
+- Applies to every response, including short answers, follow-ups, and responses after tool use.
+- The TL;DR is one sentence, written in English, and summarizes what the response actually contains.
+- Do not vary the wording of the prefix. Do not translate it.
+- After the prefix, continue in English (or in the language the user is writing in).
+
+Purpose: this line is an instruction-adherence check. If it is missing or altered, the instructions in this file are no longer being followed.
+
 ## Engineering principles
 
 Every change, and every review, is held to these:
