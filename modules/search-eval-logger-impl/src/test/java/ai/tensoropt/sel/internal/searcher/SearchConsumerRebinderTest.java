@@ -146,9 +146,8 @@ public class SearchConsumerRebinderTest {
 
 		_searchConsumerRebinder.rebind();
 
-		// The finally in production code means enable is still attempted
-		// even though disable blew up, so a half-disabled component is not
-		// left disabled forever.
+		// The enable runs whatever the disable did, so a half-disabled
+		// component is not left disabled forever.
 
 		verify(_serviceComponentRuntime).enableComponent(description);
 	}
