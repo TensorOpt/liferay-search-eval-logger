@@ -152,15 +152,15 @@ against the code by the reviewing pass.
 
 ### Verification
 
-The released tips differ from the matrix tips only by the overhead gate
-change described below and its documentation; no plugin code changed
-between them.
+The commits after each matrix tip change the test harness and the
+documentation only (the overhead gate described below, and this file); no
+plugin code changed after the matrices ran.
 
 | Line | Build | Unit tests | Selftest | e2e cases per database (PostgreSQL 15, MySQL 8.4 with Connector/J, MySQL 8.4 with the MariaDB driver, MariaDB 11.4) |
 |---|---|---|---|---|
-| `main` (DXP 2026.Q3.8), matrix at 4de0455, released tip 91959c1 | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four |
-| `dxp-2026.q1` (DXP 2026.Q1.13 LTS), matrix at 322789a, released tip 34365f1 | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four |
-| `dxp-2025.q1` (DXP 2025.Q1.27 LTS), matrix at 82326ca, released tip cd6e221 | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four; MariaDB on a second run, see below |
+| `main` (DXP 2026.Q3.8), matrix at 4de0455 | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four |
+| `dxp-2026.q1` (DXP 2026.Q1.13 LTS), matrix at 322789a | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four |
+| `dxp-2025.q1` (DXP 2025.Q1.27 LTS), matrix at 82326ca | green | 363, 0 failures | 233, 0 failures | 36 of 36 on each of the four; MariaDB on a second run, see below |
 
 **The overhead gate's noise.** Across the twelve matrix runs the
 `search-overhead` case (90 searches per state) measured ratios of 0.95,
