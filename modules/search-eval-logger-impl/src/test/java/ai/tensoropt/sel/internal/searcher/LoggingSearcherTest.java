@@ -52,7 +52,7 @@ public class LoggingSearcherTest {
 	 * <code>CompanyThreadLocal.setCompanyId</code> sync the thread's own
 	 * database partition state, which reads <code>PropsUtil</code>. A unit
 	 * test has none, the same gap
-	 * {@link SearchEvalLoggerConfigurationRegistry}'s own test fills the same
+	 * SearchEvalLoggerConfigurationRegistry's own test fills the same
 	 * way, so this fills it too rather than depending on test execution order
 	 * to pick up another class's own fix.
 	 */
