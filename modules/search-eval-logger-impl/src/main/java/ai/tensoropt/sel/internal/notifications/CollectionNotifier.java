@@ -97,8 +97,8 @@ public class CollectionNotifier {
 	/**
 	 * Fired once per cycle from the persistence path (TO-112), the moment
 	 * <code>collectionStartDate</code> is first set, rather than from the daily
-	 * job: confirming a restart worked is only useful if it arrives close to
-	 * when it happened, not up to 24 hours later.
+	 * job: confirming that collection is working is only useful if it arrives
+	 * close to when it started, not up to 24 hours later.
 	 */
 	public void notifyCollectionStarted(long companyId, long enabledByUserId) {
 		_notify(
