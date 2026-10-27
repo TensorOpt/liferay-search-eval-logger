@@ -1449,7 +1449,7 @@ class _FakeOverheadGuestPortal:
 
 
 def check_search_overhead_order_and_restore():
-    """BLOCKER finding 1 (TO-144, round 4): search-overhead toggles the
+    """TO-144: search-overhead toggles the
     plugin's "enabled" setting a dozen times; every toggle closes and
     reopens the collection cycle (DESIGN.md 3.6), and the first event of
     each reopened cycle sends its own "collection started" notification.
@@ -2876,7 +2876,8 @@ def check_package_pure_helpers_and_refusals():
                 expect_rejected(
                     "bundles that disagree on their version are refused",
                     lambda: _assert_sys_exit_says(
-                        lambda: package_module.main(["--dist", dist]),
+                        lambda: package_module.main(
+                            ["--dist", os.path.join(dist, "dist")]),
                         "disagree",
                     ),
                 )
@@ -2895,7 +2896,8 @@ def check_package_pure_helpers_and_refusals():
                     "refused",
                     lambda: _assert_sys_exit_says(
                         lambda: package_module.main(
-                            ["--version", "9.9.9", "--dist", dist]),
+                            ["--version", "9.9.9", "--dist",
+                             os.path.join(dist, "dist")]),
                         "Asked to package 9.9.9",
                     ),
                 )
