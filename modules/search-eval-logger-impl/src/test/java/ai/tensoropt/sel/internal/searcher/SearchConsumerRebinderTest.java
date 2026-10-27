@@ -5,12 +5,14 @@
 package ai.tensoropt.sel.internal.searcher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -304,8 +306,58 @@ public class SearchConsumerRebinderTest {
 		assertEquals(List.of(), _searchConsumerRebinder.rebind());
 	}
 
+	/**
+	 * TO-144: during a redeploy the component registry read can throw while
+	 * SCR is still settling (seen once in CI as an NPE inside Felix SCR on
+	 * a reinstall). One failed attempt must not end the rebind; the next
+	 * attempt has to do the work.
+	 */
 	@Test
-	public void aRegistryReadFailureNeverThrowsAndReportsNothingBypassing() {
+	public void aRegistryReadFailureIsRetriedAndTheNextAttemptRebinds()
+		throws Exception {
+
+		ComponentDescriptionDTO description = _bypassingEntryPointComponent();
+
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenThrow(
+			new IllegalStateException("registry unreadable")
+		).thenReturn(
+			List.of(description)
+		).thenReturn(
+			List.of()
+		);
+		when(
+			_serviceComponentRuntime.disableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+		when(
+			_serviceComponentRuntime.enableComponent(description)
+		).thenReturn(
+			Promises.resolved(null)
+		);
+
+		_searchConsumerRebinder.rebindWithRetries();
+
+		verify(_serviceComponentRuntime).disableComponent(description);
+		verify(_serviceComponentRuntime).enableComponent(description);
+	}
+
+	/**
+	 * A registry that never becomes readable ends after the fixed number of
+	 * attempts, without throwing off the thread, leaving the warning and the
+	 * admin screen to report it.
+	 */
+	@Test
+	public void aPersistentRegistryFailureGivesUpAfterFiveAttempts()
+		throws Exception {
+
+		TestInjection.set(_searchConsumerRebinder, "_retryDelayMillis", 0L);
+
 		when(
 			_serviceComponentRuntime.getComponentDescriptionDTOs(
 				any(Bundle[].class))
@@ -313,10 +365,31 @@ public class SearchConsumerRebinderTest {
 			new IllegalStateException("registry unreadable")
 		);
 
-		List<ComponentDescriptionDTO> stillBypassing =
-			_searchConsumerRebinder.rebind();
+		_searchConsumerRebinder.rebindWithRetries();
 
-		assertEquals(List.of(), stillBypassing);
+		verify(
+			_serviceComponentRuntime, times(5)
+		).getComponentDescriptionDTOs(
+			any(Bundle[].class)
+		);
+		verify(_serviceComponentRuntime, never()).disableComponent(any());
+	}
+
+	/**
+	 * A single attempt lets the failure propagate: that is how the retry
+	 * loop tells a failed attempt from a clean one.
+	 */
+	@Test
+	public void aSingleAttemptPropagatesARegistryReadFailure() {
+		when(
+			_serviceComponentRuntime.getComponentDescriptionDTOs(
+				any(Bundle[].class))
+		).thenThrow(
+			new IllegalStateException("registry unreadable")
+		);
+
+		assertThrows(
+			IllegalStateException.class, _searchConsumerRebinder::rebind);
 	}
 
 	@Test

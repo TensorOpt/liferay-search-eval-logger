@@ -57,8 +57,14 @@ import org.osgi.service.component.runtime.dto.ComponentDescriptionDTO;
  *
  * <p>
  * <strong>Failure isolation is non-negotiable here as everywhere else.</strong>
- * A failed rebind must never prevent the portal from serving search, and is
- * left to the admin screen and the log rather than retried or escalated.
+ * A failed rebind must never prevent the portal from serving search. It is
+ * retried a few times, a short pause apart, because during a redeploy the
+ * component registry is still settling: Felix SCR's own
+ * {@code ComponentRegistry.getComponentHolders} threw a
+ * {@code NullPointerException} on the first read after a reinstall in one
+ * CI run, and without a retry the widget stayed bypassed until the next
+ * restart. After the last attempt the admin screen and the log take over;
+ * nothing is escalated further.
  * </p>
  *
  * <p>
@@ -81,7 +87,7 @@ public class SearchConsumerRebinder {
 		_bundleContext = bundleContext;
 
 		Thread thread = new Thread(
-			this::rebind, "search-eval-logger-consumer-rebinder");
+			this::rebindWithRetries, "search-eval-logger-consumer-rebinder");
 
 		thread.setDaemon(true);
 
@@ -89,87 +95,121 @@ public class SearchConsumerRebinder {
 	}
 
 	/**
-	 * Visible for testing, so a test can call it directly on the calling
-	 * thread instead of racing the background one {@link #activate(BundleContext)}
-	 * starts. Returns the entry point components still bypassing once the
-	 * attempt is done, which is both the test's hook and exactly the
-	 * condition the restart warning below is driven by.
+	 * What the background thread runs: {@link #rebind()} up to
+	 * {@link #_MAX_ATTEMPTS} times, {@link #_retryDelayMillis} apart, until
+	 * an attempt ends with no entry point bypassing. A registry read that
+	 * throws counts as a failed attempt, not as a clean result. Visible for
+	 * testing.
 	 */
-	List<ComponentDescriptionDTO> rebind() {
-		try {
-			List<ComponentDescriptionDTO> bypassing =
-				EntryPointSearchConsumers.findBypassing(
-					_serviceComponentRuntime, _bundleContext);
+	void rebindWithRetries() {
+		Throwable lastFailure = null;
 
-			long startTime = System.nanoTime();
+		for (int attempt = 1; attempt <= _MAX_ATTEMPTS; attempt++) {
+			if (attempt > 1) {
+				try {
+					Thread.sleep(_retryDelayMillis);
+				}
+				catch (InterruptedException interruptedException) {
+					Thread.currentThread().interrupt();
 
-			List<ComponentDescriptionDTO> failedToReenable =
-				new ArrayList<>();
-
-			for (ComponentDescriptionDTO description : bypassing) {
-				if (!_rebind(description)) {
-					failedToReenable.add(description);
+					return;
 				}
 			}
 
-			if (!bypassing.isEmpty() && _log.isInfoEnabled()) {
-				long elapsedMillis =
-					(System.nanoTime() - startTime) / 1000000;
+			try {
+				if (rebind().isEmpty()) {
+					return;
+				}
 
-				_log.info(
-					"Rebound " + bypassing.size() +
-						" search entry point component(s) onto the search " +
-							"eval logger wrapper in " + elapsedMillis +
-								"ms: " + _names(bypassing));
+				lastFailure = null;
 			}
+			catch (Throwable throwable) {
+				lastFailure = throwable;
 
-			// Reported here, not folded into EntryPointSearchConsumers:
-			// a component the rebinder itself disabled and could not bring
-			// back needs to count as bypassing even though it now has no
-			// configuration for that class to read, but a component
-			// something else disabled, such as Liferay's own Component
-			// Blacklist, must never be reported this way or touched again
-			// by the loop above. Only this class ever calls this, and only
-			// with components it itself tried to re-enable.
-
-			_searchInterceptionStatusImpl.recordFailedToReenable(
-				failedToReenable);
-
-			List<ComponentDescriptionDTO> stillBypassing = new ArrayList<>(
-				EntryPointSearchConsumers.findBypassing(
-					_serviceComponentRuntime, _bundleContext));
-
-			stillBypassing.addAll(failedToReenable);
-
-			if (!stillBypassing.isEmpty() && _log.isWarnEnabled()) {
-
-				// The two cases the rebind above does not fix: a bypassing
-				// entry point component whose disable/enable did not move it
-				// onto the wrapper, such as a reference whose target filter
-				// was itself the problem, and one this loop disabled but
-				// failed to bring back. Logged here, after the attempt, and
-				// not unconditionally on activation: every fresh install and
-				// every redeploy already runs this automatic rebind first,
-				// so warning before it has even had a chance to run would
-				// report a restart as needed when the rebind was about to
-				// make it unnecessary.
-
-				_log.warn(_RESTART_REQUIRED_WARNING);
+				if (_log.isDebugEnabled()) {
+					_log.debug(
+						"Rebind attempt " + attempt + " of " + _MAX_ATTEMPTS +
+							" failed",
+						throwable);
+				}
 			}
-
-			return stillBypassing;
 		}
-		catch (Throwable throwable) {
-			if (_log.isWarnEnabled()) {
-				_log.warn(
-					"Unable to rebind search entry point components onto " +
-						"the search eval logger wrapper. " +
-							_RESTART_REQUIRED_WARNING,
-					throwable);
-			}
 
-			return List.of();
+		// The cases the attempts above did not fix: a bypassing entry point
+		// component whose disable/enable did not move it onto the wrapper,
+		// one this loop disabled but failed to bring back, or a registry
+		// that never became readable. Logged here, after the attempts, and
+		// not unconditionally on activation: every fresh install and every
+		// redeploy runs this automatic rebind first, so warning before it
+		// has had a chance to run would report a restart as needed when the
+		// rebind was about to make it unnecessary.
+
+		if (!_log.isWarnEnabled()) {
+			return;
 		}
+
+		if (lastFailure != null) {
+			_log.warn(
+				"Unable to rebind search entry point components onto the " +
+					"search eval logger wrapper. " + _RESTART_REQUIRED_WARNING,
+				lastFailure);
+		}
+		else {
+			_log.warn(_RESTART_REQUIRED_WARNING);
+		}
+	}
+
+	/**
+	 * One attempt. Visible for testing, so a test can call it directly on
+	 * the calling thread instead of racing the background one {@link
+	 * #activate(BundleContext)} starts. Returns the entry point components
+	 * still bypassing once the attempt is done, and lets a registry read
+	 * failure propagate, so {@link #rebindWithRetries()} can tell a failed
+	 * attempt from a clean one.
+	 */
+	List<ComponentDescriptionDTO> rebind() {
+		List<ComponentDescriptionDTO> bypassing =
+			EntryPointSearchConsumers.findBypassing(
+				_serviceComponentRuntime, _bundleContext);
+
+		long startTime = System.nanoTime();
+
+		List<ComponentDescriptionDTO> failedToReenable = new ArrayList<>();
+
+		for (ComponentDescriptionDTO description : bypassing) {
+			if (!_rebind(description)) {
+				failedToReenable.add(description);
+			}
+		}
+
+		if (!bypassing.isEmpty() && _log.isInfoEnabled()) {
+			long elapsedMillis = (System.nanoTime() - startTime) / 1000000;
+
+			_log.info(
+				"Rebound " + bypassing.size() +
+					" search entry point component(s) onto the search eval " +
+						"logger wrapper in " + elapsedMillis + "ms: " +
+							_names(bypassing));
+		}
+
+		// Reported here, not folded into EntryPointSearchConsumers: a
+		// component the rebinder itself disabled and could not bring back
+		// needs to count as bypassing even though it now has no
+		// configuration for that class to read, but a component something
+		// else disabled, such as Liferay's own Component Blacklist, must
+		// never be reported this way or touched again by the loop above.
+		// Only this class ever calls this, and only with components it
+		// itself tried to re-enable.
+
+		_searchInterceptionStatusImpl.recordFailedToReenable(failedToReenable);
+
+		List<ComponentDescriptionDTO> stillBypassing = new ArrayList<>(
+			EntryPointSearchConsumers.findBypassing(
+				_serviceComponentRuntime, _bundleContext));
+
+		stillBypassing.addAll(failedToReenable);
+
+		return stillBypassing;
 	}
 
 	private String _names(List<ComponentDescriptionDTO> descriptions) {
@@ -217,6 +257,8 @@ public class SearchConsumerRebinder {
 		return reenabled;
 	}
 
+	private static final int _MAX_ATTEMPTS = 5;
+
 	private static final String _RESTART_REQUIRED_WARNING =
 		"Search interception is still bypassed by one or more entry " +
 			"point components after an automatic rebind attempt. Restart " +
@@ -227,6 +269,11 @@ public class SearchConsumerRebinder {
 		SearchConsumerRebinder.class);
 
 	private BundleContext _bundleContext;
+
+	/**
+	 * Pause between attempts. Not final so a test can set it to zero.
+	 */
+	private long _retryDelayMillis = 2000;
 
 	@Reference(target = "(" + LoggingSearcher.MARKER_PROPERTY_NAME + "=true)")
 	private Searcher _searcher;
