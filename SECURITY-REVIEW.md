@@ -26,7 +26,7 @@ other third party. The only network-facing things it renders are two static
 external address, apart from the notification email described next.
 
 **The one outbound call this plugin does make: notification email, through
-the portal's own mail server (D9's explicit carve-out).** `EmailDeliveryImpl`
+the portal's own mail server (D9's explicit carve-out).** `EmailDelivery`
 calls `MailServiceUtil.sendEmail` to deliver the collection-started, stall,
 and readiness notifications (`DESIGN.md` §3.6) as email, in addition to the
 website notification. This is a real network call, but D9 names it
@@ -35,7 +35,7 @@ explicitly as not being egress to TensorOpt: it goes through the portal's
 TensorOpt or any address the plugin invented, and the body carries only an
 internal admin-screen link — the stall email carries no link at all. Two
 separate pieces of portal configuration are involved, and this plugin's own
-code touches only one of them: `EmailDeliveryImpl._from` reads just the
+code touches only one of them: `EmailDelivery._from` reads just the
 *From name and address* via `PrefsPropsUtil` (`PropsKeys.ADMIN_EMAIL_FROM_NAME`/
 `ADMIN_EMAIL_FROM_ADDRESS` — Instance Settings > Email > Email Sender, per
 company). The *SMTP server itself* — host, port, credentials — is a separate
@@ -50,7 +50,7 @@ the shipped `portal-impl.jar`. If no per-company value is set there,
 company preference against `PropsUtil.get(key)` as its default. Either way,
 the server is one this portal's own administrators configured, never one
 this plugin names. Delivery is also gated per recipient by their own
-notification preference (`EmailDeliveryImpl#isWanted`, backed by
+notification preference (`EmailDelivery#isWanted`, backed by
 `UserNotificationManagerUtil.isDeliver`), decided by `CollectionNotifier`.
 See `DESIGN.md` §3.6 and EC-15; the preference gate is exercised by e2e case
 `email-delivery-preference`.
