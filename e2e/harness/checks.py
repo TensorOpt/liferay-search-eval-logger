@@ -1007,17 +1007,26 @@ def capture(context, case):
 
 # How many interleaved blocks search_overhead runs, and how many guest
 # searches per state within each block. Chosen to keep the whole case under
-# about two minutes: 6 blocks of 15 is 90 searches per state, 180 total,
-# plus 12 configuration toggles.
-_OVERHEAD_BLOCKS = 6
-_OVERHEAD_SEARCHES_PER_BLOCK = 15
+# about three minutes: 10 blocks of 20 is 200 searches per state, 400 total,
+# plus 20 configuration toggles.
+_OVERHEAD_BLOCKS = 10
+_OVERHEAD_SEARCHES_PER_BLOCK = 20
 _OVERHEAD_WARMUP_SEARCHES = 5
 
-# DESIGN.md 3: "no measurable impact on search latency." This is the coarse
-# gate the e2e suite can assert without a quiet machine; scripts/loadtest.py
-# (D8) is the real measurement, with a bootstrap confidence interval, run by
-# hand on a quiet one.
+# DESIGN.md 3: "no measurable impact on search latency." The limit is 10%,
+# and the case fails only when the run's own data shows the overhead above
+# it: the lower bound of a bootstrap 95% confidence interval of the ratio of
+# medians must stay at or below this. A flat cut on the ratio itself flaked
+# once in twelve matrix runs (ratios 0.95 to 1.15 on one machine, the true
+# overhead measured at about 0%), because 90 or 200 timings on a shared
+# machine carry noise of that size; a noisy run now passes as inconclusive
+# and prints its interval, a real regression past 10% still fails.
+# scripts/loadtest.py is the measurement proper, run by hand on a quiet
+# machine; this is the gate. Seeded, so a rerun of the same samples decides
+# the same way.
 _OVERHEAD_MAX_RATIO = 1.10
+_OVERHEAD_BOOTSTRAP_RESAMPLES = 2000
+_OVERHEAD_BOOTSTRAP_SEED = 144
 
 
 def _set_collection_enabled(context, enabled):
@@ -1158,24 +1167,29 @@ def search_overhead(context, case):
     disabled_median = stats.median(disabled_samples)
     enabled_median = stats.median(enabled_samples)
     overhead_ratio = stats.ratio(enabled_median, disabled_median)
+    low_ratio, high_ratio = stats.bootstrap_ratio_ci(
+        enabled_samples, disabled_samples,
+        resamples=_OVERHEAD_BOOTSTRAP_RESAMPLES, seed=_OVERHEAD_BOOTSTRAP_SEED,
+    )
 
     case.note(
         "%d searches per state (%d blocks of %d): disabled median %.1f ms, "
-        "enabled median %.1f ms, ratio %.3f"
+        "enabled median %.1f ms, ratio %.3f (95%% CI %.3f to %.3f)"
         % (
             len(disabled_samples), _OVERHEAD_BLOCKS,
             _OVERHEAD_SEARCHES_PER_BLOCK, disabled_median * 1000,
-            enabled_median * 1000, overhead_ratio,
+            enabled_median * 1000, overhead_ratio, low_ratio, high_ratio,
         )
     )
 
     assert_true(
-        overhead_ratio <= _OVERHEAD_MAX_RATIO,
-        "Collection's overhead ratio %.3f exceeds the %.2f gate (disabled "
-        "median %.1f ms, enabled median %.1f ms)"
+        low_ratio <= _OVERHEAD_MAX_RATIO,
+        "Collection's overhead exceeds the %.2f gate: the 95%% confidence "
+        "interval of the ratio is %.3f to %.3f (disabled median %.1f ms, "
+        "enabled median %.1f ms)"
         % (
-            overhead_ratio, _OVERHEAD_MAX_RATIO, disabled_median * 1000,
-            enabled_median * 1000,
+            _OVERHEAD_MAX_RATIO, low_ratio, high_ratio,
+            disabled_median * 1000, enabled_median * 1000,
         ),
     )
 
