@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.InputStream;
 
+import java.util.Locale;
 import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
@@ -39,9 +40,9 @@ public class ZeroResultQueryCountsTest {
 	 * the cap as plain text, since the JSP renders it through
 	 * {@code liferay-ui:message} with no arguments, not interpolated from
 	 * the constant (Language.properties is a resource bundle, not Java).
-	 * This is the DRY alternative the finding allows: a constant raised
-	 * without updating the text fails here instead of only going stale
-	 * silently on the rendered screen.
+	 * Pinning the text to the constant here means a constant raised without
+	 * updating the text fails this test instead of only going stale silently
+	 * on the rendered screen.
 	 */
 	@Test
 	public void theApproximateNoteNamesTheCurrentCap() throws IOException {
@@ -64,7 +65,7 @@ public class ZeroResultQueryCountsTest {
 		assertNotNull(note, "zero-result-approximate-note is not defined");
 
 		String formattedCap = String.format(
-			"%,d", ZeroResultQueryCounts.MAX_DISTINCT_QUERIES);
+			Locale.ROOT, "%,d", ZeroResultQueryCounts.MAX_DISTINCT_QUERIES);
 
 		assertTrue(
 			note.contains(formattedCap),
