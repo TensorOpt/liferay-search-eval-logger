@@ -101,7 +101,7 @@ class Release:
 
     @property
     def title(self):
-        return "%s for %s LTS" % (self.version, dxp_title(self.line))
+        return "%s for %s" % (self.version, dxp_title(self.line))
 
     def _asset_names(self):
         """The release's one published asset: the jars-and-SHA256SUMS zip.
