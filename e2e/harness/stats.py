@@ -27,19 +27,10 @@ def percentile(values, fraction):
     numpy.percentile defaults to: percentile(values, 0.9) is p90,
     percentile(values, 0.025) is the low end of a 95% interval.
 
-    statistics.quantiles(values, n=..., method="inclusive") interpolates
-    the same way (R's type 7 / numpy's default "linear"), so it is not
-    rejected for disagreeing with this function; it is rejected for
-    taking a different shape of argument. It returns n - 1 equally spaced
-    cut points for a chosen n, not the value at one arbitrary fraction, so
-    every call site here (0.5, 0.9, 0.025, 0.975) would first have to
-    recover a (numerator, denominator) pair exactly representing its own
-    fraction - trivial for these particular fractions, but it is the kind
-    of indirection that makes the simpler function read worse, not
-    better, for the one thing every caller actually wants: percentile(
-    values, fraction). Kept as its own small function for that reason,
-    not because an equivalent does not already exist in the standard
-    library.
+    statistics.quantiles(method="inclusive") interpolates the same way but
+    returns n - 1 equally spaced cut points rather than the value at one
+    fraction, so each call site would have to translate its fraction into
+    an n and an index first; this function is the shorter way to say it.
     """
     ordered = sorted(values)
     count = len(ordered)

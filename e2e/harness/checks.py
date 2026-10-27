@@ -794,6 +794,7 @@ def content_and_searches(context, case):
             "/o/headless-delivery/v1.0/sites/%d/blog-postings" % context.group_id,
             {
                 "headline": "%s policy note %d" % (MARKER_TERM.title(), index),
+                "viewableBy": "Anyone",
                 "articleBody": (
                     "%s is the marker term this end to end run searches for. "
                     "Note %d covers leave, expenses and travel."

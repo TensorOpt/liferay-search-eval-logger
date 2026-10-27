@@ -258,8 +258,12 @@ value is read off the live configuration first and written straight back,
 so toggling `enabled` for this case never resets `captureDepth`,
 `retentionDays` or anything else this run configured.
 
-Searches run as a guest, interleaved in blocks (disabled, enabled,
-disabled, ...) rather than disabled-then-enabled, specifically so machine
+Searches run as a guest for the marker term, which returns the blog
+postings `content-and-searches` seeded (they are created with
+`viewableBy: Anyone`, so a guest sees them), so each enabled search
+captures hits rather than timing an empty result. They are interleaved in
+blocks (disabled, enabled, disabled, ...) rather than
+disabled-then-enabled, specifically so machine
 noise, a noisy neighbour on a shared CI runner, a GC pause, a moment of
 disk contention, lands on both states about equally instead of all on
 whichever one happens to run later. The case asserts the enabled median
@@ -290,9 +294,9 @@ notifications of its own.** Every `SET_CONFIGURATION_ENABLED` save runs
 `SearchEvalLoggerConfigurationModelListener`, which closes the running
 collection cycle on a disable and opens a new one on an enable
 (DESIGN.md 3.6); the first event persisted in each newly opened cycle
-sends its own "collection started" notification. Twelve toggles per run
-(two per block) means a run of this case sends twelve such
-notifications and advances the cycle six times. That is why it runs
+sends its own "collection started" notification. Only an enable opens a
+cycle, so a run of this case (six blocks) sends six such notifications
+and advances the cycle six times. That is why it runs
 last among the cycle- and notification-dependent cases, immediately
 before `uninstall-and-reinstall`, rather than right after `capture`
 where it ran before: running it earlier inflated
@@ -335,7 +339,7 @@ not seed anything in that case.
 shared or production one: besides the seeded content, every search run
 with collection enabled writes an event and its hits, every
 disabled/enabled toggle pair closes and reopens the collection cycle
-(DESIGN.md 3.6) and can send a "collection started" notification, and a
+(DESIGN.md 3.6) and sends a "collection started" notification, and a
 company-scoped `SearchEvalLoggerConfiguration` row is left behind by the
 same read-modify-write `SET_CONFIGURATION_ENABLED` the e2e suite's own
 `search-overhead` case uses.
