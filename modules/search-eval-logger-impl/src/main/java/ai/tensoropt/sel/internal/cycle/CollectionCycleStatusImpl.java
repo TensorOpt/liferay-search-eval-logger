@@ -480,16 +480,16 @@ public class CollectionCycleStatusImpl
 	 * <code>cycleOpenedDate</code> is captured by {@link
 	 * #_recordCollectionStart} under the same lock that decided to notify, so
 	 * comparing it here against the live record tells the two cycles apart:
-	 * a mismatch means the cycle has moved on, and is treated the same as a
-	 * cycle found closed below, nothing left to do for the notification this
-	 * call was sent for.
+	 * a mismatch means the cycle has moved on, and nothing is recorded for
+	 * the notification this call was sent for.
 	 * </p>
 	 *
 	 * <p>
-	 * Returns whether the marker is now durably recorded, so {@link
-	 * #_recordCollectionStart} can decide whether to arm {@link #_confirm}: a
-	 * cycle found closed, or reopened since, counts as nothing left to do
-	 * (returns <code>true</code>) rather than as a failure to retry forever.
+	 * Returns whether {@link #_recordCollectionStart} may arm {@link
+	 * #_confirm}: <code>true</code> once the marker is durably recorded, or
+	 * for a cycle found closed (the next openCycle clears the cache anyway);
+	 * <code>false</code> when the save failed or the cycle was replaced
+	 * meanwhile, so the new cycle's first event still runs the full path.
 	 * </p>
 	 */
 	private boolean _recordCollectionStartedNotified(
@@ -499,11 +499,19 @@ public class CollectionCycleStatusImpl
 			CollectionCycle collectionCycle = _collectionCycleStore.get(
 				companyId);
 
-			if (!collectionCycle.isOpen() ||
-				!Objects.equals(
+			if (!collectionCycle.isOpen()) {
+				return true;
+			}
+
+			// The cycle was replaced during the send: openCycle has already
+			// cleared the confirm cache for the new one, and arming it again
+			// here would silence the new cycle's own first event for the
+			// cache's lifetime. Leave the cache alone.
+
+			if (!Objects.equals(
 					collectionCycle.getCycleOpenedDate(), cycleOpenedDate)) {
 
-				return true;
+				return false;
 			}
 
 			return _collectionCycleStore.save(
