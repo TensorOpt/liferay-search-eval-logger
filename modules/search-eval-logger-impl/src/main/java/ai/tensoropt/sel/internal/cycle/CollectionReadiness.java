@@ -63,13 +63,14 @@ public final class CollectionReadiness {
 	 * Whether logging is enabled, nothing has been collected in this cycle,
 	 * searches are bypassing the wrapper (the silent failure of 3.1, otherwise
 	 * visible only to someone who happens to open the admin screen), and the
-	 * cycle has been open long enough that the bypass is unlikely to be a
-	 * restart the administrator was already about to do (TO-112).
+	 * cycle has been open long enough that the bypass is unlikely to clear
+	 * on its own, through the asynchronous rebind or a restart the
+	 * administrator had already planned (TO-112).
 	 *
 	 * <p>
 	 * The grace period is fixed at 24 hours rather than exposed as a setting.
 	 * It exists to suppress exactly one false alarm, the daily job landing
-	 * between enabling and a restart already in progress, and a fixed value is
+	 * between enabling and the moment interception is in place, and a fixed value is
 	 * enough for that; there is no evidence yet that an installation needs a
 	 * different number, and a setting nobody has asked to tune is the kind of
 	 * surface CLAUDE.md's YAGNI principle exists to keep out.
