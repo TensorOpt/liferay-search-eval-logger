@@ -69,10 +69,10 @@ import org.osgi.service.component.runtime.dto.ComponentDescriptionDTO;
  * </p>
  *
  * <p>
- * <strong>A failed re-enable, not just a failed disable.</strong> The
- * {@code finally} in {@link #_rebind(ComponentDescriptionDTO)} already
- * means a component is never left disabled just because its own disable
- * call blew up, but {@code enableComponent} itself can still fail. That
+ * <strong>A failed re-enable, not just a failed disable.</strong> The enable
+ * in {@link #_rebind(ComponentDescriptionDTO)} runs whatever the disable did,
+ * so a component is never left disabled just because its own disable call
+ * blew up, but {@code enableComponent} itself can still fail. That
  * leaves the component genuinely disabled, with no configuration for
  * {@link EntryPointSearchConsumers} to read at all, which would otherwise
  * look exactly like no bypass. Every component this re-enable step fails
@@ -147,7 +147,9 @@ public class SearchConsumerRebinder {
 				lastFailure = null;
 
 				if (failedToReenable.isEmpty()) {
-					if (!stillBypassing.isEmpty() && _log.isWarnEnabled()) {
+					if (!stillBypassing.isEmpty() && !_deactivated &&
+						_log.isWarnEnabled()) {
+
 						_log.warn(_RESTART_REQUIRED_WARNING);
 					}
 
@@ -173,20 +175,28 @@ public class SearchConsumerRebinder {
 		// first, so warning before it has had a chance to run would report a
 		// restart as needed when the rebind was about to make it unnecessary.
 
-		if (!_log.isWarnEnabled()) {
+		if (_deactivated || !_log.isWarnEnabled()) {
 			return;
+		}
+
+		String stillDisabled = "";
+
+		if (!failedToReenable.isEmpty()) {
+			stillDisabled =
+				" Still disabled: " + _names(failedToReenable) + ".";
 		}
 
 		if (lastFailure != null) {
 			_log.warn(
 				"Unable to rebind search entry point components onto the " +
-					"search eval logger wrapper. " + _RESTART_REQUIRED_WARNING,
+					"search eval logger wrapper." + stillDisabled + " " +
+						_RESTART_REQUIRED_WARNING,
 				lastFailure);
 		}
 		else {
 			_log.warn(
-				"Unable to re-enable " + _names(failedToReenable) + ". " +
-					_RESTART_REQUIRED_WARNING);
+				"Unable to re-enable search entry point components." +
+					stillDisabled + " " + _RESTART_REQUIRED_WARNING);
 		}
 	}
 
