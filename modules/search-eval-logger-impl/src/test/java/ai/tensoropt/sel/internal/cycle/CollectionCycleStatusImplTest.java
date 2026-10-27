@@ -856,14 +856,10 @@ public class CollectionCycleStatusImplTest {
 					+ "anyway would stop its own first event from ever "
 						+ "notifying");
 
-		// The new cycle's own bookkeeping is bounded by the in-memory
-		// confirm cache the same way a cluster node's reopen already is
-		// (the class comment above _confirm); advancing past it is what
-		// theMarkerIsRecheckedAfterItExpires already does to force a fresh
-		// read, here to prove the new cycle's own first event still gets
-		// its own, genuine notification rather than none at all.
-
-		_now = _now.plus(Duration.ofMinutes(11));
+		// Straight away, not after the confirm cache has expired: the send
+		// for the replaced cycle must leave the cache unarmed, so the new
+		// cycle's own first event records its start date and sends its own,
+		// genuine notification.
 
 		_collectionCycleStatusImpl.recordPersistedEvent(
 			_COMPANY_ID, _date("2026-03-01T09:42:00Z"));
