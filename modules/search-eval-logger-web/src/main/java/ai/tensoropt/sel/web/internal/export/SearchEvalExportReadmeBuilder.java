@@ -156,8 +156,9 @@ public final class SearchEvalExportReadmeBuilder {
 
 	private static final String _COHORT_HASH_SUFFIX =
 		" days and is never exported. A guest row carries no `cohort_hash` " +
-			"at all: `null`, not a value, so guests are never mistaken for " +
-				"a comparable cohort of their own. A shared value means the " +
+			"(`null`): guests share one permission set, so select them by " +
+				"`audience_type` = `GUEST` as one comparable population " +
+				"rather than by hash. A shared value means the " +
 					"same signed-in user within that rotation window; " +
 						"across windows, signed-in users are unrelated too. " +
 							"A single cohort cannot be followed across the " +
