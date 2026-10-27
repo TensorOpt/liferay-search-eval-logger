@@ -39,8 +39,8 @@ throwaway `make run` portal, not a shared or production one:
   actually scales with what a search returns.
 - Every search this script runs while collection is enabled writes an
   event (and its hits) to the plugin's tables.
-- Every `--blocks` pair of disabled/enabled toggles closes and reopens the
-  collection cycle (DESIGN.md 3.6) once, which sends a "collection
+- Each block disables and re-enables collection once, which closes and
+  reopens the collection cycle (DESIGN.md 3.6) and sends a "collection
   started" notification to the signed-in administrator on each reopen.
 - It leaves a company-scoped `SearchEvalLoggerConfiguration` row behind
   (Configuration Admin's own storage), the same as the e2e suite's
@@ -74,7 +74,9 @@ from portal import stack_for  # noqa: E402
 # Seeded, by default, as findable content (see _ensure_content_seeded):
 # distinctive enough that it cannot collide with anything already on a
 # portal somebody runs this against.
-DEFAULT_SEARCH_TERM = "search-eval-logger-loadtest-probe-term"
+# One token, so the search engine cannot split it into common words that
+# unrelated content matches.
+DEFAULT_SEARCH_TERM = "loadtestprobeterm"
 
 # How many blog postings _ensure_content_seeded creates, each carrying
 # DEFAULT_SEARCH_TERM, so each measured search returns this many hits and
@@ -156,6 +158,7 @@ def _ensure_content_seeded(admin, company_id, term):
             "/o/headless-delivery/v1.0/sites/%d/blog-postings" % group_id,
             {
                 "headline": "%s note %d" % (term, index),
+                "viewableBy": "Anyone",
                 "articleBody": (
                     "%s is the marker term scripts/loadtest.py measures "
                     "against. Note %d covers leave, expenses and travel."
@@ -251,6 +254,19 @@ def main(argv):
     if options.term is None:
         _ensure_content_seeded(admin, company_id, term)
 
+    # The measurement runs as a guest, so the hits have to be visible to a
+    # guest, not just to the administrator who seeded them.
+
+    guest_hits, _ = guest.search_result_count(term)
+
+    if not guest_hits:
+        raise HarnessError(
+            "A guest search for %r returns no results, so the measurement "
+            "would time searches that capture nothing" % term
+        )
+
+    log("a guest search for %r returns %d results" % (term, guest_hits))
+
     original_enabled = admin.run_script(
         scripts.CONFIGURATION_ENABLED % {"company_id": company_id}
     ) == "true"
@@ -282,6 +298,7 @@ def main(argv):
 
     report = {
         "term": term,
+        "guest_hits": guest_hits,
         "disabled": {
             "samples": len(disabled_samples),
             "median_ms": disabled_median * 1000,
@@ -300,12 +317,13 @@ def main(argv):
 
     print(
         """
-Term:     %(term)r
+Term:     %(term)r (%(guest_hits)d results for a guest)
 Disabled: %(disabled_samples)d samples, median %(disabled_median).1f ms, p90 %(disabled_p90).1f ms
 Enabled:  %(enabled_samples)d samples, median %(enabled_median).1f ms, p90 %(enabled_p90).1f ms
 Overhead: %(overhead).1f%% (95%% CI %(ci_low).1f%% to %(ci_high).1f%%, %(resamples)d bootstrap resamples)
 """ % {
             "term": term,
+            "guest_hits": guest_hits,
             "disabled_samples": report["disabled"]["samples"],
             "disabled_median": report["disabled"]["median_ms"],
             "disabled_p90": report["disabled"]["p90_ms"],
