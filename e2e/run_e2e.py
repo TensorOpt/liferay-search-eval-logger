@@ -487,7 +487,7 @@ def main(argv):
         results.run(
             "search-overhead",
             lambda case: checks.search_overhead(context, case),
-            requires=["capture", "signup-banner", "queue-overflow"],
+            requires=["capture"],
         )
 
         # Last: it uninstalls the plugin and restarts the portal.
