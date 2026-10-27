@@ -20,6 +20,12 @@ When reworking from review findings, check each finding yourself first.
 Fix the ones that hold.
 Push back on the rest with evidence, not assertion.
 
+When the task names a findings file (an audit from the `auditor` agent),
+fix every finding that is neither `declined` nor awaiting an owner decision,
+one commit per finding or per tight group, with the finding ids in the
+commit body, and mark each one `fixed: <commit>` in the file. Do not touch
+a finding you disagree with; mark it `disputed: <evidence>` instead.
+
 Report back with:
 - files changed and why
 - how each acceptance criterion is met

@@ -31,3 +31,8 @@ Give each one:
 
 Include only findings you verified by reading code or running something, and mark anything uncertain. 
 Approve when only nits remain.
+
+When the task names a findings file (an audit from the `auditor` agent),
+first check every finding marked `fixed` in this round against the code,
+then rule on each `disputed` one, and only then review the fixes themselves.
+A finding marked fixed that is not fixed is a blocker.

@@ -46,3 +46,6 @@ replay_pid*
 # Python bytecode from scripts/ and e2e/.
 __pycache__/
 *.pyc
+
+# Pre-release audit findings (see .claude/skills/pre-release-audit)
+.claude/audit/
